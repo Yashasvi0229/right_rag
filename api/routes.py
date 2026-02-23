@@ -297,3 +297,18 @@ def api_validate():
 def api_audit_log(limit: int = Query(50, ge=1, le=500)):
     """Get audit log entries (append-only, write-only in normal operation)."""
     return get_audit_log(limit=limit)
+
+
+@router.get("/reset-db-temp")
+def reset_db():
+    from database.schema import get_db, init_db
+    conn = get_db()
+    conn.execute("DELETE FROM review_queue")
+    conn.execute("DELETE FROM clauses")
+    conn.execute("DELETE FROM source_documents")
+    conn.execute("DELETE FROM audit_log")
+    conn.commit()
+    conn.close()
+    init_db()
+    return {"status": "done"}
+
