@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% set active = 's1' %}
+{% block title %}אישור מומחה — שער הבקרה האנושי{% endblock %}
+{% block extra_head %}
+<style>
+  .approval-gate {
+    background: rgba(201,168,76,0.06);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  .approval-gate h3 {
+    font-family: 'Frank Ruhl Libre', serif;
+    font-size: 22px;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+  .approval-gate p { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+  .action-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  .rule-map-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .arrow { color: var(--muted); font-size: 12px; }
+
+  .note-box {
+    background: var(--bg-navy);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    font-size: 13px;
+    color: var(--muted);
+    font-family: 'Heebo', sans-serif;
+    width: 100%;
+    min-height: 80px;
+    resize: vertical;
+    direction: rtl;
+  }
+
+  .expert-sig {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+  }
+  .sig-avatar {
+    width: 48px;
+    height: 48px;
+    background: var(--gold-btn);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: #000;
+    flex-shrink: 0;
+  }
+  .sig-info h4 { font-size: 15px; font-weight: 700; }
+  .sig-info p  { font-size: 12px; color: var(--muted); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="sidebar">
+    <div class="sidebar-section">זרימת עבודה</div>
+    <a class="sidebar-item" href="/screen1" style="color:var(--green)">✅ מקורות חוק</a>
+    <a class="sidebar-item" href="/screen2" style="color:var(--green)">✅ פירוק סעיפים</a>
+    <a class="sidebar-item" href="/screen3" style="color:var(--green)">✅ טיוטת מנוע</a>
+    <a class="sidebar-item" href="/screen4" style="color:var(--green)">✅ אימות עצמי</a>
+    <a class="sidebar-item" href="/screen5" style="color:var(--green)">✅ הסברתיות</a>
+    <a class="sidebar-item active" href="/screen6">👤 אישור מומחה</a>
+    <div class="sidebar-section">מערכת</div>
+    <a class="sidebar-item" href="/screen9">🕐 גרסאות</a>
+  </nav>
+
+  <div class="main-content">
+    <div class="page-header anim">
+      <h2>👤 אישור מומחה — שלב אחרון</h2>
+      <p>שלב 6 / 6 — המומחה האנושי הוא הסמכות הסופית לפרסום</p>
+    </div>
+
+    <div class="steps anim anim-1">
+      <div class="step done"><span class="step-num">✓</span> מקורות</div>
+      <span class="step-sep">›</span>
+      <div class="step done"><span class="step-num">✓</span> פירוק</div>
+      <span class="step-sep">›</span>
+      <div class="step done"><span class="step-num">✓</span> טיוטה</div>
+      <span class="step-sep">›</span>
+      <div class="step done"><span class="step-num">✓</span> אימות</div>
+      <span class="step-sep">›</span>
+      <div class="step done"><span class="step-num">✓</span> הסברתיות</div>
+      <span class="step-sep">›</span>
+      <div class="step active"><span class="step-num">6</span> אישור</div>
+    </div>
+
+    <!-- Expert identity -->
+    <div class="expert-sig anim anim-1">
+      <div class="sig-avatar">⚖️</div>
+      <div class="sig-info">
+        <h4>עו"ד / מומחה מוסמך</h4>
+        <p>פורטל מומחים · session: 2026-02-21 · גרסה לאישור: ENG-2026-001</p>
+      </div>
+      <span class="badge badge-yellow" style="margin-right:auto">⏳ ממתין לפעולה</span>
+    </div>
+
+    <div class="grid-2 anim anim-2">
+
+      <!-- Summary + Rule map -->
+      <div>
+        <div class="card">
+          <div class="card-title">📋 סיכום מנוע</div>
+          <div style="font-size:13px; line-height:1.9; color:var(--muted);">
+            <strong style="color:var(--white)">מנוע:</strong> ENG-2026-001<br>
+            <strong style="color:var(--white)">זכויות מכוסות:</strong> 2 (מילואים, ותיקים)<br>
+            <strong style="color:var(--white)">מקורות:</strong> 4 מסמכים, 47 סעיפים<br>
+            <strong style="color:var(--white)">אימות עצמי:</strong> 87% אמינות<br>
+            <strong style="color:var(--white)">עמימויות פתוחות:</strong> 3
+          </div>
+          <hr class="divider">
+          <div class="card-title">🗺 מיפוי כלל → מקור</div>
+          <div class="rule-map-row">
+            <span class="badge badge-gold" style="font-size:11px">RULE-001</span>
+            <span class="arrow">→</span>
+            <span class="badge badge-blue" style="font-size:11px">CLZ-001</span>
+            <span class="arrow">→</span>
+            <span style="font-size:12px; color:var(--muted)">תקנות מילואים §3(א)</span>
+          </div>
+          <div class="rule-map-row">
+            <span class="badge badge-gold" style="font-size:11px">RULE-002</span>
+            <span class="arrow">→</span>
+            <span class="badge badge-blue" style="font-size:11px">CLZ-002</span>
+            <span class="arrow">→</span>
+            <span style="font-size:12px; color:var(--muted)">תקנות מילואים §3(ב)</span>
+          </div>
+          <div class="rule-map-row">
+            <span class="badge badge-gold" style="font-size:11px">RULE-003</span>
+            <span class="arrow">→</span>
+            <span class="badge badge-blue" style="font-size:11px">CLZ-005</span>
+            <span class="arrow">→</span>
+            <span style="font-size:12px; color:var(--muted)">תקנות כללית §2(ד)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions panel -->
+      <div>
+        <div class="card">
+          <div class="card-title">✏️ פעולות מומחה</div>
+
+          <div class="form-group">
+            <label class="form-label">הערות / תיקונים</label>
+            <textarea class="note-box" placeholder="הוסף הערה לדוח האימות..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">➕ הוסף מקור משפטי חסר</label>
+            <input class="form-input" placeholder="מספר סעיף או שם חוק..." />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">⚠ סמן אי-ודאות</label>
+            <select class="form-select">
+              <option>בחר סעיף לסימון...</option>
+              <option>CLZ-004 — הגדרת "יום שירות"</option>
+              <option>CLZ-011 — תנאי שטח</option>
+              <option>CLZ-023 — חריג ביטחוני</option>
+            </select>
+          </div>
+
+          <hr class="divider">
+
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <button class="btn btn-gold" style="width:100%; justify-content:center; font-size:16px;">
+              ✅ אשר ופרסם גרסה ENG-2026-001
+            </button>
+            <button class="btn btn-outline" style="width:100%; justify-content:center;">
+              ✏️ החזר לעריכה
+            </button>
+            <button class="btn btn-danger" style="width:100%; justify-content:center;">
+              ⛔ דחה — לא מאשר
+            </button>
+          </div>
+
+          <div style="margin-top:16px; padding:12px; background:rgba(201,168,76,0.06); border-radius:8px; font-size:12px; color:var(--muted); text-align:center;">
+            🔒 לא ניתן לפרסם ללא אישור מפורש.<br>
+            כל פעולה נרשמת ב-Audit Log בלתי ניתן לשינוי.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

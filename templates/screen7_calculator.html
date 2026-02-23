@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% set active = 's7' %}
+{% block title %}חישוב הנחה בארנונה{% endblock %}
+{% block extra_head %}
+<style>
+  .calc-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+
+  .calc-header {
+    background: linear-gradient(135deg, #1a3a6e 0%, #0d1f3c 100%);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+  }
+  .calc-header h2 {
+    font-family: 'Frank Ruhl Libre', serif;
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .calc-header p { color: var(--muted); font-size: 14px; }
+
+  /* Type selector tabs */
+  .type-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .type-tab {
+    padding: 14px 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Heebo', sans-serif;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .type-tab .tab-icon { font-size: 24px; display: block; margin-bottom: 6px; }
+  .type-tab:hover { border-color: var(--border); color: var(--white); }
+  .type-tab.active {
+    border-color: var(--gold);
+    background: rgba(201,168,76,0.1);
+    color: var(--gold);
+  }
+
+  /* Form card */
+  .form-card {
+    background: white;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+  }
+  .form-card-header {
+    background: #1e4a8a;
+    padding: 20px 28px;
+    color: white;
+  }
+  .form-card-header h3 { font-size: 18px; font-weight: 700; }
+  .form-card-header p  { font-size: 13px; color: rgba(255,255,255,0.7); margin-top: 4px; }
+  .form-card-body {
+    padding: 28px;
+    color: #1a2a3a;
+  }
+
+  .white-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #334;
+    margin-bottom: 8px;
+    text-align: right;
+  }
+  .white-input {
+    width: 100%;
+    background: #f8f9fa;
+    border: 1.5px solid #dde;
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 15px;
+    direction: rtl;
+    font-family: 'Heebo', sans-serif;
+    color: #1a2a3a;
+    transition: border-color 0.2s;
+  }
+  .white-input:focus {
+    outline: none;
+    border-color: #1e4a8a;
+    box-shadow: 0 0 0 3px rgba(30,74,138,0.1);
+  }
+  .white-input::placeholder { color: #aab; }
+  .white-select {
+    width: 100%;
+    background: #f8f9fa;
+    border: 1.5px solid #dde;
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 15px;
+    direction: rtl;
+    font-family: 'Heebo', sans-serif;
+    color: #1a2a3a;
+  }
+
+  .info-note {
+    background: #e8f0fe;
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #1e4a8a;
+    margin-top: 10px;
+  }
+  .info-note strong { font-weight: 700; }
+
+  .slider-group { margin: 16px 0; }
+  .slider-row { display: flex; align-items: center; gap: 12px; }
+  .slider-val {
+    font-size: 28px;
+    font-weight: 900;
+    font-family: 'Frank Ruhl Libre', serif;
+    color: #1e4a8a;
+    min-width: 80px;
+    text-align: center;
+  }
+  .slider-unit { font-size: 14px; color: #667; }
+  input[type=range] {
+    flex: 1;
+    accent-color: #1e4a8a;
+    height: 6px;
+  }
+
+  /* Result card */
+  .result-card {
+    background: var(--bg-card);
+    border: 2px solid var(--gold);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .result-label { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+  .result-amount {
+    font-family: 'Frank Ruhl Libre', serif;
+    font-size: 56px;
+    font-weight: 900;
+    color: var(--gold);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .result-breakdown {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-top: 24px;
+  }
+  .breakdown-item {
+    background: var(--bg-navy);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+  .breakdown-num { font-size: 22px; font-weight: 700; }
+  .breakdown-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .how-to-claim {
+    background: var(--bg-card);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="calc-page">
+
+  <!-- Type selector -->
+  <div class="anim">
+    <p style="color:var(--muted); font-size:13px; margin-bottom:12px; text-align:center">
+      🏛 כלי מיצוי זכויות חינמי
+    </p>
+  </div>
+
+  <div class="type-tabs anim anim-1">
+    <div class="type-tab active" onclick="selectType('reserve')">
+      <span class="tab-icon">🎖️</span>מילואים
+    </div>
+    <div class="type-tab" onclick="selectType('senior')">
+      <span class="tab-icon">👴</span>ותיקים
+    </div>
+    <div class="type-tab" onclick="selectType('disability')">
+      <span class="tab-icon">♿</span>נכות
+    </div>
+    <div class="type-tab" onclick="selectType('lowincome')">
+      <span class="tab-icon">📋</span>הכנסה נמוכה
+    </div>
+  </div>
+
+  <!-- Reserve soldier form (default) -->
+  <div id="form-reserve" class="anim anim-2">
+    <div class="form-card">
+      <div class="form-card-header">
+        <h3>🎖️ מחשבון הנחה בארנונה לחיילי מילואים</h3>
+        <p>חישוב מדויק של הזכאות להנחה בארנונה על פי חוק</p>
+      </div>
+      <div class="form-card-body">
+        <div style="font-size:16px; font-weight:700; color:#1a2a3a; margin-bottom:20px; text-align:right;">
+          פרטי נכס וסטטוס שירות
+        </div>
+
+        <div style="margin-bottom:18px;">
+          <label class="white-label">סכום ארנונה שנתי (₪):</label>
+          <input class="white-input" type="number" placeholder="לדוגמה: 5000" id="annual_tax"
+                 oninput="calcReserve()" />
+          <div class="info-note">
+            <strong>שימו לב:</strong> יש להזין את הסכום הכולל של הארנונה השנתית לפני ההנחה
+          </div>
+        </div>
+
+        <div class="slider-group">
+          <label class="white-label">ימי שירות מילואים (בשנת המס):</label>
+          <div class="slider-row">
+            <div>
+              <div class="slider-val" id="days-val">70</div>
+              <div class="slider-unit">מ"ר</div>
+            </div>
+            <input type="range" min="0" max="365" value="70" id="reserve_days"
+                   oninput="document.getElementById('days-val').textContent=this.value; calcReserve()" />
+          </div>
+        </div>
+
+        <div style="margin-bottom:18px;">
+          <label class="white-label">אישור שירות מהצבא:</label>
+          <select class="white-select" id="has_approval" onchange="calcReserve()">
+            <option value="yes">כן — יש אישור שירות</option>
+            <option value="no">לא — אין אישור עדיין</option>
+          </select>
+        </div>
+
+        <button class="btn btn-gold" style="width:100%; justify-content:center; font-size:16px; padding:16px;"
+                onclick="calcReserve(); document.getElementById('result-box').scrollIntoView({behavior:'smooth'})">
+          ▶ חשב הנחה
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result box -->
+  <div id="result-box" class="result-card anim anim-3" style="display:none;">
+    <div class="result-label">סכום להחזר / הנחה שנתית</div>
+    <div class="result-amount" id="result-discount">—</div>
+    <div style="font-size:13px; color:var(--muted);">₪ לשנה</div>
+
+    <div class="result-breakdown">
+      <div class="breakdown-item">
+        <div class="breakdown-num" id="res-annual">—</div>
+        <div class="breakdown-label">ארנונה מקורית</div>
+      </div>
+      <div class="breakdown-item">
+        <div class="breakdown-num" id="res-rate">—</div>
+        <div class="breakdown-label">שיעור הנחה</div>
+      </div>
+      <div class="breakdown-item">
+        <div class="breakdown-num" id="res-payable">—</div>
+        <div class="breakdown-label">לתשלום</div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px; font-size:13px; color:var(--muted); background:var(--bg-navy); border-radius:8px; padding:12px;">
+      🔗 מבוסס על: CLZ-001, CLZ-002, CLZ-005 · גרסה ENG-2026-001 · <span style="color:var(--gold)">100% דטרמיניסטי</span>
+    </div>
+  </div>
+
+  <!-- How to claim -->
+  <div class="how-to-claim anim anim-4" id="claim-box" style="display:none;">
+    <div class="card-title">📋 כיצד לממש את הזכות</div>
+    <ol style="padding-right:20px; font-size:14px; line-height:2; color:var(--muted);">
+      <li>הורד אישור ימי מילואים מאתר צה"ל (טופס 3010)</li>
+      <li>מלא טופס בקשה להנחה ברשות המקומית שלך</li>
+      <li>צרף צילום ת"ז + אישור ימי מילואים</li>
+      <li>הגש בדלפק השירות של הרשות המקומית</li>
+    </ol>
+    <div style="margin-top:16px; padding:12px; background:rgba(231,76,60,0.1); border-radius:8px; font-size:12px; color:var(--red);">
+      ⚠ הגשת ערר אינה פוטרת מתשלום הארנונה השוטפת
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function calcReserve() {
+    const tax = parseFloat(document.getElementById('annual_tax').value) || 0;
+    const days = parseInt(document.getElementById('reserve_days').value) || 0;
+    const approved = document.getElementById('has_approval').value === 'yes';
+
+    if (tax <= 0 || !approved) return;
+
+    const rate = Math.min(days * 0.001, 1.0);
+    const discount = Math.round(tax * rate);
+    const payable = tax - discount;
+    const pct = Math.round(rate * 100);
+
+    document.getElementById('result-discount').textContent = discount.toLocaleString('he-IL') + ' ₪';
+    document.getElementById('res-annual').textContent = tax.toLocaleString('he-IL') + ' ₪';
+    document.getElementById('res-rate').textContent = pct + '%';
+    document.getElementById('res-payable').textContent = payable.toLocaleString('he-IL') + ' ₪';
+
+    document.getElementById('result-box').style.display = 'block';
+    document.getElementById('claim-box').style.display = 'block';
+  }
+
+  function selectType(t) {
+    document.querySelectorAll('.type-tab').forEach(el => el.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+  }
+</script>
+{% endblock %}

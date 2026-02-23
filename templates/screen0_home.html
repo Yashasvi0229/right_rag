@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% set active = 's0' %}
+{% block title %}מלאך הזכויות — בדוק זכאות להנחה בארנונה{% endblock %}
+
+{% block extra_head %}
+<style>
+  .hero {
+    min-height: calc(100vh - 72px);
+    background:
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(201,168,76,0.15) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 80% 80%, rgba(74,158,221,0.08) 0%, transparent 50%),
+      var(--bg-deep);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 50%, rgba(201,168,76,0.04) 0%, transparent 40%),
+      radial-gradient(circle at 80% 20%, rgba(74,158,221,0.04) 0%, transparent 40%);
+    pointer-events: none;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(201,168,76,0.1);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 7px 18px;
+    font-size: 13px;
+    color: var(--gold);
+    margin-bottom: 32px;
+    animation: fadeInUp 0.5s ease;
+  }
+
+  .hero h1 {
+    font-family: 'Frank Ruhl Libre', serif;
+    font-size: clamp(42px, 6vw, 72px);
+    font-weight: 900;
+    color: var(--white);
+    line-height: 1.15;
+    margin-bottom: 24px;
+    animation: fadeInUp 0.5s ease 0.1s both;
+  }
+  .hero h1 span { color: var(--gold); }
+
+  .hero-sub {
+    font-size: 17px;
+    color: var(--muted);
+    max-width: 560px;
+    line-height: 1.7;
+    margin-bottom: 40px;
+    animation: fadeInUp 0.5s ease 0.2s both;
+  }
+
+  .hero-cta {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+    animation: fadeInUp 0.5s ease 0.3s both;
+  }
+  .btn-hero {
+    padding: 16px 40px;
+    font-size: 17px;
+    border-radius: 10px;
+    font-weight: 700;
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    justify-content: center;
+    gap: 60px;
+    margin-top: 64px;
+    animation: fadeInUp 0.5s ease 0.4s both;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-family: 'Frank Ruhl Libre', serif;
+    font-size: 32px;
+    font-weight: 900;
+    color: var(--gold);
+  }
+  .stat-label { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  /* Cards section */
+  .section {
+    padding: 80px 40px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .section-title {
+    text-align: center;
+    font-family: 'Frank Ruhl Libre', serif;
+    font-size: 34px;
+    color: var(--white);
+    margin-bottom: 8px;
+  }
+  .section-sub {
+    text-align: center;
+    color: var(--muted);
+    margin-bottom: 48px;
+    font-size: 15px;
+  }
+
+  /* Right cards grid */
+  .rights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 20px;
+  }
+  .right-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 28px 24px;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .right-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--gold);
+    transform: scaleX(0);
+    transition: transform 0.25s;
+  }
+  .right-card:hover {
+    border-color: var(--border);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow);
+  }
+  .right-card:hover::after { transform: scaleX(1); }
+  .right-icon { font-size: 32px; margin-bottom: 16px; }
+  .right-name {
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 8px;
+    color: var(--white);
+  }
+  .right-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .right-discount {
+    margin-top: 16px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  /* How it works */
+  .how-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .how-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 32px 24px;
+    text-align: center;
+  }
+  .how-num {
+    width: 48px;
+    height: 48px;
+    background: var(--gold-btn);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 18px;
+    color: #000;
+    margin: 0 auto 20px;
+  }
+  .how-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
+  .how-card p  { font-size: 14px; color: var(--muted); line-height: 1.7; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">🔒 מבוסס על תקנות 2026 · מאומת משפטית</div>
+
+  <h1>
+    האם אתה זכאי<br>
+    <span>להנחה בארנונה?</span>
+  </h1>
+
+  <p class="hero-sub">
+    מנוע זכויות אוטומטי לאזרחים ותיקים, גברים ונשים.
+    מסתמך על חקיקה, תקנות ופסיקה עדכנית.
+    הבדיקה חינם ומידית.
+  </p>
+
+  <div class="hero-cta">
+    <a href="/screen7" class="btn btn-gold btn-hero">▶ בדוק עכשיו — בחינם</a>
+    <a href="/screen1" class="btn btn-outline btn-hero">⚙️ ניהול מומחים</a>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-num">12+</div>
+      <div class="stat-label">סוגי הנחות</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">100%</div>
+      <div class="stat-label">מבוסס חקיקה</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">0 ₪</div>
+      <div class="stat-label">עלות לאזרח</div>
+    </div>
+  </div>
+</section>
+
+<!-- RIGHTS CATALOG -->
+<div style="background: var(--bg-navy); padding: 2px 0;">
+  <div class="section">
+    <h2 class="section-title">זכויות ארנונה בקטלוג</h2>
+    <p class="section-sub">בחר קטגוריה לחישוב מהיר</p>
+
+    <div class="rights-grid">
+      <div class="right-card anim anim-1" onclick="location.href='/screen7?type=reserve'">
+        <div class="right-icon">🎖️</div>
+        <div class="right-name">הנחה לחיילי מילואים</div>
+        <div class="right-desc">הנחה בארנונה לפי ימי מילואים בפועל על פי חוק</div>
+        <div class="right-discount">עד 100%</div>
+      </div>
+      <div class="right-card anim anim-2" onclick="location.href='/screen7?type=senior'">
+        <div class="right-icon">👴</div>
+        <div class="right-name">הנחה לאזרחים ותיקים</div>
+        <div class="right-desc">הנחה לגמלאים מעל גיל 65 על פי הכנסה ורכוש</div>
+        <div class="right-discount">עד 66%</div>
+      </div>
+      <div class="right-card anim anim-3" onclick="location.href='/screen7?type=disability'">
+        <div class="right-icon">♿</div>
+        <div class="right-name">הנחה למעוטי יכולת</div>
+        <div class="right-desc">הנחה לבעלי נכות ומוגבלות על פי תקנות ההסדר</div>
+        <div class="right-discount">עד 100%</div>
+      </div>
+      <div class="right-card anim anim-4" onclick="location.href='/screen7?type=lowincome'">
+        <div class="right-icon">📋</div>
+        <div class="right-name">הנחה להכנסה נמוכה</div>
+        <div class="right-desc">הנחה לבעלי הכנסה מתחת לסף המוגדר בתקנות</div>
+        <div class="right-discount">עד 80%</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<div class="section">
+  <h2 class="section-title">איך זה עובד?</h2>
+  <p class="section-sub">שלושה שלבים פשוטים — שקיפות מלאה</p>
+
+  <div class="how-grid">
+    <div class="how-card anim anim-1">
+      <div class="how-num">1</div>
+      <h3>ממלאים פרטים</h3>
+      <p>מזינים נתוני נכס, הכנסה וסטטוס שירות. כל הנתונים מחושבים מקומית בלבד.</p>
+    </div>
+    <div class="how-card anim anim-2">
+      <div class="how-num">2</div>
+      <h3>המנוע מחשב</h3>
+      <p>הבדיקה נעשית לפי חקיקה מאומתת. כל החלטה מקושרת לסעיף חוק מקורי.</p>
+    </div>
+    <div class="how-card anim anim-3">
+      <div class="how-num">3</div>
+      <h3>מקבלים תוצאה</h3>
+      <p>מוצגת ההנחה, הסכום, ההסבר המלא וקישור להגשת הבקשה לרשות המקומית.</p>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

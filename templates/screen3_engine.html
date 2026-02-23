@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% set active = 's1' %}
+{% block title %}טיוטת מנוע הזכויות{% endblock %}
+{% block extra_head %}
+<style>
+  .engine-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .engine-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    background: var(--bg-card2);
+    border-bottom: 1px solid var(--border2);
+    cursor: pointer;
+  }
+  .engine-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .engine-id {
+    font-family: monospace;
+    font-size: 12px;
+    background: var(--bg-navy);
+    padding: 3px 8px;
+    border-radius: 4px;
+    color: var(--gold);
+  }
+  .engine-body { padding: 24px; }
+
+  .conditions-list, .vars-list {
+    list-style: none;
+    margin: 10px 0;
+  }
+  .conditions-list li, .vars-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border2);
+    font-size: 13px;
+  }
+  .conditions-list li:last-child,
+  .vars-list li:last-child { border-bottom: none; }
+
+  .formula-box {
+    background: var(--bg-navy);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 14px 18px;
+    font-family: monospace;
+    font-size: 13px;
+    color: var(--gold-light);
+    margin: 12px 0;
+    direction: ltr;
+    text-align: left;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .sub-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="sidebar">
+    <div class="sidebar-section">זרימת עבודה</div>
+    <a class="sidebar-item" href="/screen1" style="color:var(--green)">✅ מקורות חוק</a>
+    <a class="sidebar-item" href="/screen2" style="color:var(--green)">✅ פירוק סעיפים</a>
+    <a class="sidebar-item active" href="/screen3">📋 טיוטת מנוע</a>
+    <a class="sidebar-item" href="/screen4">✅ אימות עצמי</a>
+    <a class="sidebar-item" href="/screen5">💡 הסברתיות</a>
+    <a class="sidebar-item" href="/screen6">👤 אישור מומחה</a>
+    <div class="sidebar-section">מערכת</div>
+    <a class="sidebar-item" href="/screen9">🕐 גרסאות</a>
+  </nav>
+
+  <div class="main-content">
+    <div class="page-header anim">
+      <h2>📋 טיוטת מנוע הזכויות</h2>
+      <p>שלב 3 / 6 — נקודת המעבר בין טקסט משפטי למנוע חישובי</p>
+    </div>
+
+    <div class="steps anim anim-1">
+      <div class="step done"><span class="step-num">✓</span> מקורות</div>
+      <span class="step-sep">›</span>
+      <div class="step done"><span class="step-num">✓</span> פירוק</div>
+      <span class="step-sep">›</span>
+      <div class="step active"><span class="step-num">3</span> טיוטת מנוע</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">4</span> אימות</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">5</span> הסברתיות</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">6</span> אישור</div>
+    </div>
+
+    <!-- Engine 1 -->
+    <div class="engine-card anim anim-2">
+      <div class="engine-header">
+        <div class="engine-title">
+          🎖️ הנחה לחיילי מילואים
+          <span class="engine-id">CAT-RESERVE-001</span>
+        </div>
+        <span class="badge badge-yellow">🟡 טיוטה — ממתין לאימות</span>
+      </div>
+      <div class="engine-body">
+        <div class="grid-2">
+          <div>
+            <div class="sub-label">תנאי זכאות</div>
+            <ul class="conditions-list">
+              <li><span style="color:var(--green)">✔</span> תושב/ת ישראל</li>
+              <li><span style="color:var(--green)">✔</span> שירות מילואים מאושר</li>
+              <li><span style="color:var(--green)">✔</span> בעל/ת נכס ממוסה בארנונה</li>
+              <li><span style="color:var(--green)">✔</span> ימי שירות &gt; 0 בשנת המס</li>
+            </ul>
+          </div>
+          <div>
+            <div class="sub-label">משתני קלט נדרשים</div>
+            <ul class="vars-list">
+              <li><span class="badge badge-blue">num</span> סכום ארנונה שנתי (₪)</li>
+              <li><span class="badge badge-blue">int</span> ימי שירות מילואים</li>
+              <li><span class="badge badge-gold">bool</span> אישור שירות צה"ל</li>
+            </ul>
+          </div>
+        </div>
+        <div class="sub-label" style="margin-top:16px">נוסחת חישוב</div>
+        <div class="formula-box">
+discount = annual_tax * (reserve_days * 0.001)
+discount = min(discount, annual_tax)  # cap at 100%
+result = annual_tax - discount
+        </div>
+        <div class="sub-label">מקורות משפטיים (3)</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <span class="badge badge-gold">CLZ-001</span>
+          <span class="badge badge-gold">CLZ-002</span>
+          <span class="badge badge-gold">CLZ-005</span>
+        </div>
+        <div style="font-size:12px; color:var(--muted); margin-top:8px;">ציון חיכוך: 4/10 · עדיפות קטגוריה: RESERVE</div>
+      </div>
+    </div>
+
+    <!-- Engine 2 -->
+    <div class="engine-card anim anim-3">
+      <div class="engine-header">
+        <div class="engine-title">
+          👴 הנחה לאזרחים ותיקים
+          <span class="engine-id">CAT-SENIOR-001</span>
+        </div>
+        <span class="badge badge-yellow">🟡 טיוטה — ממתין לאימות</span>
+      </div>
+      <div class="engine-body">
+        <div class="grid-2">
+          <div>
+            <div class="sub-label">תנאי זכאות</div>
+            <ul class="conditions-list">
+              <li><span style="color:var(--green)">✔</span> גיל 65 ומעלה</li>
+              <li><span style="color:var(--green)">✔</span> הכנסה מתחת לסף</li>
+              <li><span style="color:var(--green)">✔</span> שטח נכס ≤ 100 מ"ר</li>
+            </ul>
+          </div>
+          <div>
+            <div class="sub-label">משתני קלט נדרשים</div>
+            <ul class="vars-list">
+              <li><span class="badge badge-blue">int</span> גיל</li>
+              <li><span class="badge badge-blue">num</span> הכנסה חודשית (₪)</li>
+              <li><span class="badge badge-blue">num</span> שטח נכס (מ"ר)</li>
+            </ul>
+          </div>
+        </div>
+        <div class="formula-box">
+if income &lt;= THRESHOLD_LOW:   discount_rate = 0.66
+elif income &lt;= THRESHOLD_MID: discount_rate = 0.40
+else:                          discount_rate = 0.20
+result = annual_tax * (1 - discount_rate)
+        </div>
+      </div>
+    </div>
+
+    <div class="anim anim-4" style="display:flex; gap:12px;">
+      <a href="/screen2" class="btn btn-outline">‹ חזור</a>
+      <a href="/screen4" class="btn btn-gold" style="margin-right:auto">המשך לאימות עצמי ›</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
