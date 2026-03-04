@@ -299,16 +299,44 @@ def api_audit_log(limit: int = Query(50, ge=1, le=500)):
     return get_audit_log(limit=limit)
 
 
+# ─── Un-approve (client feedback: clause undo) ────────────────────────────────
+
+class UnapproveRequest(BaseModel):
+    clause_id: str
+    reviewed_by: str
+    reason: str
+
+@router.post("/review/unapprove")
+def api_unapprove_clause(req: UnapproveRequest):
+    """Move an approved clause back to PENDING review queue."""
+    try:
+        from ingestion.pipeline import unapprove_clause
+        return unapprove_clause(
+            clause_id=req.clause_id,
+            reviewed_by=req.reviewed_by,
+            reason=req.reason,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+# ─── Reset DB (temp, for testing only) ───────────────────────────────────────
+
 @router.get("/reset-db-temp")
-def reset_db():
+def reset_db_temp():
     from database.schema import get_db, init_db
     conn = get_db()
+    conn.execute("DELETE FROM rights_clauses_map")
     conn.execute("DELETE FROM review_queue")
     conn.execute("DELETE FROM clauses")
     conn.execute("DELETE FROM source_documents")
     conn.execute("DELETE FROM audit_log")
+    conn.execute("DELETE FROM engine_versions")
+    conn.execute("DELETE FROM facts")
     conn.commit()
     conn.close()
     init_db()
-    return {"status": "done"}
-
+    # Re-seed rights catalog
+    from engine.rights_catalog import seed_rights_catalog
+    seed_rights_catalog()
+    return {"status": "done", "message": "Database reset and rights catalog re-seeded"}
