@@ -1,122 +1,120 @@
 """
 Rights Angel — FastAPI Application
-Phase 1 Screens + Milestone 1 Backend API
+Milestone 1 Backend — Production Ready
+
+Run: uvicorn main:app --reload --port 8000
 """
-from fastapi import FastAPI, Request
-from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
+import os
 from pathlib import Path
-import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from database.schema import init_db
-from engine.rights_catalog import seed_rights_catalog, get_all_rights
+from engine.rights_catalog import seed_rights_catalog
 from api.routes import router
-from ingestion.pipeline import (
-    list_documents, get_approved_sources,
-    get_pending_review, get_clause_store, validate_clause_integrity
+
+# ── App setup ─────────────────────────────────────────────────────────────────
+app = FastAPI(
+    title="Rights Angel — Milestone 1 API",
+    description="Deterministic eligibility engine for Israeli arnona discounts",
+    version="1.0.0",
 )
-from engine.version_manager import list_versions, get_audit_log
 
-app = FastAPI(title="Rights Angel", version="1.0.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).parent
+
+# Templates
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+# Static files
 static_dir = BASE_DIR / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+# API routes
 app.include_router(router, prefix="/api")
 
 
+# ── Startup ───────────────────────────────────────────────────────────────────
+@app.on_event("startup")
+async def startup():
+    init_db()
+    seed_rights_catalog()
+    print("✅ Rights Angel Milestone 1 started")
+    print(f"   DB: {os.getenv('DB_PATH', 'rights_angel.db')}")
+    has_key = os.getenv('OPENAI_API_KEY','').startswith('sk-') and not os.getenv('OPENAI_API_KEY','').startswith('sk-your')
+    print(f"   OpenAI: {'✅ key found' if has_key else '❌ KEY NOT SET'}")
+
+
+# ── Health ────────────────────────────────────────────────────────────────────
 @app.get("/")
-async def root():
-    return RedirectResponse(url="/screen0")
+def root():
+    return {"service": "Rights Angel — Milestone 1", "status": "running"}
 
-@app.get("/screen0")
-async def screen0(request: Request):
-    return templates.TemplateResponse("screen0_home.html", {
-        "request": request,
-        "rights_count": len(get_all_rights()),
-        "docs_count": len(list_documents()),
-        "clauses_count": len(get_clause_store()),
-    })
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
-@app.get("/screen1")
+
+# ── Screen Routes ─────────────────────────────────────────────────────────────
+
+@app.get("/screen1", response_class=HTMLResponse)
 async def screen1(request: Request):
+    from ingestion.pipeline import list_documents, get_approved_sources
     return templates.TemplateResponse("screen1_upload.html", {
         "request": request,
         "documents": list_documents(),
         "approved_sources": get_approved_sources(),
     })
 
-@app.get("/screen2")
+
+@app.get("/screen2", response_class=HTMLResponse)
 async def screen2(request: Request):
+    from ingestion.pipeline import get_pending_review, get_clause_store
+    from database.schema import get_db
+    conn = get_db()
+    try:
+        approved_count = conn.execute(
+            "SELECT COUNT(*) as c FROM clauses WHERE is_current=1"
+        ).fetchone()["c"]
+    finally:
+        conn.close()
+
     return templates.TemplateResponse("screen2_decomp.html", {
         "request": request,
         "pending_clauses": get_pending_review(),
-        "approved_count": len(get_clause_store()),
+        "approved_count": approved_count,
     })
 
-@app.get("/screen3")
-async def screen3(request: Request):
-    return templates.TemplateResponse("screen3_engine.html", {
-        "request": request,
-        "versions": list_versions(),
-        "rights": get_all_rights(),
-    })
 
-@app.get("/screen4")
+@app.get("/screen4", response_class=HTMLResponse)
 async def screen4(request: Request):
+    from ingestion.pipeline import validate_clause_integrity
+    validation = validate_clause_integrity()
     return templates.TemplateResponse("screen4_validation.html", {
         "request": request,
-        "validation": validate_clause_integrity(),
+        "validation": validation,
     })
-
-@app.get("/screen5")
-async def screen5(request: Request):
-    return templates.TemplateResponse("screen5_explain.html", {
-        "request": request,
-        "rights": get_all_rights(),
-    })
-
-@app.get("/screen6")
-async def screen6(request: Request):
-    return templates.TemplateResponse("screen6_approval.html", {
-        "request": request,
-        "versions": list_versions(),
-    })
-
-@app.get("/screen7")
-async def screen7(request: Request, type: str = "reserve"):
-    return templates.TemplateResponse("screen7_calculator.html", {
-        "request": request,
-        "calc_type": type,
-        "rights": get_all_rights(),
-    })
-
-@app.get("/screen8")
-async def screen8(request: Request):
-    return templates.TemplateResponse("screen8_appeal.html", {"request": request})
-
-@app.get("/screen9")
-async def screen9(request: Request):
-    return templates.TemplateResponse("screen9_audit.html", {
-        "request": request,
-        "audit_log": get_audit_log(limit=50),
-        "versions": list_versions(),
-    })
-
-
-@app.on_event("startup")
-async def startup():
-    init_db()
-    seed_rights_catalog()
-    print("✅ Rights Angel started")
-    print("   Screens : http://localhost:8000/screen0")
-    print("   API docs : http://localhost:8000/docs")
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host=os.getenv("APP_HOST", "0.0.0.0"),
+        port=int(os.getenv("APP_PORT", 8000)),
+        reload=os.getenv("DEBUG", "true").lower() == "true",
+    )
