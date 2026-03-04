@@ -12,18 +12,14 @@
     transition: all 0.25s;
     background: rgba(201,168,76,0.03);
   }
-  .upload-zone:hover {
-    border-color: var(--gold);
-    background: rgba(201,168,76,0.07);
-  }
+  .upload-zone:hover { border-color: var(--gold); background: rgba(201,168,76,0.07); }
+  .upload-zone.dragover { border-color: var(--gold); background: rgba(201,168,76,0.12); }
   .upload-icon { font-size: 48px; margin-bottom: 12px; }
   .upload-zone h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
   .upload-zone p  { font-size: 14px; color: var(--muted); }
 
   .source-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
+    display: flex; align-items: center; gap: 14px;
     padding: 14px 16px;
     background: var(--bg-card);
     border: 1px solid var(--border2);
@@ -33,50 +29,42 @@
   }
   .source-row:hover { border-color: var(--border); }
   .source-icon { font-size: 22px; flex-shrink: 0; }
-  .source-info { flex: 1; }
-  .source-name { font-weight: 600; font-size: 14px; }
+  .source-info { flex: 1; min-width: 0; }
+  .source-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .source-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .source-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-  .type-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin-bottom: 20px;
-  }
+  .type-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
   .type-btn {
-    padding: 10px;
-    border: 1px solid var(--border2);
-    border-radius: var(--radius-sm);
-    background: var(--bg-card);
-    color: var(--muted);
-    font-size: 13px;
-    cursor: pointer;
-    text-align: center;
-    transition: all 0.2s;
-    font-family: 'Heebo', sans-serif;
+    padding: 10px; border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); background: var(--bg-card);
+    color: var(--muted); font-size: 13px; cursor: pointer;
+    text-align: center; transition: all 0.2s; font-family: 'Heebo', sans-serif;
   }
-  .type-btn:hover, .type-btn.active {
-    border-color: var(--gold);
-    color: var(--gold);
-    background: rgba(201,168,76,0.08);
-  }
+  .type-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.08); }
   .type-icon { font-size: 20px; display: block; margin-bottom: 4px; }
 
-  .progress-bar { width:100%; height:4px; background:var(--bg-navy); border-radius:2px; overflow:hidden; margin-top:8px; display:none; }
-  .progress-fill { height:100%; background:var(--gold); border-radius:2px; animation:pp 1.5s ease-in-out infinite; }
-  @keyframes pp { 0%,100%{opacity:1} 50%{opacity:0.6} }
-  .alert { padding:12px 16px; border-radius:var(--radius-sm); font-size:13px; margin-bottom:12px; display:none; }
-  .alert-success { background:rgba(46,204,113,0.15); border:1px solid rgba(46,204,113,0.3); color:var(--green); }
-  .alert-error   { background:rgba(231,76,60,0.15);  border:1px solid rgba(231,76,60,0.3);  color:var(--red); }
-  .alert-info    { background:rgba(201,168,76,0.15); border:1px solid rgba(201,168,76,0.3); color:var(--gold); }
+  .progress-bar {
+    width: 100%; height: 4px; background: var(--bg-navy);
+    border-radius: 2px; overflow: hidden; margin-top: 12px; display: none;
+  }
+  .progress-fill {
+    height: 100%; background: var(--gold);
+    border-radius: 2px; transition: width 0.3s;
+    animation: progress-pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes progress-pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+  .alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; display: none; }
+  .alert-success { background: rgba(46,204,113,0.15); border: 1px solid rgba(46,204,113,0.3); color: var(--green); }
+  .alert-error   { background: rgba(231,76,60,0.15);  border: 1px solid rgba(231,76,60,0.3);  color: var(--red); }
+  .alert-info    { background: rgba(201,168,76,0.15); border: 1px solid rgba(201,168,76,0.3); color: var(--gold); }
+
+  .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="admin-layout">
-
-  <!-- SIDEBAR -->
   <nav class="sidebar">
     <div class="sidebar-section">זרימת עבודה</div>
     <a class="sidebar-item active" href="/screen1">📥 מקורות חוק</a>
@@ -85,7 +73,6 @@
     <a class="sidebar-item" href="/screen4">✅ אימות עצמי</a>
     <a class="sidebar-item" href="/screen5">💡 הסברתיות</a>
     <a class="sidebar-item" href="/screen6">👤 אישור מומחה</a>
-
     <div class="sidebar-section">מערכת</div>
     <a class="sidebar-item" href="/screen9">🕐 גרסאות</a>
     <a class="sidebar-item" href="/screen0">🏠 דף הבית</a>
@@ -97,7 +84,6 @@
       <p>שלב 1 / 6 — העלאת מסמכים משפטיים לניתוח</p>
     </div>
 
-    <!-- Steps -->
     <div class="steps anim anim-1">
       <div class="step active"><span class="step-num">1</span> מקורות חוק</div>
       <span class="step-sep">›</span>
@@ -114,66 +100,41 @@
 
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
 
-      <!-- Upload zone -->
+      <!-- Upload form -->
       <div class="anim anim-2">
         <div class="card">
           <div class="card-title">📤 העלה מסמך חדש</div>
 
           <div id="alert-box" class="alert"></div>
 
-          <!-- Type grid — exact same -->
-          <div class="type-grid">
-            <button class="type-btn active" onclick="setType(this)">
-              <span class="type-icon">📜</span> חוק
-            </button>
-            <button class="type-btn" onclick="setType(this)">
-              <span class="type-icon">📋</span> תקנות
-            </button>
-            <button class="type-btn" onclick="setType(this)">
-              <span class="type-icon">📝</span> הוראות
-            </button>
-            <button class="type-btn" onclick="setType(this)">
-              <span class="type-icon">⚖️</span> פסיקה
-            </button>
-          </div>
-
-          <!-- Upload zone — exact same -->
-          <div class="upload-zone" id="upload-zone"
-               onclick="document.getElementById('file-input').click()"
-               ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
-               ondragleave="this.style.borderColor=''"
-               ondrop="onDrop(event)">
-            <div class="upload-icon">📂</div>
-            <h3 id="zone-title">גרור קובץ לכאן</h3>
-            <p id="zone-sub">PDF, DOC, DOCX — עד 50MB</p>
-            <br>
-            <button class="btn btn-outline" style="margin-top:8px"
-              onclick="event.stopPropagation();document.getElementById('file-input').click()">בחר קובץ</button>
-            <input type="file" id="file-input" accept=".pdf,.docx,.doc,.txt" style="display:none" onchange="onFileSelected(this)">
-          </div>
-          <div class="progress-bar" id="progress-bar"><div class="progress-fill" style="width:70%"></div></div>
-
-          <hr class="divider">
-
-          <!-- doc_id replaces תיאור קצר — same visual style -->
           <div class="form-group">
-            <label class="form-label">מזהה מסמך</label>
+            <label class="form-label">מזהה מסמך (doc_id)</label>
             <select class="form-select" id="doc-id-select">
               <option value="">— בחר מקור מאושר —</option>
               {% for src in approved_sources %}
               <option value="{{ src.doc_id }}">{{ src.doc_id }}</option>
               {% endfor %}
             </select>
+            <div style="font-size:11px; color:var(--muted); margin-top:4px;">רק מקורות מאושרים מראש</div>
           </div>
 
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-            <div class="form-group">
-              <label class="form-label">תאריך פרסום</label>
-              <input class="form-input" type="date" id="pub-date" />
+          <div class="form-group">
+            <label class="form-label">שם המעלה</label>
+            <input class="form-input" id="ingested-by" placeholder="שם המשתמש" value="admin" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">קובץ (PDF / DOCX)</label>
+            <div class="upload-zone" id="upload-zone">
+              <div class="upload-icon">📂</div>
+              <h3 id="upload-zone-title">גרור קובץ לכאן</h3>
+              <p id="upload-zone-sub">PDF, DOCX — עד 50MB</p>
+              <br>
+              <button class="btn btn-outline" style="margin-top:8px" onclick="document.getElementById('file-input').click()">בחר קובץ</button>
+              <input type="file" id="file-input" accept=".pdf,.docx,.doc,.txt" style="display:none" onchange="onFileSelected(this)">
             </div>
-            <div class="form-group">
-              <label class="form-label">מפרסם</label>
-              <input class="form-input" id="ingested-by" value="admin" />
+            <div class="progress-bar" id="progress-bar">
+              <div class="progress-fill" id="progress-fill" style="width:60%"></div>
             </div>
           </div>
 
@@ -181,7 +142,7 @@
         </div>
       </div>
 
-      <!-- Uploaded sources list — same design, now dynamic -->
+      <!-- Live documents list -->
       <div class="anim anim-3">
         <div class="card">
           <div class="card-title">📚 מקורות שהועלו (<span id="doc-count">{{ documents|length }}</span>)</div>
@@ -192,29 +153,23 @@
               <div class="source-row">
                 <div class="source-icon">📜</div>
                 <div class="source-info">
-                  <div class="source-name">{{ doc.title }}</div>
-                  <div class="source-meta">{{ doc.publisher }} · {{ doc.ingested_at[:10] }} · SHA: {{ doc.file_hash[:6] }}...</div>
+                  <div class="source-name" title="{{ doc.title }}">{{ doc.title }}</div>
+                  <div class="source-meta">
+                    {{ doc.publisher }} · {{ doc.ingested_at[:10] }} · SHA: {{ doc.file_hash[:8] }}...
+                  </div>
                 </div>
                 <span class="badge {% if doc.status == 'ACTIVE' %}badge-green{% else %}badge-yellow{% endif %}">
-                  {% if doc.status == 'ACTIVE' %}✔ מנותח{% else %}⏳ {{ doc.status }}{% endif %}
+                  {% if doc.status == 'ACTIVE' %}✔ פעיל{% else %}⏳ {{ doc.status }}{% endif %}
                 </span>
-                <div class="source-actions">
-                  <button class="btn btn-outline" style="padding:6px 12px;font-size:12px">👁</button>
-                </div>
               </div>
               {% endfor %}
             {% else %}
-              <div style="text-align:center;padding:40px;color:var(--muted);font-size:14px;">
-                📭 אין מסמכים עדיין<br><small>העלה מסמך ראשון</small>
-              </div>
+              <div class="empty-state">📭 אין מסמכים עדיין<br><small>העלה מסמך ראשון</small></div>
             {% endif %}
           </div>
 
           <hr class="divider">
-
-          <a href="/screen2" class="btn btn-gold" style="width:100%; justify-content:center">
-            המשך לפירוק סעיפים ›
-          </a>
+          <a href="/screen2" class="btn btn-gold" style="width:100%; justify-content:center">המשך לפירוק סעיפים ›</a>
         </div>
       </div>
     </div>
@@ -224,77 +179,104 @@
 <script>
 let selectedFile = null;
 
-function setType(btn) {
-  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-}
-
 function onFileSelected(input) {
   if (input.files && input.files[0]) {
     selectedFile = input.files[0];
-    document.getElementById('zone-title').textContent = selectedFile.name;
-    document.getElementById('zone-sub').textContent = (selectedFile.size/1024/1024).toFixed(2) + ' MB';
+    document.getElementById('upload-zone-title').textContent = selectedFile.name;
+    document.getElementById('upload-zone-sub').textContent =
+      (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB';
   }
 }
 
-function onDrop(e) {
-  e.preventDefault();
-  document.getElementById('upload-zone').style.borderColor = '';
+// Drag & drop
+const zone = document.getElementById('upload-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('dragover');
   const f = e.dataTransfer.files[0];
-  if (f) { selectedFile = f; document.getElementById('zone-title').textContent = f.name; }
-}
+  if (f) {
+    selectedFile = f;
+    document.getElementById('upload-zone-title').textContent = f.name;
+    document.getElementById('upload-zone-sub').textContent = (f.size/1024/1024).toFixed(2) + ' MB';
+  }
+});
 
 function showAlert(msg, type) {
   const box = document.getElementById('alert-box');
   box.className = 'alert alert-' + type;
   box.textContent = msg;
   box.style.display = 'block';
-  if (type === 'success') setTimeout(() => box.style.display='none', 6000);
+  if (type === 'success') setTimeout(() => box.style.display='none', 5000);
 }
 
 async function uploadDocument() {
   const docId = document.getElementById('doc-id-select').value;
   const ingestedBy = document.getElementById('ingested-by').value.trim();
-  if (!docId)        return showAlert('אנא בחר מזהה מסמך', 'error');
-  if (!ingestedBy)   return showAlert('אנא הזן שם משתמש', 'error');
-  if (!selectedFile) return showAlert('אנא בחר קובץ', 'error');
+
+  if (!docId) return showAlert('אנא בחר מזהה מסמך', 'error');
+  if (!ingestedBy) return showAlert('אנא הזן שם משתמש', 'error');
+  if (!selectedFile) return showAlert('אנא בחר קובץ להעלאה', 'error');
 
   const btn = document.getElementById('upload-btn');
-  btn.disabled = true; btn.textContent = '⏳ מעלה...';
+  btn.disabled = true;
+  btn.textContent = '⏳ מעלה...';
   document.getElementById('progress-bar').style.display = 'block';
-  showAlert('מעלה ומנתח... עשוי לקחת 20-30 שניות', 'info');
+  showAlert('מעלה ומנתח את המסמך... עשוי לקחת 20-30 שניות', 'info');
 
   const form = new FormData();
   form.append('file', selectedFile);
   form.append('doc_id', docId);
   form.append('ingested_by', ingestedBy);
+  // Always send today's date as publication_date — server validates it
+  const today = new Date().toISOString().split('T')[0];
+  form.append('publication_date', today);
 
   try {
     const res = await fetch('/api/ingest', { method: 'POST', body: form });
     const data = await res.json();
+
     if (res.ok) {
-      showAlert('✅ ' + data.clause_count + ' סעיפים חולצו! סטטוס: ' + data.status, 'success');
-      const docs = await (await fetch('/api/documents')).json();
-      document.getElementById('doc-count').textContent = docs.length;
-      document.getElementById('documents-list').innerHTML = docs.map(d => `
-        <div class="source-row">
-          <div class="source-icon">📜</div>
-          <div class="source-info">
-            <div class="source-name">${d.title}</div>
-            <div class="source-meta">${d.publisher} · ${d.ingested_at.slice(0,10)} · SHA: ${d.file_hash.slice(0,6)}...</div>
-          </div>
-          <span class="badge ${d.status==='ACTIVE'?'badge-green':'badge-yellow'}">${d.status==='ACTIVE'?'✔ מנותח':'⏳ '+d.status}</span>
-          <div class="source-actions"><button class="btn btn-outline" style="padding:6px 12px;font-size:12px">👁</button></div>
-        </div>`).join('');
+      showAlert(`✅ ${data.clause_count} סעיפים חולצו בהצלחה! סטטוס: ${data.status}`, 'success');
+      await refreshDocuments();
     } else {
-      showAlert('❌ ' + (data.detail || 'שגיאה'), 'error');
+      // Special handling for unchanged document (409)
+      if (res.status === 409) {
+        showAlert('⚠️ ' + (data.detail || 'המסמך לא השתנה — העלה גרסה עדכנית של הקובץ'), 'warning');
+      } else {
+        showAlert('❌ ' + (data.detail || 'שגיאה בהעלאה'), 'error');
+      }
     }
   } catch(e) {
     showAlert('❌ שגיאת רשת: ' + e.message, 'error');
   } finally {
-    btn.disabled = false; btn.textContent = '⬆ העלה מסמך';
+    btn.disabled = false;
+    btn.textContent = '⬆ העלה מסמך';
     document.getElementById('progress-bar').style.display = 'none';
   }
+}
+
+async function refreshDocuments() {
+  const res = await fetch('/api/documents');
+  const docs = await res.json();
+  document.getElementById('doc-count').textContent = docs.length;
+  const list = document.getElementById('documents-list');
+  if (docs.length === 0) {
+    list.innerHTML = '<div class="empty-state">📭 אין מסמכים עדיין</div>';
+    return;
+  }
+  list.innerHTML = docs.map(doc => `
+    <div class="source-row">
+      <div class="source-icon">📜</div>
+      <div class="source-info">
+        <div class="source-name" title="${doc.title}">${doc.title}</div>
+        <div class="source-meta">${doc.publisher} · ${doc.ingested_at.slice(0,10)} · SHA: ${doc.file_hash.slice(0,8)}...</div>
+      </div>
+      <span class="badge ${doc.status==='ACTIVE'?'badge-green':'badge-yellow'}">
+        ${doc.status==='ACTIVE'?'✔ פעיל':'⏳ '+doc.status}
+      </span>
+    </div>
+  `).join('');
 }
 </script>
 {% endblock %}
