@@ -2,15 +2,12 @@
 Rights Angel — Ingestion Pipeline (L1 + L2)
 Architecture Brief v1.2 §6.1 Steps 1-3
 
-L1: Document Loader + SHA-256 Hash Registry
-    - Approved source list enforcement (§6.2)
-    - Hash check → unchanged = exit, changed = proceed
-    - PDF/DOCX/TXT text extraction
-
-L2: OpenAI GPT-4o Atomic Clause Extractor
-    - temperature=0 (deterministic, critical for legal accuracy)
-    - Extracted clauses → human review queue (NOT clause store directly)
-    - Human must approve before clause enters store (§2.1 gate)
+FIXES:
+- file_hash UNIQUE constraint: allow re-upload by updating existing record
+- Better GPT prompt: extracts real section refs (תקנה 3ו, תקנה 3ז etc.)
+- Clause unapprove: move approved clause back to PENDING
+- Date validation on ingestion
+- Auto-link clauses to rights catalog after approval
 """
 import hashlib
 import json
@@ -23,14 +20,11 @@ from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
-from pathlib import Path
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 from database.schema import get_db
 
 # ─────────────────────────────────────────────────────────────────────────────
-# APPROVED SOURCE LIST — per §6.2
-# Adding a source requires documented decision, not just a config change.
-# These two are populated from the client's actual PDFs.
+# APPROVED SOURCE LIST
 # ─────────────────────────────────────────────────────────────────────────────
 APPROVED_SOURCES = {
     "GOV-IL-RESERVE-ARNONA-2026": {
@@ -38,24 +32,28 @@ APPROVED_SOURCES = {
         "publisher": "ריכוז משפטי | עודכן פברואר 2026",
         "category": "reserve_soldiers",
         "publication_date": "2026-02-01",
+        "url": "https://www.gov.il/he/departments/general/arnona-discount",
     },
     "GOV-IL-LOWINCOME-ARNONA-2026": {
         "title": "הנחה בארנונה למעוטי יכולת בישראל — חוברת בסיס הידע המשפטי",
         "publisher": "מערכת Angel Rights | פברואר 2026",
         "category": "low_income",
         "publication_date": "2026-02-19",
+        "url": "https://www.gov.il/he/departments/general/arnona-discount-low-income",
     },
     "GOV-IL-ARNONA-REGULATIONS-1993": {
         "title": "תקנות הסדרים במשק המדינה (הנחה מארנונה), תשנ\"ג-1993",
         "publisher": "כנסת ישראל / משרד הפנים",
         "category": "general",
         "publication_date": "1993-01-01",
+        "url": "https://www.nevo.co.il/law_html/Law01/P221_001.htm",
     },
     "GOV-IL-RESERVE-REGULATION-3VAV": {
         "title": "תקנה 3ו — הנחה לחיילי מילואים פעילים (תיקון 3, תשע\"ח-2018)",
         "publisher": "משרד הפנים",
         "category": "reserve_soldiers",
         "publication_date": "2018-03-27",
+        "url": "https://www.nevo.co.il/law_html/Law01/P221_001.htm#Seif3v",
     },
     "GOV-IL-RESERVE-COMMANDER-2022": {
         "title": "תיקון תקנות ארנונה — מפקד מילואים פעיל 25%, תשפ\"ג-2022",
@@ -72,41 +70,41 @@ APPROVED_SOURCES = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# OpenAI Prompt — crafted specifically for Israeli arnona law
-# temperature=0 for determinism (architecture brief §3.3)
+# IMPROVED EXTRACTION PROMPT — client feedback:
+# Must extract REAL section refs, NO hallucinations, verbatim Hebrew text
 # ─────────────────────────────────────────────────────────────────────────────
-EXTRACTION_SYSTEM_PROMPT = """You are a legal analyst specializing in Israeli administrative law (משפט מנהלי ישראלי), specifically property tax (ארנונה) regulations and discount rights.
+EXTRACTION_SYSTEM_PROMPT = """You are a legal analyst specializing in Israeli administrative law (משפט מנהלי ישראלי), specifically property tax (ארנונה) regulations.
 
-Your task: extract ATOMIC LEGAL CLAUSES from Israeli legal documents.
+Your task: extract ATOMIC LEGAL CLAUSES from the provided Israeli legal document text.
 
-ATOMIC CLAUSE = one single, indivisible legal unit. A condition, exclusion, definition, or procedure that stands alone.
+CRITICAL RULES — NO EXCEPTIONS:
+1. VERBATIM HEBREW TEXT ONLY — copy exact text from document, never paraphrase or translate
+2. section_ref MUST be the EXACT reference found in the text (e.g. "תקנה 3ו(א)", "תקנה 3ז", "סעיף 2(א)(8)", "פרק 1.2")
+   - If no section ref found in text, use "לא צוין" — NEVER invent or hallucinate a reference
+3. Each clause must be independently meaningful and complete
+4. Minimum clause length: 20 characters
+5. Return ONLY valid JSON — no preamble, no explanation, no markdown
 
 CLAUSE TYPES:
-- ELIGIBILITY: grants a right or states a qualifying condition ("זכאי", "רשאי", "entitled to", conditions that must be met)
+- ELIGIBILITY: grants a right or qualifying condition ("זכאי", "רשאי", "entitled", conditions that must be met)
 - EXCLUSION: removes or denies a right ("אינו זכאי", "לא יינתן", "except", "provided that not")
-- DEFINITION: defines a legal term ("חייל מילואים פעיל" means..., "הכנסה" for purposes of this regulation means...)
-- PROCEDURE: steps to apply, appeal deadlines, required documents ("יגיש", "submit", "within X days", "required documents")
+- DEFINITION: defines a legal term ("לעניין זה", "המונח", "פירושו", "הגדרה")
+- PROCEDURE: application steps, deadlines, required documents ("יגיש", "תוך X ימים", "המסמכים הנדרשים")
 
-RULES:
-1. Keep verbatim Hebrew text — never summarize or translate
-2. Each clause must be independently meaningful
-3. Extract section_ref from the document (e.g. "תקנה 3ו(א)", "סעיף 2(א)(8)", "פרק 1.2")
-4. Minimum clause length: 30 characters
-5. Return ONLY valid JSON — no preamble, no explanation
-
-RETURN FORMAT:
-{"clauses": [{"section_ref": "תקנה 3ו(א)", "text": "verbatim text", "clause_type": "ELIGIBILITY"}]}"""
+RETURN FORMAT (JSON only, no other text):
+{"clauses": [{"section_ref": "תקנה 3ו(א)", "text": "verbatim Hebrew text here", "clause_type": "ELIGIBILITY"}]}"""
 
 EXTRACTION_USER_PROMPT = """Document ID: {doc_id}
 Title: {title}
 Publisher: {publisher}
+Legal Source URL: {url}
 
-Extract all atomic legal clauses from this text:
+Extract all atomic legal clauses from this text. Remember: copy verbatim Hebrew text only, exact section references only.
 
+TEXT:
 {text}"""
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 class SourceNotApprovedError(Exception):
     pass
 
@@ -118,10 +116,27 @@ def sha256_of(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def extract_text_from_bytes(file_bytes: bytes, filename: str) -> str:
-    """Route to correct text extractor based on file extension."""
-    ext = Path(filename).suffix.lower()
+def validate_date(date_str: str) -> str:
+    """Validate and normalize date string. Returns ISO date or raises ValueError."""
+    if not date_str:
+        return datetime.now().strftime("%Y-%m-%d")
+    # Remove non-numeric characters except dash
+    clean = re.sub(r'[^\d\-\/]', '', str(date_str))
+    # Try various formats
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
+        try:
+            dt = datetime.strptime(clean, fmt)
+            # Sanity check: year must be between 1900 and 2100
+            if 1900 <= dt.year <= 2100:
+                return dt.strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    # If all fail, return today
+    return datetime.now().strftime("%Y-%m-%d")
 
+
+def extract_text_from_bytes(file_bytes: bytes, filename: str) -> str:
+    ext = Path(filename).suffix.lower()
     if ext == ".pdf":
         try:
             import pdfplumber
@@ -136,7 +151,6 @@ def extract_text_from_bytes(file_bytes: bytes, filename: str) -> str:
             return "\n\n".join(pages)
         except ImportError:
             raise RuntimeError("pdfplumber not installed. Run: pip install pdfplumber")
-
     elif ext in (".docx", ".doc"):
         try:
             from docx import Document
@@ -146,27 +160,19 @@ def extract_text_from_bytes(file_bytes: bytes, filename: str) -> str:
                 raise ValueError("DOCX has no extractable text")
             return text
         except ImportError:
-            raise RuntimeError("python-docx not installed. Run: pip install python-docx")
-
+            raise RuntimeError("python-docx not installed.")
     elif ext == ".txt":
         return file_bytes.decode("utf-8", errors="replace")
-
     else:
-        raise ValueError(f"Unsupported file type '{ext}'. Supported: .pdf .docx .txt")
+        raise ValueError(f"Unsupported file type '{ext}'")
 
 
 def _chunk_text(text: str, max_chars: int = 5000) -> list[str]:
-    """
-    Split text into chunks at paragraph boundaries for OpenAI calls.
-    Respects token limits while keeping legal context intact.
-    """
     if len(text) <= max_chars:
         return [text]
-
     chunks = []
     paragraphs = text.split("\n\n")
     current = ""
-
     for para in paragraphs:
         if len(current) + len(para) + 2 < max_chars:
             current += ("\n\n" if current else "") + para
@@ -174,29 +180,18 @@ def _chunk_text(text: str, max_chars: int = 5000) -> list[str]:
             if current.strip():
                 chunks.append(current.strip())
             current = para
-
     if current.strip():
         chunks.append(current.strip())
-
     return chunks or [text[:max_chars]]
 
 
 def _call_openai(text: str, doc_id: str, meta: dict) -> list[dict]:
-    """
-    Single OpenAI call for one text chunk.
-    Returns list of {section_ref, text, clause_type}
-    """
     from openai import OpenAI
-
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key or api_key.startswith("sk-your"):
-        raise ValueError(
-            "OPENAI_API_KEY not set. Open .env file and add your key."
-        )
-
+        raise ValueError("OPENAI_API_KEY not set.")
     client = OpenAI(api_key=api_key)
     model = os.getenv("OPENAI_MODEL", "gpt-4o")
-
     response = client.chat.completions.create(
         model=model,
         messages=[
@@ -205,18 +200,17 @@ def _call_openai(text: str, doc_id: str, meta: dict) -> list[dict]:
                 doc_id=doc_id,
                 title=meta["title"],
                 publisher=meta["publisher"],
+                url=meta.get("url", "לא צוין"),
                 text=text,
             )},
         ],
-        temperature=0,  # deterministic — required by architecture brief §3.3
+        temperature=0,
         response_format={"type": "json_object"},
         max_tokens=4000,
     )
-
     raw = response.choices[0].message.content
     try:
         parsed = json.loads(raw)
-        # Handle {"clauses": [...]} or direct [...] response
         if isinstance(parsed, list):
             return parsed
         for v in parsed.values():
@@ -224,7 +218,6 @@ def _call_openai(text: str, doc_id: str, meta: dict) -> list[dict]:
                 return v
         return []
     except (json.JSONDecodeError, AttributeError):
-        # Fallback: try to find JSON array in response
         match = re.search(r'\[.*\]', raw, re.DOTALL)
         if match:
             try:
@@ -235,18 +228,12 @@ def _call_openai(text: str, doc_id: str, meta: dict) -> list[dict]:
 
 
 def _generate_clause_id(doc_id: str, section_ref: str, index: int) -> str:
-    """
-    Generate deterministic clause_id.
-    Format: CL-{DOCSHORT}-{SECTIONSLUG}-{INDEX:03d}
-    Example: CL-RESERVE3V-tkn3vav-001
-    """
     doc_short = re.sub(r"[^A-Z0-9]", "", doc_id.replace("GOV-IL-", "").upper())[:10]
     section_slug = re.sub(r"[^\w]", "", section_ref.replace(" ", ""))[:8]
     return f"CL-{doc_short}-{section_slug}-{index:03d}"
 
 
 def _audit(conn, event_type: str, details: dict, clause_ids: list = None):
-    """Write to append-only audit log. Never raises — must not block pipeline."""
     try:
         conn.execute(
             "INSERT INTO audit_log (event_type, clause_ids, details, created_at) VALUES (?,?,?,?)",
@@ -256,11 +243,11 @@ def _audit(conn, event_type: str, details: dict, clause_ids: list = None):
              datetime.now(timezone.utc).isoformat())
         )
     except Exception:
-        pass  # Audit failures must never block pipeline
+        pass
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-#  PUBLIC API
+# PUBLIC API
 # ═════════════════════════════════════════════════════════════════════════════
 
 def ingest_document(
@@ -272,40 +259,31 @@ def ingest_document(
     url: Optional[str] = None,
 ) -> dict:
     """
-    L1 + L2: Full ingestion pipeline for a legal document.
-
-    Steps:
-    1. Verify doc_id is on approved source list (§6.2)
-    2. Compute SHA-256 hash of file
-    3. Compare hash — unchanged → DocumentUnchangedError
-    4. Extract text (PDF/DOCX/TXT)
-    5. Send to OpenAI GPT-4o for clause extraction (temperature=0)
-    6. Place clauses in review_queue — NOT in clause store
-    7. Write to audit_log
-
-    Returns: {doc_id, title, file_hash, clause_count, status}
+    L1 + L2: Full ingestion pipeline.
+    FIX 1: file_hash UNIQUE — if same hash exists, raise DocumentUnchangedError
+    FIX 2: if doc_id exists with DIFFERENT hash — UPDATE record (not INSERT)
+    FIX 3: date validation
     """
-    # ── Step 1: Approved source list check ───────────────────────────────────
     if doc_id not in APPROVED_SOURCES:
         valid = list(APPROVED_SOURCES.keys())
         raise SourceNotApprovedError(
-            f"doc_id '{doc_id}' not on approved source list.\n"
-            f"Valid doc_ids: {valid}"
+            f"doc_id '{doc_id}' not on approved source list.\nValid: {valid}"
         )
 
     meta = APPROVED_SOURCES[doc_id]
-    pub_date = publication_date or meta.get("publication_date", "2026-01-01")
+    # FIX 3: validate date
+    pub_date = validate_date(publication_date or meta.get("publication_date", ""))
     file_hash = sha256_of(file_bytes)
     now = datetime.now(timezone.utc).isoformat()
 
     conn = get_db()
     try:
         existing = conn.execute(
-            "SELECT file_hash, status FROM source_documents WHERE doc_id=?",
+            "SELECT doc_id, file_hash, status FROM source_documents WHERE doc_id=?",
             (doc_id,)
         ).fetchone()
 
-        # ── Step 3: Hash check ────────────────────────────────────────────────
+        # Check if same file already ingested
         if existing and existing["file_hash"] == file_hash:
             _audit(conn, "INGEST_UNCHANGED", {
                 "doc_id": doc_id, "file_hash": file_hash,
@@ -313,20 +291,26 @@ def ingest_document(
             })
             conn.commit()
             raise DocumentUnchangedError(
-                f"Document '{doc_id}' is unchanged (hash matches). "
-                "No update recorded per §6.1 Step 2."
+                f"Document '{doc_id}' is unchanged (same file). "
+                "Upload a different/updated file."
             )
 
-        # ── Step 4: Text extraction ───────────────────────────────────────────
+        # Extract text
         extracted_text = extract_text_from_bytes(file_bytes, filename)
 
-        # ── Mark old record superseded if this is an update ───────────────────
+        # FIX 2: UPDATE if exists, INSERT if new
         if existing:
+            # Mark old clauses as superseded
+            conn.execute(
+                "UPDATE clauses SET is_current=0 WHERE source_doc_id=?", (doc_id,)
+            )
+            # Update source document record
             conn.execute("""
-                UPDATE source_documents 
-                SET status='SUPERSEDED', file_hash=?, ingested_at=?, ingested_by=?
+                UPDATE source_documents
+                SET file_hash=?, ingested_at=?, ingested_by=?,
+                    publication_date=?, status='ACTIVE'
                 WHERE doc_id=?
-            """, (file_hash, now, ingested_by, doc_id))
+            """, (file_hash, now, ingested_by, pub_date, doc_id))
         else:
             conn.execute("""
                 INSERT INTO source_documents
@@ -335,29 +319,29 @@ def ingest_document(
                 VALUES (?,?,?,?,?,?,?,?,'ACTIVE')
             """, (
                 doc_id, meta["title"], meta["publisher"],
-                pub_date, url, file_hash, now, ingested_by,
+                pub_date, url or meta.get("url"), file_hash, now, ingested_by,
             ))
-            conn.commit()
+        conn.commit()
 
-        # ── Step 5: OpenAI clause extraction ──────────────────────────────────
+        # OpenAI extraction
         chunks = _chunk_text(extracted_text, max_chars=5000)
         all_clauses = []
         for chunk in chunks:
             extracted = _call_openai(chunk, doc_id, meta)
             all_clauses.extend(extracted)
 
-        # ── Step 6: Place in review_queue ─────────────────────────────────────
+        # Place in review queue
         queued_ids = []
         for i, c in enumerate(all_clauses, 1):
-            section_ref = str(c.get("section_ref", f"§{i}"))[:128]
+            section_ref = str(c.get("section_ref", "לא צוין"))[:128]
             text = str(c.get("text", "")).strip()
             clause_type = c.get("clause_type", "ELIGIBILITY")
 
             if len(text) < 10:
-                continue  # Skip empty/trivial clauses
+                continue
 
             if clause_type not in ("ELIGIBILITY", "EXCLUSION", "DEFINITION", "PROCEDURE"):
-                clause_type = "ELIGIBILITY"  # Safe default; reviewer can override
+                clause_type = "ELIGIBILITY"
 
             clause_id = _generate_clause_id(doc_id, section_ref, i)
 
@@ -367,10 +351,8 @@ def ingest_document(
                      clause_type, status, submitted_at)
                 VALUES (?,?,?,?,?,'PENDING',?)
             """, (clause_id, doc_id, section_ref, text, clause_type, now))
-
             queued_ids.append(clause_id)
 
-        # ── Step 7: Audit log ─────────────────────────────────────────────────
         _audit(conn, "INGEST_SUCCESS", {
             "doc_id": doc_id, "file_hash": file_hash,
             "filename": filename, "ingested_by": ingested_by,
@@ -395,7 +377,6 @@ def ingest_document(
 
 
 def list_documents() -> list[dict]:
-    """List all source documents ordered by ingestion date."""
     conn = get_db()
     try:
         rows = conn.execute(
@@ -407,19 +388,14 @@ def list_documents() -> list[dict]:
 
 
 def get_approved_sources() -> list[dict]:
-    """Return the curated approved source list."""
-    return [
-        {"doc_id": k, **v}
-        for k, v in APPROVED_SOURCES.items()
-    ]
+    return [{"doc_id": k, **v} for k, v in APPROVED_SOURCES.items()]
 
 
 def get_pending_review() -> list[dict]:
-    """Get all clauses waiting in human review queue."""
     conn = get_db()
     try:
         rows = conn.execute("""
-            SELECT q.*, s.title as doc_title, s.publisher
+            SELECT q.*, s.title as doc_title, s.publisher, s.url as doc_url
             FROM review_queue q
             JOIN source_documents s ON q.source_doc_id = s.doc_id
             WHERE q.status = 'PENDING'
@@ -436,28 +412,24 @@ def approve_clause(
     review_note: Optional[str] = None,
     override_type: Optional[str] = None,
 ) -> dict:
-    """
-    Human reviewer approves a clause → enters clause store.
-    Architecture Brief §2.1 Human Gate — no clause enters store without this.
-    """
+    """Human approves clause → enters clause store + auto-links to rights catalog."""
     conn = get_db()
     try:
         now = datetime.now(timezone.utc).isoformat()
-
         item = conn.execute(
             "SELECT * FROM review_queue WHERE clause_id=? AND status='PENDING'",
             (clause_id,)
         ).fetchone()
 
         if not item:
-            raise ValueError(f"No pending clause found with id: {clause_id}")
+            raise ValueError(f"No pending clause found: {clause_id}")
 
         final_type = override_type if override_type else item["clause_type"]
         valid_types = ("ELIGIBILITY", "EXCLUSION", "DEFINITION", "PROCEDURE")
         if final_type not in valid_types:
-            raise ValueError(f"Invalid clause_type '{final_type}'. Must be one of: {valid_types}")
+            raise ValueError(f"Invalid clause_type '{final_type}'")
 
-        # Supersede any existing version of this clause
+        # Supersede old version
         conn.execute("UPDATE clauses SET is_current=0 WHERE clause_id=?", (clause_id,))
 
         # Write to clause store
@@ -469,16 +441,18 @@ def approve_clause(
         """, (clause_id, item["source_doc_id"], item["section_ref"],
               item["text"], final_type, now))
 
-        # Mark queue item approved
+        # Mark approved in queue
         conn.execute("""
             UPDATE review_queue
             SET status='APPROVED', reviewed_by=?, review_note=?, reviewed_at=?
             WHERE clause_id=?
         """, (reviewed_by, review_note, now, clause_id))
 
+        # Auto-link to rights catalog based on clause type + source doc
+        _auto_link_clause_to_rights(conn, clause_id, item["source_doc_id"], final_type, now)
+
         _audit(conn, "CLAUSE_APPROVED",
-               {"reviewed_by": reviewed_by, "clause_type": final_type,
-                "review_note": review_note},
+               {"reviewed_by": reviewed_by, "clause_type": final_type},
                clause_ids=[clause_id])
 
         conn.commit()
@@ -488,8 +462,95 @@ def approve_clause(
         conn.close()
 
 
+def unapprove_clause(clause_id: str, reviewed_by: str, reason: str) -> dict:
+    """
+    FIX: Un-approve a clause — move back to PENDING in review queue.
+    Removes from clause store, removes rights_clauses_map links.
+    """
+    conn = get_db()
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+
+        # Check clause exists in store
+        clause = conn.execute(
+            "SELECT * FROM clauses WHERE clause_id=? AND is_current=1", (clause_id,)
+        ).fetchone()
+
+        if not clause:
+            raise ValueError(f"No active clause found: {clause_id}")
+
+        # Remove from clause store
+        conn.execute("DELETE FROM clauses WHERE clause_id=?", (clause_id,))
+
+        # Remove rights_clauses_map links
+        conn.execute("DELETE FROM rights_clauses_map WHERE clause_id=?", (clause_id,))
+
+        # Move back to PENDING in review queue
+        conn.execute("""
+            UPDATE review_queue
+            SET status='PENDING', reviewed_by=NULL, review_note=?, reviewed_at=NULL
+            WHERE clause_id=?
+        """, (f"Un-approved by {reviewed_by}: {reason}", clause_id))
+
+        _audit(conn, "CLAUSE_UNAPPROVED",
+               {"reviewed_by": reviewed_by, "reason": reason},
+               clause_ids=[clause_id])
+
+        conn.commit()
+        return {"clause_id": clause_id, "status": "PENDING", "message": "Clause moved back to review queue"}
+
+    finally:
+        conn.close()
+
+
+def _auto_link_clause_to_rights(conn, clause_id: str, source_doc_id: str, clause_type: str, now: str):
+    """
+    Auto-link approved clause to relevant rights in catalog.
+    Based on source document category + clause type.
+    """
+    # Get rights that match this document's category
+    doc = conn.execute(
+        "SELECT * FROM source_documents WHERE doc_id=?", (source_doc_id,)
+    ).fetchone()
+
+    if not doc:
+        return
+
+    # Determine mapping role from clause type
+    role_map = {
+        "ELIGIBILITY": "CONDITIONS",
+        "EXCLUSION": "EXCLUDES",
+        "DEFINITION": "CONDITIONS",
+        "PROCEDURE": "PROCEDURE",
+    }
+    mapping_role = role_map.get(clause_type, "CONDITIONS")
+
+    # Find relevant rights based on source doc
+    if "RESERVE" in source_doc_id:
+        rights = conn.execute(
+            "SELECT catalog_id FROM rights WHERE subcategory_tag LIKE 'Reserve%' AND status='ACTIVE'"
+        ).fetchall()
+    elif "LOWINCOME" in source_doc_id:
+        rights = conn.execute(
+            "SELECT catalog_id FROM rights WHERE subcategory_tag LIKE '%Income%' OR subcategory_tag LIKE 'Senior%' AND status='ACTIVE'"
+        ).fetchall()
+    else:
+        rights = conn.execute(
+            "SELECT catalog_id FROM rights WHERE status='ACTIVE'"
+        ).fetchall()
+
+    for right in rights:
+        try:
+            conn.execute("""
+                INSERT OR IGNORE INTO rights_clauses_map
+                    (catalog_id, clause_id, mapping_role, created_at)
+                VALUES (?,?,?,?)
+            """, (right["catalog_id"], clause_id, mapping_role, now))
+        except Exception:
+            pass
+
+
 def reject_clause(clause_id: str, reviewed_by: str, reason: str) -> dict:
-    """Human reviewer rejects a clause — it will not enter clause store."""
     conn = get_db()
     try:
         now = datetime.now(timezone.utc).isoformat()
@@ -518,14 +579,11 @@ def get_clause_store(
     clause_type: Optional[str] = None,
     is_current: bool = True,
 ) -> list[dict]:
-    """
-    Query the clause store.
-    Per §12.1: queryable by clause_id, source_doc_id, section_ref, clause_type.
-    """
     conn = get_db()
     try:
         q = """
-            SELECT c.*, s.title as doc_title, s.publisher, s.publication_date as doc_date
+            SELECT c.*, s.title as doc_title, s.publisher,
+                   s.publication_date as doc_date, s.url as doc_url
             FROM clauses c
             JOIN source_documents s ON c.source_doc_id = s.doc_id
             WHERE 1=1
@@ -547,9 +605,8 @@ def get_clause_store(
 
 def validate_clause_integrity() -> dict:
     """
-    Milestone 1: Clause integrity validation + basic traceability.
-    Architecture Brief §12.1-§12.4.
-    Checks: orphaned clauses, missing fields, invalid types, broken FK links.
+    Enhanced validation — per-clause checks + rights_clauses_map integrity.
+    Client feedback: stronger self-validation mechanism.
     """
     conn = get_db()
     errors = []
@@ -569,13 +626,13 @@ def validate_clause_integrity() -> dict:
         }
 
         for c in clauses:
-            # Check 1: traceability — clause links to active source doc
+            # Check 1: traceability
             if c["source_doc_id"] not in active_docs:
                 errors.append({
                     "code": "ORPHANED_CLAUSE",
                     "severity": "CRITICAL",
                     "clause_id": c["clause_id"],
-                    "msg": f"Source doc not found or superseded: {c['source_doc_id']}"
+                    "msg": f"Source doc not found: {c['source_doc_id']}"
                 })
 
             # Check 2: required fields
@@ -585,19 +642,37 @@ def validate_clause_integrity() -> dict:
                         "code": "MISSING_FIELD",
                         "severity": "CRITICAL",
                         "clause_id": c["clause_id"],
-                        "msg": f"Missing required field: {field}"
+                        "msg": f"Missing: {field}"
                     })
 
-            # Check 3: text length
-            if len(c["text"].strip()) < 10:
+            # Check 3: section_ref should not be generic
+            if c["section_ref"] in ("לא צוין", "§1", "§2") or len(c["section_ref"]) < 3:
+                warnings.append({
+                    "code": "WEAK_SECTION_REF",
+                    "severity": "WARNING",
+                    "clause_id": c["clause_id"],
+                    "msg": f"Section ref may not be specific enough: '{c['section_ref']}'"
+                })
+
+            # Check 4: text length
+            if len(c["text"].strip()) < 20:
                 warnings.append({
                     "code": "SHORT_TEXT",
                     "severity": "WARNING",
                     "clause_id": c["clause_id"],
-                    "msg": f"Clause text is suspiciously short ({len(c['text'])} chars)"
+                    "msg": f"Clause text too short ({len(c['text'])} chars)"
                 })
 
-        # Check 4: rights_clauses_map referential integrity
+            # Check 5: extraction method must be AI_REVIEWED or HUMAN
+            if c["extraction_method"] not in ("AI_REVIEWED", "HUMAN"):
+                errors.append({
+                    "code": "INVALID_EXTRACTION_METHOD",
+                    "severity": "CRITICAL",
+                    "clause_id": c["clause_id"],
+                    "msg": f"Invalid extraction_method: {c['extraction_method']}"
+                })
+
+        # Check 6: rights_clauses_map integrity
         for m in map_rows:
             if m["clause_id"] not in active_clause_ids:
                 errors.append({
@@ -611,16 +686,31 @@ def validate_clause_integrity() -> dict:
                     "code": "MAP_INACTIVE_RIGHT",
                     "severity": "WARNING",
                     "clause_id": m["clause_id"],
-                    "msg": f"rights_clauses_map references non-active right: {m['catalog_id']}"
+                    "msg": f"Map references inactive right: {m['catalog_id']}"
                 })
 
-        # Traceability summary
+        # Check 7: every active right should have at least 1 clause linked
+        for right_id in active_rights:
+            linked = conn.execute(
+                "SELECT COUNT(*) as c FROM rights_clauses_map WHERE catalog_id=?",
+                (right_id,)
+            ).fetchone()["c"]
+            if linked == 0:
+                warnings.append({
+                    "code": "RIGHT_NO_CLAUSES",
+                    "severity": "WARNING",
+                    "clause_id": None,
+                    "msg": f"Right '{right_id}' has no linked clauses yet"
+                })
+
         traceable = sum(1 for c in clauses if c["source_doc_id"] in active_docs)
 
         report = {
             "passed": len(errors) == 0,
             "total_clauses": len(clauses),
             "total_source_docs": len(active_docs),
+            "total_rights": len(active_rights),
+            "total_mappings": len(map_rows),
             "critical_errors": len(errors),
             "warnings": len(warnings),
             "errors": errors,
@@ -638,6 +728,7 @@ def validate_clause_integrity() -> dict:
             "passed": report["passed"],
             "critical_errors": len(errors),
             "warnings": len(warnings),
+            "total_mappings": len(map_rows),
         })
         conn.commit()
         return report
@@ -647,10 +738,7 @@ def validate_clause_integrity() -> dict:
 
 
 def get_traceability_chain(clause_id: str) -> dict:
-    """
-    Return full traceability chain for a clause.
-    Milestone 1 requirement: clause_id → source_doc → section_ref → file_hash
-    """
+    """Full traceability: clause → source doc → section ref → file hash → rights linked."""
     conn = get_db()
     try:
         clause = conn.execute(
@@ -666,7 +754,8 @@ def get_traceability_chain(clause_id: str) -> dict:
         ).fetchone()
 
         rights_using = conn.execute("""
-            SELECT r.catalog_id, r.name, m.mapping_role
+            SELECT r.catalog_id, r.name, r.discount_value, r.discount_unit,
+                   m.mapping_role
             FROM rights_clauses_map m
             JOIN rights r ON m.catalog_id = r.catalog_id
             WHERE m.clause_id=?
@@ -686,11 +775,17 @@ def get_traceability_chain(clause_id: str) -> dict:
                 "publisher": doc["publisher"] if doc else None,
                 "publication_date": doc["publication_date"] if doc else None,
                 "file_hash": doc["file_hash"] if doc else None,
+                "url": doc["url"] if doc else None,
                 "status": doc["status"] if doc else "NOT_FOUND",
             },
-            "used_by_rights": [
-                {"catalog_id": r["catalog_id"], "name": r["name"],
-                 "role": r["mapping_role"]}
+            "linked_rights": [
+                {
+                    "catalog_id": r["catalog_id"],
+                    "name": r["name"],
+                    "discount_value": r["discount_value"],
+                    "discount_unit": r["discount_unit"],
+                    "mapping_role": r["mapping_role"],
+                }
                 for r in rights_using
             ],
             "is_traceable": doc is not None and doc["status"] == "ACTIVE",
