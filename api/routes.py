@@ -76,11 +76,13 @@ class StageVersionRequest(BaseModel):
 class PublishVersionRequest(BaseModel):
     engine_id: str
     published_by: str
+    note: Optional[str] = None  # Expert note from screen6 approval UI
 
 class RejectVersionRequest(BaseModel):
     engine_id: str
     rejected_by: str
     reason: str
+    note: Optional[str] = None  # Alias — screen6 sends 'reason' via note field
 
 
 # ─── Document Ingestion ───────────────────────────────────────────────────────
@@ -101,6 +103,24 @@ async def api_ingest(
     4. OpenAI GPT-4o clause extraction
     5. Places clauses in review queue
     """
+    # ── Date validation — prevent illogical years (e.g. 275760) ──────────────
+    if publication_date:
+        try:
+            from datetime import datetime
+            parsed = datetime.strptime(publication_date, "%Y-%m-%d")
+            current_year = datetime.now().year
+            if parsed.year < 1900 or parsed.year > current_year + 1:
+                raise HTTPException(
+                    400,
+                    f"תאריך פרסום לא תקין: {publication_date}. "
+                    f"השנה חייבת להיות בין 1900 ל-{current_year + 1}."
+                )
+        except ValueError:
+            raise HTTPException(
+                400,
+                f"פורמט תאריך לא תקין: {publication_date}. נדרש פורמט: YYYY-MM-DD"
+            )
+
     try:
         file_bytes = await file.read()
         if len(file_bytes) == 0:
@@ -249,6 +269,7 @@ def api_publish_version(req: PublishVersionRequest):
         return publish_version(
             engine_id=req.engine_id,
             published_by=req.published_by,
+            notes=req.note,
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -258,10 +279,12 @@ def api_publish_version(req: PublishVersionRequest):
 def api_reject_version(req: RejectVersionRequest):
     """Reject a staging version — blocks publication."""
     try:
+        # screen6 JS sends note as 'reason' field
+        reason = req.reason or req.note or "Rejected by expert"
         return reject_version(
             engine_id=req.engine_id,
             rejected_by=req.rejected_by,
-            reason=req.reason,
+            reason=reason,
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -321,7 +344,18 @@ def api_unapprove_clause(req: UnapproveRequest):
 
 
 @router.get("/reset-db-temp")
-def reset_db():
+def reset_db(secret: Optional[str] = Query(None)):
+    """
+    ⚠️  DEVELOPMENT ONLY — guarded by RESET_SECRET env var.
+    Remove or disable before any production deployment.
+    """
+    import os
+    expected = os.getenv("RESET_SECRET", "")
+    if not expected or secret != expected:
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden. Set RESET_SECRET env var and pass ?secret=... to use this endpoint."
+        )
     from database.schema import get_db, init_db
     conn = get_db()
     conn.execute("DELETE FROM rights_clauses_map")
