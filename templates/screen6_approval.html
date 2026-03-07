@@ -187,13 +187,13 @@
           <hr class="divider">
 
           <div style="display:flex; flex-direction:column; gap:10px;">
-            <button class="btn btn-gold" style="width:100%; justify-content:center; font-size:16px;">
+            <button class="btn btn-gold" id="btn-publish" style="width:100%; justify-content:center; font-size:16px;" onclick="publishEngine()">
               ✅ אשר ופרסם גרסה ENG-2026-001
             </button>
-            <button class="btn btn-outline" style="width:100%; justify-content:center;">
+            <button class="btn btn-outline" id="btn-return" style="width:100%; justify-content:center;" onclick="returnToEdit()">
               ✏️ החזר לעריכה
             </button>
-            <button class="btn btn-danger" style="width:100%; justify-content:center;">
+            <button class="btn btn-danger" id="btn-reject" style="width:100%; justify-content:center;" onclick="rejectEngine()">
               ⛔ דחה — לא מאשר
             </button>
           </div>
@@ -207,4 +207,79 @@
     </div>
   </div>
 </div>
+
+<script>
+  // Get the active engine version from the page (can be made dynamic later)
+  const ENGINE_ID = 'ENG-2026-001';
+
+  async function publishEngine() {
+    const note = document.querySelector('.note-box')?.value || '';
+    if (!confirm('לאשר ולפרסם את גרסה ' + ENGINE_ID + '?\nפעולה זו בלתי הפיכה.')) return;
+
+    const btn = document.getElementById('btn-publish');
+    btn.disabled = true; btn.textContent = '⏳ מפרסם...';
+
+    try {
+      const res = await fetch('/api/engine/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ engine_id: ENGINE_ID, approved_by: 'expert', note: note })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        btn.textContent = '✅ פורסם!';
+        btn.style.background = 'var(--green)';
+        document.querySelector('.badge-yellow').textContent = '✅ אושר ופורסם';
+        document.querySelector('.badge-yellow').className = 'badge badge-green';
+        alert('גרסה ' + ENGINE_ID + ' פורסמה בהצלחה ונרשמה ב-Audit Log.');
+      } else {
+        alert('שגיאה: ' + (data.detail || 'לא ניתן לפרסם'));
+        btn.disabled = false; btn.textContent = '✅ אשר ופרסם גרסה ' + ENGINE_ID;
+      }
+    } catch (e) {
+      alert('שגיאת רשת: ' + e.message);
+      btn.disabled = false; btn.textContent = '✅ אשר ופרסם גרסה ' + ENGINE_ID;
+    }
+  }
+
+  async function rejectEngine() {
+    const note = document.querySelector('.note-box')?.value || '';
+    if (!note.trim()) {
+      alert('נא להוסיף הערת דחייה לפני הדחייה.');
+      document.querySelector('.note-box').focus();
+      return;
+    }
+    if (!confirm('לדחות את גרסה ' + ENGINE_ID + '?\nהמנוע יחזור לסטטוס REJECTED.')) return;
+
+    const btn = document.getElementById('btn-reject');
+    btn.disabled = true; btn.textContent = '⏳ דוחה...';
+
+    try {
+      const res = await fetch('/api/engine/reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ engine_id: ENGINE_ID, rejected_by: 'expert', reason: note })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        btn.textContent = '⛔ נדחה';
+        document.querySelector('.badge-yellow').textContent = '⛔ נדחה';
+        document.querySelector('.badge-yellow').className = 'badge badge-red';
+        alert('גרסה ' + ENGINE_ID + ' נדחתה ונרשמה ב-Audit Log.');
+      } else {
+        alert('שגיאה: ' + (data.detail || 'לא ניתן לדחות'));
+        btn.disabled = false; btn.textContent = '⛔ דחה — לא מאשר';
+      }
+    } catch (e) {
+      alert('שגיאת רשת: ' + e.message);
+      btn.disabled = false; btn.textContent = '⛔ דחה — לא מאשר';
+    }
+  }
+
+  function returnToEdit() {
+    if (confirm('לחזור לעריכה? המנוע יישאר בסטטוס STAGING.')) {
+      window.location.href = '/screen5';
+    }
+  }
+</script>
 {% endblock %}
