@@ -9,7 +9,7 @@ from fastapi.responses import RedirectResponse
 from pathlib import Path
 import uvicorn
 
-from database.schema import init_db
+from database.schema import init_db, get_db
 from engine.rights_catalog import seed_rights_catalog, get_all_rights
 from api.routes import router
 from ingestion.pipeline import (
@@ -28,6 +28,38 @@ if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 app.include_router(router, prefix="/api")
+
+
+def get_rights_with_linked_clauses(status: str = "ACTIVE") -> list:
+    """
+    Returns all rights with their linked clauses attached.
+    Used by screen3 to show legal sources per right.
+    """
+    conn = get_db()
+    try:
+        rights = conn.execute(
+            "SELECT * FROM rights WHERE status=? ORDER BY category_tag, catalog_id",
+            (status,)
+        ).fetchall()
+
+        result = []
+        for r in rights:
+            right_dict = dict(r)
+            # Fetch linked clauses for this right
+            linked = conn.execute("""
+                SELECT c.clause_id, c.section_ref, c.clause_type, m.mapping_role,
+                       s.title as doc_title
+                FROM rights_clauses_map m
+                JOIN clauses c ON m.clause_id = c.clause_id
+                JOIN source_documents s ON c.source_doc_id = s.doc_id
+                WHERE m.catalog_id = ? AND c.is_current = 1
+                ORDER BY c.created_at ASC
+            """, (r["catalog_id"],)).fetchall()
+            right_dict["linked_clauses"] = [dict(cl) for cl in linked]
+            result.append(right_dict)
+        return result
+    finally:
+        conn.close()
 
 
 @app.get("/")
@@ -61,11 +93,13 @@ async def screen2(request: Request):
 
 @app.get("/screen3")
 async def screen3(request: Request):
+    # Pass rights WITH linked clauses so template can show legal sources
     return templates.TemplateResponse("screen3_engine.html", {
         "request": request,
         "versions": list_versions(),
-        "rights": get_all_rights(),
+        "rights": get_rights_with_linked_clauses(),
     })
+
 
 @app.get("/screen4")
 async def screen4(request: Request):
