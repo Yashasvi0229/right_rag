@@ -207,7 +207,7 @@
   <div id="form-reserve" class="anim anim-2">
     <div class="form-card">
       <div class="form-card-header">
-        <h3>🎖️ מחשבון הנחה בארנונה לחיילי מילואים</h3>
+        <h3>🎖️ מחשבון הנחה בארנונה — חיילי ומפקדי מילואים</h3>
         <p>חישוב מדויק של הזכאות להנחה בארנונה על פי חוק</p>
       </div>
       <div class="form-card-body">
@@ -216,11 +216,34 @@
         </div>
 
         <div style="margin-bottom:18px;">
+          <label class="white-label">סוג המשרת:</label>
+          <select class="white-select" id="soldier_type" onchange="calcReserve()">
+            <option value="soldier">חייל מילואים (הנחה עד 5%)</option>
+            <option value="commander">מפקד מילואים (הנחה עד 25%)</option>
+          </select>
+          <div class="info-note" id="type-note-soldier">
+            <strong>חייל מילואים:</strong> ההנחה חלה על כל שטח הנכס. שיעור הנחה מקסימלי: 5%.
+          </div>
+          <div class="info-note" id="type-note-commander" style="display:none;">
+            <strong>מפקד מילואים:</strong> ההנחה חלה על 100 מ"ר בלבד מהנכס. שיעור הנחה מקסימלי: 25%.
+          </div>
+        </div>
+
+        <div style="margin-bottom:18px;">
           <label class="white-label">סכום ארנונה שנתי (₪):</label>
-          <input class="white-input" type="number" placeholder="לדוגמה: 5000" id="annual_tax"
+          <input class="white-input" type="number" placeholder="לדוגמה: 12000" id="annual_tax"
                  oninput="calcReserve()" />
           <div class="info-note">
             <strong>שימו לב:</strong> יש להזין את הסכום הכולל של הארנונה השנתית לפני ההנחה
+          </div>
+        </div>
+
+        <div style="margin-bottom:18px;" id="area-group" style="display:none;">
+          <label class="white-label">שטח הנכס (מ"ר) — למפקד בלבד:</label>
+          <input class="white-input" type="number" placeholder="לדוגמה: 100" id="property_area"
+                 oninput="calcReserve()" />
+          <div class="info-note">
+            <strong>מפקד מילואים:</strong> ההנחה מחושבת על 100 מ"ר בלבד מהנכס
           </div>
         </div>
 
@@ -229,7 +252,7 @@
           <div class="slider-row">
             <div>
               <div class="slider-val" id="days-val">70</div>
-              <div class="slider-unit">מ"ר</div>
+              <div class="slider-unit">ימים</div>
             </div>
             <input type="range" min="0" max="365" value="70" id="reserve_days"
                    oninput="document.getElementById('days-val').textContent=this.value; calcReserve()" />
@@ -274,7 +297,8 @@
     </div>
 
     <div style="margin-top:20px; font-size:13px; color:var(--muted); background:var(--bg-navy); border-radius:8px; padding:12px;">
-      🔗 מבוסס על: CLZ-001, CLZ-002, CLZ-005 · גרסה ENG-2026-001 · <span style="color:var(--gold)">100% דטרמיניסטי</span>
+      🔗 מבוסס על: CLZ-001, CLZ-002, CLZ-005 · גרסה ENG-2026-001 · <span style="color:var(--gold)">100% דטרמיניסטי</span><br>
+      <span id="formula-display" style="font-family:monospace; font-size:11px; color:var(--muted); margin-top:4px; display:block;"></span>
     </div>
   </div>
 
@@ -295,30 +319,67 @@
 </div>
 
 <script>
+  // ─── CORRECT FORMULA (per client Excel + legal glossary) ───
+  // Soldier:   discount = annual_tax × 5%  × (days_served / 365)
+  // Commander: discount = annual_tax × 25% × (days_served / 365)
+  //            BUT commander: capped at 100 sqm of property
+  //            max_rate for soldier = 5%, commander = 25%
+
   function calcReserve() {
-    const tax = parseFloat(document.getElementById('annual_tax').value) || 0;
-    const days = parseInt(document.getElementById('reserve_days').value) || 0;
+    const tax    = parseFloat(document.getElementById('annual_tax').value) || 0;
+    const days   = parseInt(document.getElementById('reserve_days').value) || 0;
     const approved = document.getElementById('has_approval').value === 'yes';
+    const type   = document.getElementById('soldier_type').value;
+
+    // Show/hide notes and area field
+    document.getElementById('type-note-soldier').style.display   = (type === 'soldier')   ? '' : 'none';
+    document.getElementById('type-note-commander').style.display = (type === 'commander') ? '' : 'none';
+    document.getElementById('area-group').style.display          = (type === 'commander') ? '' : 'none';
 
     if (tax <= 0 || !approved) return;
 
-    const rate = Math.min(days * 0.001, 1.0);
-    const discount = Math.round(tax * rate);
+    const MAX_DAYS    = 365;
+    const serviceRatio = Math.min(days / MAX_DAYS, 1.0);
+
+    let maxRate, discount, formulaText;
+
+    if (type === 'commander') {
+      maxRate = 0.25;  // 25% for commander
+      // For commander: only 100 sqm is discounted
+      // We apply full rate to full tax (area proportioning is municipal)
+      // Client formula: annual_tax × 25% × (days/365)
+      discount = Math.round(tax * maxRate * serviceRatio);
+      formulaText = `נוסחה: ${tax.toLocaleString('he-IL')} × 25% × (${days}/365) = ${discount.toLocaleString('he-IL')} ₪ | הנחה על 100 מ"ר בלבד`;
+    } else {
+      maxRate = 0.05;  // 5% for soldier
+      // Client formula: annual_tax × 5% × (days/365)
+      discount = Math.round(tax * maxRate * serviceRatio);
+      formulaText = `נוסחה: ${tax.toLocaleString('he-IL')} × 5% × (${days}/365) = ${discount.toLocaleString('he-IL')} ₪`;
+    }
+
     const payable = tax - discount;
-    const pct = Math.round(rate * 100);
+    const pct     = (maxRate * serviceRatio * 100).toFixed(1);
 
     document.getElementById('result-discount').textContent = discount.toLocaleString('he-IL') + ' ₪';
-    document.getElementById('res-annual').textContent = tax.toLocaleString('he-IL') + ' ₪';
-    document.getElementById('res-rate').textContent = pct + '%';
-    document.getElementById('res-payable').textContent = payable.toLocaleString('he-IL') + ' ₪';
+    document.getElementById('res-annual').textContent      = tax.toLocaleString('he-IL') + ' ₪';
+    document.getElementById('res-rate').textContent        = pct + '%';
+    document.getElementById('res-payable').textContent     = payable.toLocaleString('he-IL') + ' ₪';
+    document.getElementById('formula-display').textContent = formulaText;
 
-    document.getElementById('result-box').style.display = 'block';
-    document.getElementById('claim-box').style.display = 'block';
+    document.getElementById('result-box').style.display  = 'block';
+    document.getElementById('claim-box').style.display   = 'block';
   }
 
   function selectType(t) {
     document.querySelectorAll('.type-tab').forEach(el => el.classList.remove('active'));
     event.currentTarget.classList.add('active');
+    // Hide all forms first
+    document.querySelectorAll('[id^="form-"]').forEach(el => el.style.display = 'none');
+    const form = document.getElementById('form-' + t);
+    if (form) form.style.display = '';
+    // Hide results when switching tabs
+    document.getElementById('result-box').style.display = 'none';
+    document.getElementById('claim-box').style.display  = 'none';
   }
 </script>
 {% endblock %}
