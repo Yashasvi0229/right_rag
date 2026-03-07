@@ -31,7 +31,8 @@ def init_db():
         doc_id           TEXT PRIMARY KEY,
         title            TEXT NOT NULL,
         publisher        TEXT NOT NULL,
-        publication_date TEXT NOT NULL,
+        publication_date TEXT NOT NULL
+                         CHECK(CAST(substr(publication_date,1,4) AS INTEGER) BETWEEN 1900 AND 2100),
         url              TEXT,
         file_hash        TEXT NOT NULL UNIQUE,
         ingested_at      TEXT NOT NULL,
