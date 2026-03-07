@@ -161,22 +161,26 @@
             <div class="card-title" style="margin-bottom:0">🧪 סימולציות דוגמה</div>
           </div>
           <div style="padding:16px 20px;">
+            <!-- Correct formula: annual_tax × rate × (days/365) -->
+            <!-- Example 1: soldier, 12000₪, 181 days → 12000×5%×(181/365) = 297.5₪ -->
             <div class="sim-row">
-              <div><div class="sim-label">קלט</div>5,000₪ · 45 ימים</div>
-              <div><div class="sim-label">תוצאה</div>2,750₪</div>
-              <div><div class="sim-label">הנחה</div>45%</div>
+              <div><div class="sim-label">קלט</div>12,000₪ · 181 ימים · חייל</div>
+              <div><div class="sim-label">תוצאה (הנחה)</div>298 ₪</div>
+              <div><div class="sim-label">שיעור</div>2.5%</div>
               <span class="badge badge-green">✔ תקין</span>
             </div>
+            <!-- Example 2: commander, 12000₪, 181 days → 12000×25%×(181/365) = 1,488₪ -->
             <div class="sim-row">
-              <div><div class="sim-label">קלט</div>8,000₪ · 120 ימים</div>
-              <div><div class="sim-label">תוצאה</div>0₪</div>
-              <div><div class="sim-label">הנחה</div>100%</div>
+              <div><div class="sim-label">קלט</div>12,000₪ · 181 ימים · מפקד</div>
+              <div><div class="sim-label">תוצאה (הנחה)</div>1,488 ₪</div>
+              <div><div class="sim-label">שיעור</div>12.4%</div>
               <span class="badge badge-green">✔ תקרה</span>
             </div>
+            <!-- Example 3: 0 days → 0 discount -->
             <div class="sim-row">
-              <div><div class="sim-label">קלט</div>3,200₪ · 0 ימים</div>
-              <div><div class="sim-label">תוצאה</div>3,200₪</div>
-              <div><div class="sim-label">הנחה</div>0%</div>
+              <div><div class="sim-label">קלט</div>8,000₪ · 0 ימים</div>
+              <div><div class="sim-label">תוצאה (הנחה)</div>0 ₪</div>
+              <div><div class="sim-label">שיעור</div>0%</div>
               <span class="badge badge-green">✔ ללא שינוי</span>
             </div>
           </div>
