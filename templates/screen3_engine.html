@@ -62,6 +62,7 @@
     margin: 12px 0;
     direction: ltr;
     text-align: left;
+    white-space: pre;
   }
 
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -72,6 +73,17 @@
     color: var(--muted);
     margin-bottom: 8px;
     font-weight: 600;
+  }
+
+  .category-divider {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border2);
+    margin: 24px 0 16px 0;
   }
 </style>
 {% endblock %}
@@ -110,12 +122,17 @@
       <div class="step pending"><span class="step-num">6</span> אישור</div>
     </div>
 
-    <!-- Engine 1 -->
+    <!-- ── RESERVE CATEGORY ─────────────────────────────────────────────── -->
+    {% set reserve_rights = rights | selectattr('subcategory_tag','in',['Reserve_Soldiers','Reserve_Commander','Reserve_Large_Family']) | list %}
+    <div class="category-divider anim anim-2">🎖️ קטגוריה: מילואים ({{ reserve_rights | length }} זכויות)</div>
+
+    {% for right in rights %}
+    {% if right.subcategory_tag in ('Reserve_Soldiers', 'Reserve_Commander', 'Reserve_Large_Family') %}
     <div class="engine-card anim anim-2">
-      <div class="engine-header">
+      <div class="engine-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
         <div class="engine-title">
-          🎖️ הנחה לחיילי מילואים
-          <span class="engine-id">CAT-RESERVE-001</span>
+          🎖️ {{ right.name }}
+          <span class="engine-id">{{ right.catalog_id }}</span>
         </div>
         <span class="badge badge-yellow">🟡 טיוטה — ממתין לאימות</span>
       </div>
@@ -124,43 +141,96 @@
           <div>
             <div class="sub-label">תנאי זכאות</div>
             <ul class="conditions-list">
-              <li><span style="color:var(--green)">✔</span> תושב/ת ישראל</li>
-              <li><span style="color:var(--green)">✔</span> שירות מילואים מאושר</li>
-              <li><span style="color:var(--green)">✔</span> בעל/ת נכס ממוסה בארנונה</li>
-              <li><span style="color:var(--green)">✔</span> ימי שירות &gt; 0 בשנת המס</li>
+              {% if 'COMMANDER' in right.catalog_id %}
+              <li><span style="color:var(--green)">✔</span> מפקד מילואים פעיל (תעודה תקפה)</li>
+              <li><span style="color:var(--green)">✔</span> תפקיד פיקודי לפי פקודות הצבא</li>
+              {% elif 'FAMILY5' in right.catalog_id %}
+              <li><span style="color:var(--green)">✔</span> חייל מילואים פעיל</li>
+              <li><span style="color:var(--green)">✔</span> משפחה בת 5 נפשות ומעלה</li>
+              {% else %}
+              <li><span style="color:var(--green)">✔</span> חייל מילואים פעיל (תעודה תקפה)</li>
+              <li><span style="color:var(--green)">✔</span> לפחות 20 ימי שמ"פ ב-3 שנים אחרונות</li>
+              {% endif %}
+              <li><span style="color:var(--green)">✔</span> מחזיק בנכס (שוכר או בעלים)</li>
+              <li><span style="color:var(--green)">✔</span> רשות מקומית אישרה את ההנחה</li>
             </ul>
           </div>
           <div>
             <div class="sub-label">משתני קלט נדרשים</div>
             <ul class="vars-list">
               <li><span class="badge badge-blue">num</span> סכום ארנונה שנתי (₪)</li>
-              <li><span class="badge badge-blue">int</span> ימי שירות מילואים</li>
+              <li><span class="badge badge-blue">int</span> ימי שירות מילואים בשנת המס</li>
               <li><span class="badge badge-gold">bool</span> אישור שירות צה"ל</li>
+              {% if 'COMMANDER' in right.catalog_id %}
+              <li><span class="badge badge-blue">num</span> שטח הנכס (מ"ר) — תקרה 100 מ"ר</li>
+              {% endif %}
             </ul>
           </div>
         </div>
-        <div class="sub-label" style="margin-top:16px">נוסחת חישוב</div>
+
+        <div class="sub-label" style="margin-top:16px">נוסחת חישוב — תקנה 3ו</div>
+
+        {% if 'FAMILY5' in right.catalog_id %}
         <div class="formula-box">
-discount = annual_tax * (reserve_days * 0.001)
-discount = min(discount, annual_tax)  # cap at 100%
-result = annual_tax - discount
+# הנחה מלאה 100% — משפחה עם 5 נפשות ומעלה
+# עד 90 מ"ר שטח נכס (תקנות נתניה תשפ"ג-2022)
+service_ratio = days_served / 365
+discount      = annual_tax * 1.00 * service_ratio
+result        = annual_tax - discount</div>
+        {% elif 'COMMANDER' in right.catalog_id %}
+        <div class="formula-box">
+# מפקד מילואים פעיל — עד 25% על 100 מ"ר בלבד
+# תקנות ההסדרים תשפ"ג-2022
+service_ratio = days_served / 365
+discount      = annual_tax * 0.25 * service_ratio
+# תקרה: ההנחה מחושבת על עד 100 מ"ר בלבד
+result        = annual_tax - discount</div>
+        {% else %}
+        <div class="formula-box">
+# חייל מילואים פעיל — עד 5% — תקנה 3ו(א) תשע"ח-2018
+service_ratio = days_served / 365
+discount      = annual_tax * 0.05 * service_ratio
+result        = annual_tax - discount
+
+# דוגמה: 12,000₪ × 5% × (181/365) = 298₪</div>
+        {% endif %}
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+          <div>
+            <div class="sub-label">פרמטרים</div>
+            <span class="badge badge-green">{{ right.discount_value }}% הנחה</span>
+            <span class="badge" style="background:rgba(255,255,255,0.08); color:var(--muted); margin-right:6px">חיכוך {{ right.friction_score }}/10</span>
+          </div>
+          {% if right.linked_clauses %}
+          <div>
+            <div class="sub-label">מקורות משפטיים ({{ right.linked_clauses | length }})</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              {% for cl in right.linked_clauses[:4] %}
+              <span class="badge badge-gold" title="{{ cl.section_ref }}">{{ cl.clause_id[-8:] }}</span>
+              {% endfor %}
+              {% if right.linked_clauses | length > 4 %}
+              <span class="badge" style="color:var(--muted)">+{{ right.linked_clauses | length - 4 }}</span>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
         </div>
-        <div class="sub-label">מקורות משפטיים (3)</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <span class="badge badge-gold">CLZ-001</span>
-          <span class="badge badge-gold">CLZ-002</span>
-          <span class="badge badge-gold">CLZ-005</span>
-        </div>
-        <div style="font-size:12px; color:var(--muted); margin-top:8px;">ציון חיכוך: 4/10 · עדיפות קטגוריה: RESERVE</div>
       </div>
     </div>
+    {% endif %}
+    {% endfor %}
 
-    <!-- Engine 2 -->
+    <!-- ── LOW INCOME / SENIOR CATEGORY ────────────────────────────────── -->
+    {% set lowincome_rights = rights | selectattr('subcategory_tag','in',['Low_Income','Senior_Income_Support','Senior_Pension','Women_Retirement_Age','Special_Hardship']) | list %}
+    <div class="category-divider anim anim-3">👴 קטגוריה: מעוטי יכולת ואזרחים ותיקים ({{ lowincome_rights | length }} זכויות)</div>
+
+    {% for right in rights %}
+    {% if right.subcategory_tag in ('Low_Income', 'Senior_Income_Support', 'Senior_Pension', 'Women_Retirement_Age', 'Special_Hardship') %}
     <div class="engine-card anim anim-3">
-      <div class="engine-header">
+      <div class="engine-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
         <div class="engine-title">
-          👴 הנחה לאזרחים ותיקים
-          <span class="engine-id">CAT-SENIOR-001</span>
+          👴 {{ right.name }}
+          <span class="engine-id">{{ right.catalog_id }}</span>
         </div>
         <span class="badge badge-yellow">🟡 טיוטה — ממתין לאימות</span>
       </div>
@@ -169,9 +239,17 @@ result = annual_tax - discount
           <div>
             <div class="sub-label">תנאי זכאות</div>
             <ul class="conditions-list">
-              <li><span style="color:var(--green)">✔</span> גיל 65 ומעלה</li>
-              <li><span style="color:var(--green)">✔</span> הכנסה מתחת לסף</li>
+              {% if right.subcategory_tag == 'Senior_Income_Support' or right.subcategory_tag == 'Senior_Pension' %}
+              <li><span style="color:var(--green)">✔</span> גיל 65 ומעלה (נשים 62-67)</li>
+              <li><span style="color:var(--green)">✔</span> הכנסה מתחת לסף הקבוע</li>
               <li><span style="color:var(--green)">✔</span> שטח נכס ≤ 100 מ"ר</li>
+              {% elif right.subcategory_tag == 'Women_Retirement_Age' %}
+              <li><span style="color:var(--green)">✔</span> אישה בגיל 62–67</li>
+              <li><span style="color:var(--green)">✔</span> הכנסה מתחת לסף</li>
+              {% else %}
+              <li><span style="color:var(--green)">✔</span> הכנסה נמוכה לפי סף הקבוע</li>
+              <li><span style="color:var(--green)">✔</span> מחזיק בנכס</li>
+              {% endif %}
             </ul>
           </div>
           <div>
@@ -183,14 +261,42 @@ result = annual_tax - discount
             </ul>
           </div>
         </div>
+
+        <div class="sub-label" style="margin-top:16px">נוסחת חישוב</div>
         <div class="formula-box">
-if income &lt;= THRESHOLD_LOW:   discount_rate = 0.66
-elif income &lt;= THRESHOLD_MID: discount_rate = 0.40
-else:                          discount_rate = 0.20
-result = annual_tax * (1 - discount_rate)
+discount_rate = {{ right.discount_value / 100 }}  # {{ right.discount_value }}%
+result        = annual_tax * (1 - discount_rate)
+
+# חיכוך: {{ right.friction_score }}/10</div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+          <div>
+            <span class="badge badge-green">{{ right.discount_value }}% הנחה</span>
+            <span class="badge" style="background:rgba(255,255,255,0.08); color:var(--muted); margin-right:6px">חיכוך {{ right.friction_score }}/10</span>
+          </div>
+          {% if right.linked_clauses %}
+          <div>
+            <div class="sub-label">מקורות משפטיים ({{ right.linked_clauses | length }})</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              {% for cl in right.linked_clauses[:4] %}
+              <span class="badge badge-gold" title="{{ cl.section_ref }}">{{ cl.clause_id[-8:] }}</span>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
         </div>
       </div>
     </div>
+    {% endif %}
+    {% endfor %}
+
+    {% if not rights %}
+    <div class="card" style="text-align:center; padding:40px; color:var(--muted);">
+      <div style="font-size:32px; margin-bottom:12px">📭</div>
+      <div>אין זכויות בקטלוג עדיין</div>
+      <div style="font-size:12px; margin-top:6px">בדוק שה-seed data רץ: <code>GET /api/rights</code></div>
+    </div>
+    {% endif %}
 
     <div class="anim anim-4" style="display:flex; gap:12px;">
       <a href="/screen2" class="btn btn-outline">‹ חזור</a>
