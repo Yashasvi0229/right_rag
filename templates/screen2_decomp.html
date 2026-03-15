@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+{% set active = 's1' %}
+{% block title %}פירוק סעיפים משפטיים{% endblock %}
+{% block extra_head %}
+<style>
+  .clause-tree { font-size: 13px; }
+  .clause-row {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    transition: all 0.25s;
+    cursor: pointer;
+  }
+  .clause-row:hover { border-color: var(--border); }
+  .clause-row.expanded { border-color: var(--gold); }
+
+  /* QA #8 FIX: Each status has its own distinct border + background */
+  .clause-row.approved {
+    border-color: rgba(46,204,113,0.6);
+    background: rgba(46,204,113,0.05);
+    box-shadow: inset 3px 0 0 var(--green);
+  }
+  .clause-row.rejected {
+    border-color: rgba(231,76,60,0.4);
+    background: rgba(231,76,60,0.04);
+    box-shadow: inset 3px 0 0 var(--red);
+    opacity: 0.55;
+  }
+  .clause-row.pending-review {
+    border-color: rgba(241,196,15,0.4);
+    background: rgba(241,196,15,0.03);
+    box-shadow: inset 3px 0 0 var(--yellow);
+  }
+
+  .unapprove-btn {
+    font-size:10px; padding:2px 7px; border-radius:4px;
+    border:1px solid rgba(201,168,76,0.4); color:var(--gold);
+    background:transparent; cursor:pointer; display:block; margin-top:4px;
+  }
+  .unapprove-btn:hover { background:rgba(201,168,76,0.1); }
+
+  .clause-id {
+    font-family: monospace; font-size: 11px;
+    background: var(--bg-navy); padding: 3px 7px;
+    border-radius: 4px; color: var(--gold);
+    white-space: nowrap; flex-shrink: 0; margin-top: 1px;
+  }
+  .clause-content { flex: 1; }
+  .clause-text { font-size: 13px; color: var(--white); margin-bottom: 6px; line-height: 1.6; }
+  .clause-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+  .clause-indicators { display: flex; gap: 6px; flex-shrink: 0; }
+  .indicator {
+    font-size: 12px; padding: 2px 8px;
+    border-radius: 10px; border: 1px solid;
+  }
+  .ind-ELIGIBILITY { background: rgba(46,204,113,0.1);  color: var(--green);    border-color: rgba(46,204,113,0.3); }
+  .ind-EXCLUSION   { background: rgba(231,76,60,0.1);   color: var(--red);      border-color: rgba(231,76,60,0.3); }
+  .ind-DEFINITION  { background: rgba(74,158,221,0.1);  color: var(--blue-acc); border-color: rgba(74,158,221,0.3); }
+  .ind-PROCEDURE   { background: rgba(241,196,15,0.1);  color: var(--yellow);   border-color: rgba(241,196,15,0.3); }
+  .source-ref { font-size: 11px; color: var(--muted); font-family: monospace; }
+
+  .summary-bar {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 16px; margin-bottom: 24px;
+  }
+  .sum-card {
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 16px 20px; text-align: center;
+    transition: border-color 0.2s;
+  }
+  /* QA #8 FIX: Active filter highlights the corresponding stat card */
+  .sum-card.filter-active { border-color: var(--gold); }
+
+  .sum-num { font-family: 'Frank Ruhl Libre', serif; font-size: 32px; font-weight: 900; margin-bottom: 4px; }
+  .sum-label { font-size: 12px; color: var(--muted); }
+
+  .clause-actions { display: flex; gap: 6px; flex-shrink: 0; margin-top: 2px; }
+
+  .bulk-bar {
+    display: flex; gap: 10px; align-items: center;
+    padding: 12px 16px;
+    background: rgba(201,168,76,0.06);
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: var(--radius-sm);
+    margin-bottom: 16px; font-size: 13px;
+  }
+
+  /* QA #8 FIX: Filter buttons — each type has a distinct active color */
+  .filter-btn {
+    padding: 7px 14px; font-size: 13px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'Heebo', sans-serif;
+    transition: all 0.2s;
+  }
+  .filter-btn:hover { border-color: var(--border); color: var(--white); }
+  .filter-btn.active-all        { border-color: var(--gold);     color: var(--gold);     background: rgba(201,168,76,0.1); }
+  .filter-btn.active-eligibility{ border-color: var(--green);    color: var(--green);    background: rgba(46,204,113,0.1); }
+  .filter-btn.active-exclusion  { border-color: var(--red);      color: var(--red);      background: rgba(231,76,60,0.1);  }
+  .filter-btn.active-procedure  { border-color: var(--yellow);   color: var(--yellow);   background: rgba(241,196,15,0.1); }
+  .filter-btn.active-approved   { border-color: var(--green);    color: var(--green);    background: rgba(46,204,113,0.1); }
+  .filter-btn.active-pending    { border-color: var(--yellow);   color: var(--yellow);   background: rgba(241,196,15,0.1); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="sidebar">
+    <div class="sidebar-section">זרימת עבודה</div>
+    <a class="sidebar-item done" href="/screen1">✅ מקורות חוק</a>
+    <a class="sidebar-item active" href="/screen2">⚙️ פירוק סעיפים</a>
+    <a class="sidebar-item" href="/screen3">📋 טיוטת מנוע</a>
+    <a class="sidebar-item" href="/screen4">✅ אימות עצמי</a>
+    <a class="sidebar-item" href="/screen5">💡 הסברתיות</a>
+    <a class="sidebar-item" href="/screen6">👤 אישור מומחה</a>
+    <div class="sidebar-section">מערכת</div>
+    <a class="sidebar-item" href="/screen9">🕐 גרסאות</a>
+  </nav>
+
+  <div class="main-content">
+    <div class="page-header anim">
+      <h2>⚙️ פירוק סעיפים אוטומטי</h2>
+      <p>שלב 2 / 6 — צפייה בלבד — כיצד הטקסט המשפטי הופך ללוגיקה מובנית</p>
+    </div>
+
+    <div class="steps anim anim-1">
+      <div class="step done"><span class="step-num">✓</span> מקורות חוק</div>
+      <span class="step-sep">›</span>
+      <div class="step active"><span class="step-num">2</span> פירוק סעיפים</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">3</span> טיוטת מנוע</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">4</span> אימות</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">5</span> הסברתיות</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">6</span> אישור</div>
+    </div>
+
+    <!-- Summary bar — QA #8: cards are clickable as filters too -->
+    <div class="summary-bar anim anim-2">
+      <div class="sum-card" id="card-all" style="cursor:pointer" onclick="filterType('ALL','all')">
+        <div class="sum-num" style="color:var(--white)" id="total-count">{{ pending_clauses|length }}</div>
+        <div class="sum-label">סה"כ ממתינים</div>
+      </div>
+      <div class="sum-card" id="card-eligibility" style="cursor:pointer" onclick="filterType('ELIGIBILITY','eligibility')">
+        <div class="sum-num" style="color:var(--green)" id="elig-count">{{ pending_clauses|selectattr('clause_type','equalto','ELIGIBILITY')|list|length }}</div>
+        <div class="sum-label">✔ תנאי זכאות</div>
+      </div>
+      <div class="sum-card" id="card-exclusion" style="cursor:pointer" onclick="filterType('EXCLUSION','exclusion')">
+        <div class="sum-num" style="color:var(--blue-acc)" id="excl-count">{{ pending_clauses|selectattr('clause_type','equalto','EXCLUSION')|list|length }}</div>
+        <div class="sum-label">🚫 חריגים</div>
+      </div>
+      <div class="sum-card" id="card-approved" style="cursor:pointer" onclick="filterStatus('approved')">
+        <div class="sum-num" style="color:var(--yellow)" id="approved-count">{{ approved_count }}</div>
+        <div class="sum-label">✅ אושרו</div>
+      </div>
+    </div>
+
+    <!-- QA #8 FIX: Filter bar — buttons now have clear active states per type -->
+    <div class="card anim anim-2" style="padding:16px 20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <span style="font-size:13px; color:var(--muted)">מסמך:</span>
+      <select class="form-select" style="width:auto; padding:7px 12px;" onchange="filterDoc(this.value)">
+        <option value="ALL">כל המסמכים</option>
+        {% for doc_id in pending_clauses|map(attribute='source_doc_id')|unique|list %}
+        <option value="{{ doc_id }}">{{ doc_id }}</option>
+        {% endfor %}
+      </select>
+
+      <span style="font-size:13px; color:var(--muted); margin-right:auto">סוג:</span>
+
+      <!-- QA #8: Each button gets unique active class with matching color -->
+      <button class="filter-btn active-eligibility" id="btn-eligibility"
+        onclick="filterType('ELIGIBILITY','eligibility')">✔ תנאי</button>
+      <button class="filter-btn" id="btn-exclusion"
+        onclick="filterType('EXCLUSION','exclusion')">🚫 חריג</button>
+      <button class="filter-btn" id="btn-procedure"
+        onclick="filterType('PROCEDURE','procedure')">📋 הליך</button>
+      <button class="filter-btn" id="btn-pending"
+        onclick="filterStatus('pending')">⏳ ממתין</button>
+      <button class="filter-btn" id="btn-approved-filter"
+        onclick="filterStatus('approved')">✅ אושר</button>
+      <button class="filter-btn active-all" id="btn-all"
+        onclick="filterType('ALL','all')">הכל</button>
+    </div>
+
+    {% if pending_clauses %}
+    <!-- Bulk approve bar -->
+    <div class="bulk-bar anim anim-2">
+      <span>⚡ פעולה מהירה:</span>
+      <button class="btn btn-outline" style="padding:6px 14px;font-size:12px;color:var(--green);border-color:var(--green)"
+        onclick="approveAll()">✔ אשר הכל</button>
+      <span style="color:var(--muted);font-size:12px">{{ pending_clauses|length }} סעיפים ממתינים</span>
+      <input id="reviewer-name" class="form-input"
+        style="width:150px;padding:6px 10px;font-size:12px;margin-right:auto"
+        placeholder="שם הסוקר" value="admin">
+    </div>
+    {% endif %}
+
+    <!-- Clause list -->
+    <div class="clause-tree anim anim-3" id="clauses-container">
+      {% if pending_clauses %}
+        {% for c in pending_clauses %}
+        <div class="clause-row" id="row-{{ c.clause_id }}"
+             data-type="{{ c.clause_type }}"
+             data-doc="{{ c.source_doc_id }}"
+             data-status="pending">
+          <span class="clause-id">{{ c.clause_id[-14:] }}</span>
+          <div class="clause-content">
+            <div class="clause-text">{{ c.text[:280] }}{% if c.text|length > 280 %}...{% endif %}</div>
+            <div class="clause-meta">
+              <span class="indicator ind-{{ c.clause_type }}">
+                {% if c.clause_type == 'ELIGIBILITY' %}✔ תנאי זכאות
+                {% elif c.clause_type == 'EXCLUSION' %}🚫 חריג
+                {% elif c.clause_type == 'DEFINITION' %}📖 הגדרה
+                {% else %}📋 הליך{% endif %}
+              </span>
+              <span class="source-ref">{{ c.section_ref }} · SHA:{{ c.clause_id[-6:] }}</span>
+            </div>
+          </div>
+          <div class="clause-actions">
+            <button class="btn btn-outline" style="padding:6px 12px;font-size:12px;color:var(--green);border-color:var(--green)"
+              onclick="approveClause('{{ c.clause_id }}',this)">✔</button>
+            <button class="btn btn-outline" style="padding:6px 12px;font-size:12px;color:var(--red);border-color:var(--red)"
+              onclick="rejectClause('{{ c.clause_id }}',this)">✕</button>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div style="text-align:center;padding:60px;color:var(--muted);">
+          <div style="font-size:48px;margin-bottom:16px">✅</div>
+          <div style="font-size:16px;font-weight:600;margin-bottom:8px">אין סעיפים ממתינים</div>
+          <div style="font-size:13px">כל הסעיפים אושרו או שעדיין לא הועלו מסמכים</div>
+          <br><a href="/screen1" class="btn btn-outline">העלה מסמך חדש</a>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="anim anim-4" style="display:flex; gap:12px; margin-top:8px;">
+      <a href="/screen1" class="btn btn-outline">‹ חזור</a>
+      <a href="/screen3" class="btn btn-gold" style="margin-right:auto">המשך לטיוטת המנוע ›</a>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Helpers ────────────────────────────────────────────────────────────────
+function getReviewer() {
+  return document.getElementById('reviewer-name')?.value.trim() || 'admin';
+}
+
+// ── QA #8 FIX: Filter logic + visual update ───────────────────────────────
+let currentTypeFilter   = 'ALL';
+let currentStatusFilter = 'ALL'; // ALL | approved | pending
+
+function applyFilters() {
+  document.querySelectorAll('.clause-row').forEach(row => {
+    const typeMatch   = currentTypeFilter === 'ALL' || row.dataset.type === currentTypeFilter;
+    const status      = row.dataset.status; // 'pending' | 'approved' | 'rejected'
+    const statusMatch = currentStatusFilter === 'ALL'
+      || (currentStatusFilter === 'approved' && status === 'approved')
+      || (currentStatusFilter === 'pending'  && status === 'pending');
+    row.style.display = (typeMatch && statusMatch) ? '' : 'none';
+  });
+}
+
+function clearFilterBtns() {
+  ['btn-eligibility','btn-exclusion','btn-procedure','btn-all',
+   'btn-pending','btn-approved-filter'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.className = 'filter-btn';
+  });
+  ['card-all','card-eligibility','card-exclusion','card-approved'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('filter-active');
+  });
+}
+
+function filterType(type, key) {
+  currentTypeFilter   = type;
+  currentStatusFilter = 'ALL';
+  clearFilterBtns();
+  const btn = document.getElementById('btn-' + key);
+  if (btn) btn.className = 'filter-btn active-' + key;
+  const card = document.getElementById('card-' + key);
+  if (card) card.classList.add('filter-active');
+  applyFilters();
+}
+
+function filterStatus(status) {
+  currentTypeFilter   = 'ALL';
+  currentStatusFilter = status;
+  clearFilterBtns();
+  if (status === 'approved') {
+    document.getElementById('btn-approved-filter').className = 'filter-btn active-approved';
+    document.getElementById('card-approved').classList.add('filter-active');
+  } else if (status === 'pending') {
+    document.getElementById('btn-pending').className = 'filter-btn active-pending';
+    document.getElementById('card-all').classList.add('filter-active');
+  }
+  applyFilters();
+}
+
+function filterDoc(val) {
+  document.querySelectorAll('.clause-row').forEach(r => {
+    const docMatch = (val === 'ALL' || r.dataset.doc === val);
+    // keep type/status filters too
+    const typeMatch   = currentTypeFilter === 'ALL' || r.dataset.type === currentTypeFilter;
+    const status      = r.dataset.status;
+    const statusMatch = currentStatusFilter === 'ALL'
+      || (currentStatusFilter === 'approved' && status === 'approved')
+      || (currentStatusFilter === 'pending'  && status === 'pending');
+    r.style.display = (docMatch && typeMatch && statusMatch) ? '' : 'none';
+  });
+}
+
+// ── Approve ────────────────────────────────────────────────────────────────
+async function approveClause(id, btn) {
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const res = await fetch('/api/review/approve', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({clause_id: id, reviewed_by: getReviewer(), review_note: 'approved via UI'})
+    });
+    if (res.ok) {
+      const row = document.getElementById('row-' + id);
+      row.classList.remove('pending-review');
+      row.classList.add('approved');
+      row.dataset.status = 'approved'; // QA #9 FIX: track status in data attribute
+      row.querySelector('.clause-actions').innerHTML =
+        '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">' +
+        '<span class="badge badge-green">✔ אושר</span>' +
+        '<button class="unapprove-btn" onclick="unapproveClause(\'' + id + '\', this)">↩ בטל אישור</button>' +
+        '</div>';
+      updateCounts();
+    } else {
+      btn.disabled = false; btn.textContent = '✔';
+    }
+  } catch(e) { btn.disabled = false; btn.textContent = '✔'; }
+}
+
+// ── Reject ─────────────────────────────────────────────────────────────────
+async function rejectClause(id, btn) {
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/review/reject', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({clause_id: id, reviewed_by: getReviewer(), reason: 'rejected via UI'})
+    });
+    if (res.ok) {
+      const row = document.getElementById('row-' + id);
+      row.classList.remove('pending-review', 'approved');
+      row.classList.add('rejected');
+      row.dataset.status = 'rejected'; // QA #9 FIX: track status
+      row.querySelector('.clause-actions').innerHTML =
+        '<span class="badge" style="background:rgba(231,76,60,0.15);color:var(--red);border:1px solid rgba(231,76,60,0.3)">✕ נדחה</span>';
+      updateCounts();
+    } else { btn.disabled = false; }
+  } catch(e) { btn.disabled = false; }
+}
+
+// ── QA #9 FIX: Cancel (unapprove) correctly reverts status to PENDING ──────
+async function unapproveClause(id, btn) {
+  if (!confirm('לבטל את האישור ולהחזיר לתור הביקורת?')) return;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const res = await fetch('/api/review/unapprove', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({clause_id: id, reviewed_by: getReviewer(), reason: 'cancelled via UI'})
+    });
+    if (res.ok) {
+      const row = document.getElementById('row-' + id);
+      // QA #9: Remove approved class → add pending-review → restore buttons
+      row.classList.remove('approved', 'rejected');
+      row.classList.add('pending-review');
+      row.dataset.status = 'pending'; // QA #9: status back to pending
+      row.querySelector('.clause-actions').innerHTML =
+        '<button class="btn btn-outline" style="padding:6px 12px;font-size:12px;color:var(--green);border-color:var(--green)" ' +
+        'onclick="approveClause(\'' + id + '\',this)">✔</button>' +
+        '<button class="btn btn-outline" style="padding:6px 12px;font-size:12px;color:var(--red);border-color:var(--red)" ' +
+        'onclick="rejectClause(\'' + id + '\',this)">✕</button>';
+      updateCounts();
+    } else {
+      btn.disabled = false; btn.textContent = '↩ בטל אישור';
+    }
+  } catch(e) { btn.disabled = false; btn.textContent = '↩ בטל אישור'; }
+}
+
+// ── Approve All ────────────────────────────────────────────────────────────
+async function approveAll() {
+  const rows = [...document.querySelectorAll('.clause-row[data-status="pending"]')];
+  for (const row of rows) {
+    const id  = row.id.replace('row-', '');
+    const btn = row.querySelector('button');
+    if (btn && !btn.disabled) await approveClause(id, btn);
+    await new Promise(r => setTimeout(r, 80));
+  }
+}
+
+// ── Update counts ──────────────────────────────────────────────────────────
+function updateCounts() {
+  const pending  = document.querySelectorAll('.clause-row[data-status="pending"]').length;
+  const approved = document.querySelectorAll('.clause-row[data-status="approved"]').length;
+  const elig     = document.querySelectorAll('.clause-row[data-status="pending"][data-type="ELIGIBILITY"]').length;
+  const excl     = document.querySelectorAll('.clause-row[data-status="pending"][data-type="EXCLUSION"]').length;
+  document.getElementById('total-count').textContent    = pending;
+  document.getElementById('approved-count').textContent = approved;
+  document.getElementById('elig-count').textContent     = elig;
+  document.getElementById('excl-count').textContent     = excl;
+}
+</script>
+{% endblock %}

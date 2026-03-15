@@ -1,0 +1,454 @@
+{% extends "base.html" %}
+{% set active = 's1' %}
+{% block title %}טיוטת מנוע הזכויות{% endblock %}
+{% block extra_head %}
+<style>
+  .engine-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .engine-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    background: var(--bg-card2);
+    border-bottom: 1px solid var(--border2);
+    cursor: pointer;
+  }
+  .engine-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .engine-id {
+    font-family: monospace;
+    font-size: 12px;
+    background: var(--bg-navy);
+    padding: 3px 8px;
+    border-radius: 4px;
+    color: var(--gold);
+  }
+  .engine-body { padding: 24px; }
+
+  .conditions-list, .vars-list {
+    list-style: none;
+    margin: 10px 0;
+  }
+  .conditions-list li, .vars-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border2);
+    font-size: 13px;
+  }
+  .conditions-list li:last-child,
+  .vars-list li:last-child { border-bottom: none; }
+
+  .formula-box {
+    background: var(--bg-navy);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 14px 18px;
+    font-family: monospace;
+    font-size: 13px;
+    color: var(--gold-light);
+    margin: 12px 0;
+    direction: ltr;
+    text-align: left;
+    white-space: pre;
+    line-height: 1.7;
+  }
+  /* QA #10: highlight the correct formula line in green */
+  .formula-box .line-correct { color: #2ecc71; }
+  .formula-box .line-comment { color: #7a90aa; }
+  .formula-box .line-removed { color: #e74c3c; text-decoration: line-through; opacity: 0.5; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .sub-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  .category-divider {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border2);
+    margin: 24px 0 16px 0;
+  }
+
+  /* QA #11: Source filter bar */
+  .source-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(74,158,221,0.06);
+    border: 1px solid rgba(74,158,221,0.2);
+    border-radius: var(--radius-sm);
+    margin-bottom: 24px;
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+  .source-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .source-tag:hover { border-color: var(--gold); color: var(--gold); }
+  .source-tag.active {
+    background: rgba(201,168,76,0.12);
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  /* QA #11: Cards from non-active source are dimmed */
+  .engine-card.doc-hidden {
+    display: none;
+  }
+  .doc-source-label {
+    font-size: 11px;
+    color: var(--blue-acc);
+    font-family: monospace;
+    background: rgba(74,158,221,0.1);
+    border: 1px solid rgba(74,158,221,0.2);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="sidebar">
+    <div class="sidebar-section">זרימת עבודה</div>
+    <a class="sidebar-item" href="/screen1" style="color:var(--green)">✅ מקורות חוק</a>
+    <a class="sidebar-item" href="/screen2" style="color:var(--green)">✅ פירוק סעיפים</a>
+    <a class="sidebar-item active" href="/screen3">📋 טיוטת מנוע</a>
+    <a class="sidebar-item" href="/screen4">✅ אימות עצמי</a>
+    <a class="sidebar-item" href="/screen5">💡 הסברתיות</a>
+    <a class="sidebar-item" href="/screen6">👤 אישור מומחה</a>
+    <div class="sidebar-section">מערכת</div>
+    <a class="sidebar-item" href="/screen9">🕐 גרסאות</a>
+  </nav>
+
+  <div class="main-content">
+    <div class="page-header anim">
+      <h2>📋 טיוטת מנוע הזכויות</h2>
+      <p>שלב 3 / 6 — נקודת המעבר בין טקסט משפטי למנוע חישובי</p>
+    </div>
+
+    <div class="steps anim anim-1">
+      <div class="step done"><span class="step-num">✓</span> מקורות</div>
+      <span class="step-sep">›</span>
+      <div class="step done"><span class="step-num">✓</span> פירוק</div>
+      <span class="step-sep">›</span>
+      <div class="step active"><span class="step-num">3</span> טיוטת מנוע</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">4</span> אימות</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">5</span> הסברתיות</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">6</span> אישור</div>
+    </div>
+
+    <!-- QA #11 FIX: Source document filter — shows which doc each right came from -->
+    <div class="source-filter-bar anim anim-1">
+      <span style="color:var(--muted); flex-shrink:0">📄 מקור מסמך:</span>
+      <span class="source-tag active" data-doc="ALL" onclick="filterByDoc('ALL', this)">
+        📋 כל המסמכים
+      </span>
+      {% set seen_docs = [] %}
+      {% for right in rights %}
+        {% if right.linked_clauses %}
+          {% for cl in right.linked_clauses %}
+            {% if cl.source_doc_id not in seen_docs %}
+              {% set _ = seen_docs.append(cl.source_doc_id) %}
+              <span class="source-tag" data-doc="{{ cl.source_doc_id }}" onclick="filterByDoc('{{ cl.source_doc_id }}', this)">
+                📜 {{ cl.source_doc_id }}
+                {% if cl.doc_title %}<small style="opacity:0.7"> — {{ cl.doc_title[:25] }}</small>{% endif %}
+              </span>
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+      <span style="color:var(--muted); font-size:12px; margin-right:auto">
+        💡 הנחות שמוצגות נגזרות מהמסמך שנבחר בלבד
+      </span>
+    </div>
+
+    <!-- ── RESERVE CATEGORY ──────────────────────────────────────────────── -->
+    {% set reserve_rights = rights | selectattr('subcategory_tag','in',['Reserve_Soldiers','Reserve_Commander','Reserve_Large_Family']) | list %}
+    <div class="category-divider anim anim-2">🎖️ קטגוריה: מילואים ({{ reserve_rights | length }} זכויות)</div>
+
+    {% for right in rights %}
+    {% if right.subcategory_tag in ('Reserve_Soldiers', 'Reserve_Commander', 'Reserve_Large_Family') %}
+
+    {# QA #11: collect source doc ids for this right #}
+    {% set right_docs = right.linked_clauses | map(attribute='source_doc_id') | list %}
+
+    <div class="engine-card anim anim-2"
+         data-docs="{{ right_docs | join(',') }}"
+         id="card-{{ right.catalog_id }}">
+      <div class="engine-header" onclick="toggleBody(this)">
+        <div class="engine-title">
+          🎖️ {{ right.name }}
+          <span class="engine-id">{{ right.catalog_id }}</span>
+          {# QA #11: Show which doc this right came from #}
+          {% if right.linked_clauses %}
+            <span class="doc-source-label">{{ right.linked_clauses[0].source_doc_id }}</span>
+          {% endif %}
+        </div>
+        <span class="badge badge-yellow">🟡 טיוטה — ממתין לאימות</span>
+      </div>
+      <div class="engine-body" style="display:none">
+        <div class="grid-2">
+          <div>
+            <div class="sub-label">תנאי זכאות</div>
+            <ul class="conditions-list">
+              {% if 'COMMANDER' in right.catalog_id %}
+              <li><span style="color:var(--green)">✔</span> מפקד מילואים פעיל (תעודה תקפה)</li>
+              <li><span style="color:var(--green)">✔</span> תפקיד פיקודי לפי פקודות הצבא</li>
+              {% elif 'FAMILY5' in right.catalog_id %}
+              <li><span style="color:var(--green)">✔</span> חייל מילואים פעיל</li>
+              <li><span style="color:var(--green)">✔</span> משפחה בת 5 נפשות ומעלה</li>
+              {% else %}
+              <li><span style="color:var(--green)">✔</span> חייל מילואים פעיל (תעודה תקפה)</li>
+              <li><span style="color:var(--green)">✔</span> לפחות 20 ימי שמ"פ ב-3 שנים אחרונות</li>
+              {% endif %}
+              <li><span style="color:var(--green)">✔</span> מחזיק בנכס (שוכר או בעלים)</li>
+              <li><span style="color:var(--green)">✔</span> רשות מקומית אישרה את ההנחה</li>
+            </ul>
+          </div>
+          <div>
+            <div class="sub-label">משתני קלט נדרשים</div>
+            <ul class="vars-list">
+              <li><span class="badge badge-blue">num</span> סכום ארנונה שנתי (₪)</li>
+              <li><span class="badge badge-gold">bool</span> אישור שירות צה"ל</li>
+              {% if 'COMMANDER' in right.catalog_id %}
+              <li><span class="badge badge-blue">num</span> שטח הנכס (מ"ר) — תקרה 100 מ"ר</li>
+              {% endif %}
+            </ul>
+            {# QA #10: service days input REMOVED from required vars for soldier/commander #}
+          </div>
+        </div>
+
+        {# QA #10 FIX: Corrected formulas — NO service_ratio / days_served #}
+        <div class="sub-label" style="margin-top:16px">נוסחת חישוב — תקנה 3ו / 3ז</div>
+
+        {% if 'FAMILY5' in right.catalog_id %}
+        <div class="formula-box"
+><span class="line-comment"># הנחה מלאה 100% — חייל מילואים עם משפחה 5+ נפשות</span>
+<span class="line-comment"># עד 90 מ"ר שטח נכס (תקנות נתניה תשפ"ג-2022)</span>
+<span class="line-correct">discount = annual_tax * 1.00          # 100% הנחה מלאה</span>
+<span class="line-correct">result   = annual_tax - discount      # = 0₪ לתשלום</span>
+
+<span class="line-comment"># דוגמה: 8,000₪ × 100% = 8,000₪ הנחה | לתשלום: 0₪</span></div>
+
+        {% elif 'COMMANDER' in right.catalog_id %}
+        <div class="formula-box"
+><span class="line-comment"># מפקד מילואים פעיל — תקנה 3ז — עד 25% על 100 מ"ר ראשונים בלבד</span>
+<span class="line-comment"># Regulation 3G — Discount on first 100 sqm ONLY</span>
+<span class="line-correct">taxable_sqm      = min(property_sqm, 100)          # תקרת 100 מ"ר</span>
+<span class="line-correct">tariff_per_sqm   = annual_tax / property_sqm       # תעריף לפי מ"ר</span>
+<span class="line-correct">tax_on_100sqm    = taxable_sqm * tariff_per_sqm    # ארנונה על 100 מ"ר</span>
+<span class="line-correct">discount         = tax_on_100sqm * 0.25            # 25% על 100 מ"ר בלבד</span>
+<span class="line-correct">result           = annual_tax - discount           # לתשלום</span>
+
+<span class="line-comment"># דוגמה (150 מ"ר, 80₪/מ"ר): MIN(150,100)=100 | 100×80=8,000₪ | 25%=2,000₪ הנחה</span>
+<span class="line-comment"># ארנונה מלאה: 12,000₪ | לתשלום: 10,000₪</span></div>
+
+        {% else %}
+        <div class="formula-box"
+><span class="line-comment"># חייל מילואים פעיל — תקנה 3ו(א) — הנחה על כל שטח הנכס</span>
+<span class="line-comment"># Regulation 3F — Discount applies to FULL property area</span>
+<span class="line-correct">discount = annual_tax * (discount_rate_pct / 100)  # עד 5%</span>
+<span class="line-correct">discount = min(discount, annual_tax)               # לא יעלה על הארנונה</span>
+<span class="line-correct">result   = annual_tax - discount                   # לתשלום</span>
+
+<span class="line-comment"># דוגמה (80₪/מ"ר, 75 מ"ר, 5%): 6,000₪ × 5% = 300₪ הנחה | לתשלום: 5,700₪</span></div>
+        {% endif %}
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+          <div>
+            <div class="sub-label">פרמטרים</div>
+            <span class="badge badge-green">{{ right.discount_value }}% הנחה</span>
+            <span class="badge" style="background:rgba(255,255,255,0.08); color:var(--muted); margin-right:6px">חיכוך {{ right.friction_score }}/10</span>
+          </div>
+          {% if right.linked_clauses %}
+          <div>
+            <div class="sub-label">מקורות משפטיים ({{ right.linked_clauses | length }})</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              {% for cl in right.linked_clauses[:4] %}
+              <span class="badge badge-gold" title="{{ cl.section_ref }} | {{ cl.source_doc_id }}">{{ cl.clause_id[-8:] }}</span>
+              {% endfor %}
+              {% if right.linked_clauses | length > 4 %}
+              <span class="badge" style="color:var(--muted)">+{{ right.linked_clauses | length - 4 }}</span>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    <!-- ── LOW INCOME / SENIOR CATEGORY ─────────────────────────────────── -->
+    {% set lowincome_rights = rights | selectattr('subcategory_tag','in',['Low_Income','Senior_Income_Support','Senior_Pension','Women_Retirement_Age','Special_Hardship']) | list %}
+    <div class="category-divider anim anim-3">👴 קטגוריה: מעוטי יכולת ואזרחים ותיקים ({{ lowincome_rights | length }} זכויות)</div>
+
+    {% for right in rights %}
+    {% if right.subcategory_tag in ('Low_Income', 'Senior_Income_Support', 'Senior_Pension', 'Women_Retirement_Age', 'Special_Hardship') %}
+
+    {% set right_docs = right.linked_clauses | map(attribute='source_doc_id') | list %}
+
+    <div class="engine-card anim anim-3"
+         data-docs="{{ right_docs | join(',') }}"
+         id="card-{{ right.catalog_id }}">
+      <div class="engine-header" onclick="toggleBody(this)">
+        <div class="engine-title">
+          👴 {{ right.name }}
+          <span class="engine-id">{{ right.catalog_id }}</span>
+          {% if right.linked_clauses %}
+            <span class="doc-source-label">{{ right.linked_clauses[0].source_doc_id }}</span>
+          {% endif %}
+        </div>
+        <span class="badge badge-yellow">🟡 טיוטה — ממתין לאימות</span>
+      </div>
+      <div class="engine-body" style="display:none">
+        <div class="grid-2">
+          <div>
+            <div class="sub-label">תנאי זכאות</div>
+            <ul class="conditions-list">
+              {% if right.subcategory_tag in ('Senior_Income_Support', 'Senior_Pension') %}
+              <li><span style="color:var(--green)">✔</span> גיל 65 ומעלה (נשים 62-67)</li>
+              <li><span style="color:var(--green)">✔</span> הכנסה מתחת לסף הקבוע</li>
+              <li><span style="color:var(--green)">✔</span> שטח נכס ≤ 100 מ"ר</li>
+              {% elif right.subcategory_tag == 'Women_Retirement_Age' %}
+              <li><span style="color:var(--green)">✔</span> אישה בגיל 62–67</li>
+              <li><span style="color:var(--green)">✔</span> הכנסה מתחת לסף</li>
+              {% else %}
+              <li><span style="color:var(--green)">✔</span> הכנסה נמוכה לפי סף הקבוע</li>
+              <li><span style="color:var(--green)">✔</span> מחזיק בנכס</li>
+              {% endif %}
+            </ul>
+          </div>
+          <div>
+            <div class="sub-label">משתני קלט נדרשים</div>
+            <ul class="vars-list">
+              <li><span class="badge badge-blue">int</span> גיל</li>
+              <li><span class="badge badge-blue">num</span> הכנסה חודשית (₪)</li>
+              <li><span class="badge badge-blue">num</span> שטח נכס (מ"ר)</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="sub-label" style="margin-top:16px">נוסחת חישוב</div>
+        <div class="formula-box"
+><span class="line-correct">discount_rate = {{ right.discount_value / 100 }}             # {{ right.discount_value }}%</span>
+<span class="line-correct">discount      = annual_tax * discount_rate</span>
+<span class="line-correct">result        = annual_tax - discount          # לתשלום</span>
+
+<span class="line-comment"># חיכוך: {{ right.friction_score }}/10</span></div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+          <div>
+            <span class="badge badge-green">{{ right.discount_value }}% הנחה</span>
+            <span class="badge" style="background:rgba(255,255,255,0.08); color:var(--muted); margin-right:6px">חיכוך {{ right.friction_score }}/10</span>
+          </div>
+          {% if right.linked_clauses %}
+          <div>
+            <div class="sub-label">מקורות משפטיים ({{ right.linked_clauses | length }})</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              {% for cl in right.linked_clauses[:4] %}
+              <span class="badge badge-gold" title="{{ cl.section_ref }} | {{ cl.source_doc_id }}">{{ cl.clause_id[-8:] }}</span>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    {% if not rights %}
+    <div class="card" style="text-align:center; padding:40px; color:var(--muted);">
+      <div style="font-size:32px; margin-bottom:12px">📭</div>
+      <div>אין זכויות בקטלוג עדיין</div>
+      <div style="font-size:12px; margin-top:6px">בדוק שה-seed data רץ: <code>GET /api/rights</code></div>
+    </div>
+    {% endif %}
+
+    <div class="anim anim-4" style="display:flex; gap:12px;">
+      <a href="/screen2" class="btn btn-outline">‹ חזור</a>
+      <a href="/screen4" class="btn btn-gold" style="margin-right:auto">המשך לאימות עצמי ›</a>
+    </div>
+  </div>
+</div>
+
+<script>
+// Toggle card body open/close
+function toggleBody(header) {
+  const body = header.nextElementSibling;
+  body.style.display = body.style.display === 'none' ? 'block' : 'none';
+}
+
+// QA #11 FIX: Filter engine cards by source document
+function filterByDoc(docId, clickedTag) {
+  // Update active tag style
+  document.querySelectorAll('.source-tag').forEach(t => t.classList.remove('active'));
+  clickedTag.classList.add('active');
+
+  // Show/hide cards based on their data-docs attribute
+  document.querySelectorAll('.engine-card').forEach(card => {
+    if (docId === 'ALL') {
+      card.classList.remove('doc-hidden');
+    } else {
+      const cardDocs = (card.dataset.docs || '').split(',');
+      if (cardDocs.includes(docId)) {
+        card.classList.remove('doc-hidden');
+      } else {
+        card.classList.add('doc-hidden');
+      }
+    }
+  });
+
+  // Hide category dividers if all cards in them are hidden
+  document.querySelectorAll('.category-divider').forEach(divider => {
+    let next = divider.nextElementSibling;
+    let hasVisible = false;
+    while (next && !next.classList.contains('category-divider')) {
+      if (next.classList.contains('engine-card') && !next.classList.contains('doc-hidden')) {
+        hasVisible = true;
+        break;
+      }
+      next = next.nextElementSibling;
+    }
+    divider.style.display = hasVisible ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}
