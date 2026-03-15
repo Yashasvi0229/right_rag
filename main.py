@@ -1,6 +1,6 @@
 """
 Rights Angel — FastAPI Application
-Phase 1 Screens + Milestone 1 Backend API
+Milestone 1 + Milestone 2B Screens
 """
 from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
@@ -18,7 +18,7 @@ from ingestion.pipeline import (
 )
 from engine.version_manager import list_versions, get_audit_log
 
-app = FastAPI(title="Rights Angel", version="1.0.0")
+app = FastAPI(title="Rights Angel", version="2.0.0")
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -45,10 +45,9 @@ def get_rights_with_linked_clauses(status: str = "ACTIVE") -> list:
         result = []
         for r in rights:
             right_dict = dict(r)
-            # Fetch linked clauses for this right
             linked = conn.execute("""
                 SELECT c.clause_id, c.section_ref, c.clause_type, m.mapping_role,
-                       s.title as doc_title
+                       s.title as doc_title, s.doc_id as source_doc_id
                 FROM rights_clauses_map m
                 JOIN clauses c ON m.clause_id = c.clause_id
                 JOIN source_documents s ON c.source_doc_id = s.doc_id
@@ -62,94 +61,166 @@ def get_rights_with_linked_clauses(status: str = "ACTIVE") -> list:
         conn.close()
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Root
+# ═══════════════════════════════════════════════════════════════════════════════
+
 @app.get("/")
 async def root():
     return RedirectResponse(url="/screen0")
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Milestone 1 Screens (screen0 – screen9)
+# ═══════════════════════════════════════════════════════════════════════════════
+
 @app.get("/screen0")
 async def screen0(request: Request):
     return templates.TemplateResponse("screen0_home.html", {
-        "request": request,
-        "rights_count": len(get_all_rights()),
-        "docs_count": len(list_documents()),
+        "request":       request,
+        "rights_count":  len(get_all_rights()),
+        "docs_count":    len(list_documents()),
         "clauses_count": len(get_clause_store()),
     })
+
 
 @app.get("/screen1")
 async def screen1(request: Request):
     return templates.TemplateResponse("screen1_upload.html", {
-        "request": request,
-        "documents": list_documents(),
+        "request":          request,
+        "documents":        list_documents(),
         "approved_sources": get_approved_sources(),
     })
+
 
 @app.get("/screen2")
 async def screen2(request: Request):
     return templates.TemplateResponse("screen2_decomp.html", {
-        "request": request,
+        "request":        request,
         "pending_clauses": get_pending_review(),
         "approved_count": len(get_clause_store()),
     })
 
+
 @app.get("/screen3")
 async def screen3(request: Request):
-    # Pass rights WITH linked clauses so template can show legal sources
     return templates.TemplateResponse("screen3_engine.html", {
-        "request": request,
+        "request":  request,
         "versions": list_versions(),
-        "rights": get_rights_with_linked_clauses(),
+        "rights":   get_rights_with_linked_clauses(),
     })
 
 
 @app.get("/screen4")
 async def screen4(request: Request):
     return templates.TemplateResponse("screen4_validation.html", {
-        "request": request,
+        "request":    request,
         "validation": validate_clause_integrity(),
     })
+
 
 @app.get("/screen5")
 async def screen5(request: Request):
     return templates.TemplateResponse("screen5_explain.html", {
         "request": request,
-        "rights": get_all_rights(),
+        "rights":  get_all_rights(),
     })
+
 
 @app.get("/screen6")
 async def screen6(request: Request):
     return templates.TemplateResponse("screen6_approval.html", {
-        "request": request,
+        "request":  request,
         "versions": list_versions(),
     })
+
 
 @app.get("/screen7")
 async def screen7(request: Request, type: str = "reserve"):
     return templates.TemplateResponse("screen7_calculator.html", {
-        "request": request,
+        "request":   request,
         "calc_type": type,
-        "rights": get_all_rights(),
+        "rights":    get_all_rights(),
     })
+
 
 @app.get("/screen8")
 async def screen8(request: Request):
-    return templates.TemplateResponse("screen8_appeal.html", {"request": request})
+    return templates.TemplateResponse("screen8_appeal.html", {
+        "request": request,
+    })
+
 
 @app.get("/screen9")
 async def screen9(request: Request):
+    # screen9 now loads data via JS/API — no server-side data needed
     return templates.TemplateResponse("screen9_audit.html", {
         "request": request,
-        "audit_log": get_audit_log(limit=50),
-        "versions": list_versions(),
     })
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Milestone 2B Screens (screen10 – screen12) — NEW
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/screen10")
+async def screen10(request: Request, type: str = "reserve"):
+    """
+    L4: Citizen fact collection form.
+    Citizen fills in their details — submitted to POST /api/facts.
+    type param pre-selects soldier / commander / senior / lowincome.
+    """
+    from engine.fact_normalizer import get_fact_schema
+    return templates.TemplateResponse("screen10_fact_collector.html", {
+        "request":     request,
+        "calc_type":   type,
+        "fact_schema": get_fact_schema(),
+        "rights":      get_all_rights(),
+    })
+
+
+@app.get("/screen11")
+async def screen11(request: Request, session_id: str = ""):
+    """
+    L5 + L6: Eligibility result screen.
+    Calls /api/evaluate/{session_id} via JS on load.
+    session_id passed as query param from screen10 after facts submitted.
+    """
+    return templates.TemplateResponse("screen11_eligibility_result.html", {
+        "request":    request,
+        "session_id": session_id,
+    })
+
+
+@app.get("/screen12")
+async def screen12(request: Request):
+    """
+    Pipeline diagram screen.
+    Visual flow: Legal Text → Atoms → Rules → Eligibility Result.
+    Static screen — no data needed from backend.
+    """
+    return templates.TemplateResponse("screen12_pipeline_diagram.html", {
+        "request":       request,
+        "rights_count":  len(get_all_rights()),
+        "docs_count":    len(list_documents()),
+        "clauses_count": len(get_clause_store()),
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Startup
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @app.on_event("startup")
 async def startup():
     init_db()
     seed_rights_catalog()
-    print("✅ Rights Angel started")
-    print("   Screens : http://localhost:8000/screen0")
-    print("   API docs : http://localhost:8000/docs")
+    print("✅ Rights Angel v2.0 started")
+    print("   Home       : http://localhost:8000/screen0")
+    print("   Check right: http://localhost:8000/screen10")
+    print("   Result     : http://localhost:8000/screen11")
+    print("   Pipeline   : http://localhost:8000/screen12")
+    print("   API docs   : http://localhost:8000/docs")
 
 
 if __name__ == "__main__":
