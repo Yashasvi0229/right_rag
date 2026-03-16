@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% set active = 's1' %}
+{% block title %}אישור מומחה — שער הבקרה האנושי{% endblock %}
+{% block extra_head %}
+<style>
+  .rule-map-row {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 10px 12px;
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); margin-bottom: 8px; font-size: 13px;
+  }
+  .arrow { color: var(--muted); font-size: 12px; }
+
+  .note-box {
+    background: var(--bg-navy); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 14px; font-size: 13px;
+    color: var(--muted); font-family: 'Heebo', sans-serif;
+    width: 100%; min-height: 80px; resize: vertical; direction: rtl;
+  }
+  .note-box:focus { outline: none; border-color: var(--gold); color: var(--white); }
+
+  .expert-sig {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 14px 18px;
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: var(--radius); margin-bottom: 20px;
+  }
+  .sig-avatar {
+    width: 48px; height: 48px; background: var(--gold-btn);
+    border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 22px; color: #000; flex-shrink: 0;
+  }
+  .sig-info { flex: 1; min-width: 0; }
+  .sig-info h4 { font-size: 15px; font-weight: 700; }
+  .sig-info p  { font-size: 12px; color: var(--muted); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+  .no-version-warn {
+    padding: 16px 20px;
+    background: rgba(241,196,15,0.08); border: 1px solid rgba(241,196,15,0.3);
+    border-radius: var(--radius-sm); color: var(--yellow);
+    font-size: 14px; margin-bottom: 16px; text-align: center;
+  }
+
+  .engine-summary {
+    font-size: 13px; line-height: 1.9; color: var(--muted);
+  }
+
+  /* Mobile sidebar toggle */
+  .sidebar-toggle {
+    display: none; align-items: center; gap: 8px;
+    background: var(--bg-card2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 8px 14px;
+    color: var(--gold); font-size: 13px; cursor: pointer;
+    font-family: 'Heebo', sans-serif; margin-bottom: 16px; width: 100%;
+  }
+
+  /* ── RESPONSIVE ───────────────────────── */
+  @media (max-width: 768px) {
+    .sidebar-toggle { display: flex; }
+    .grid-2 { grid-template-columns: 1fr; }
+
+    /* Expert sig — stack badge */
+    .expert-sig { gap: 10px; }
+    #status-badge { margin-right: 0 !important; }
+
+    /* Rule map row — wrap on small */
+    .rule-map-row { gap: 6px; }
+  }
+
+  @media (max-width: 480px) {
+    .sig-avatar { width: 40px; height: 40px; font-size: 18px; }
+    .sig-info h4 { font-size: 14px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-section">זרימת עבודה</div>
+    <a class="sidebar-item" href="/screen1" style="color:var(--green)">✅ מקורות חוק</a>
+    <a class="sidebar-item" href="/screen2" style="color:var(--green)">✅ פירוק סעיפים</a>
+    <a class="sidebar-item" href="/screen3" style="color:var(--green)">✅ טיוטת מנוע</a>
+    <a class="sidebar-item" href="/screen4" style="color:var(--green)">✅ אימות עצמי</a>
+    <a class="sidebar-item" href="/screen5" style="color:var(--green)">✅ הסברתיות</a>
+    <a class="sidebar-item active" href="/screen6">👤 אישור מומחה</a>
+    <div class="sidebar-section">מערכת</div>
+    <a class="sidebar-item" href="/screen9">🕐 גרסאות</a>
+  </nav>
+
+  <div class="main-content">
+
+    <button class="sidebar-toggle" onclick="toggleSidebar()">☰ תפריט ניהול</button>
+
+    <div class="page-header anim">
+      <h2>👤 אישור מומחה — שלב אחרון</h2>
+      <p>שלב 6 / 6 — המומחה האנושי הוא הסמכות הסופית לפרסום</p>
+    </div>
+
+    <div class="steps anim anim-1">
+      <div class="step done"><span class="step-num">✓</span> מקורות</div>
+      <span class="step-sep">›</span>
+      <div class="step done"><span class="step-num">✓</span> פירוק</div>
+      <span class="step-sep">›</span>
+      <div class="step done"><span class="step-num">✓</span> טיוטה</div>
+      <span class="step-sep">›</span>
+      <div class="step done"><span class="step-num">✓</span> אימות</div>
+      <span class="step-sep">›</span>
+      <div class="step done"><span class="step-num">✓</span> הסברתיות</div>
+      <span class="step-sep">›</span>
+      <div class="step active"><span class="step-num">6</span> אישור</div>
+    </div>
+
+    <!-- Expert sig — engine ID loaded dynamically -->
+    <div class="expert-sig anim anim-1">
+      <div class="sig-avatar">⚖️</div>
+      <div class="sig-info">
+        <h4>עו"ד / מומחה מוסמך</h4>
+        <p>פורטל מומחים · גרסה לאישור: <span id="engine-id-label">⏳ טוען...</span></p>
+      </div>
+      <span class="badge badge-yellow" id="status-badge" style="margin-right:auto">⏳ טוען מנוע...</span>
+    </div>
+
+    <div id="no-version-warn" class="no-version-warn anim" style="display:none">
+      ⚠️ אין גרסת מנוע ב-Staging לאישור.<br>
+      <small>יש לבצע Stage מ-<a href="/screen3" style="color:var(--gold)">שלב 3</a> לפני שניתן לפרסם.</small>
+    </div>
+
+    <div class="grid-2 anim anim-2">
+
+      <!-- Summary + Rule map -->
+      <div>
+        <div class="card">
+          <div class="card-title">📋 סיכום מנוע</div>
+          <div class="engine-summary" id="engine-summary">⏳ טוען נתוני מנוע...</div>
+          <hr class="divider">
+          <div class="card-title">🗺 מיפוי כלל → מקור</div>
+          <div id="rule-map">
+            <div style="color:var(--muted);font-size:13px;padding:8px 0">⏳ טוען מיפוי...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions panel -->
+      <div>
+        <div class="card">
+          <div class="card-title">✏️ פעולות מומחה</div>
+
+          <div class="form-group">
+            <label class="form-label">הערות / תיקונים</label>
+            <textarea class="note-box" id="expert-note" placeholder="הוסף הערה לדוח האימות..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">➕ הוסף מקור משפטי חסר</label>
+            <input class="form-input" placeholder="מספר סעיף או שם חוק..." />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">⚠ סמן אי-ודאות</label>
+            <select class="form-select" id="uncertainty-select">
+              <option value="">בחר סעיף לסימון...</option>
+            </select>
+          </div>
+
+          <hr class="divider">
+
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <button class="btn btn-gold" id="btn-publish"
+              style="width:100%; justify-content:center; font-size:16px;"
+              onclick="publishEngine()" disabled>
+              ✅ אשר ופרסם
+            </button>
+            <button class="btn btn-outline" id="btn-return"
+              style="width:100%; justify-content:center;"
+              onclick="returnToEdit()">
+              ✏️ החזר לעריכה
+            </button>
+            <button class="btn btn-danger" id="btn-reject"
+              style="width:100%; justify-content:center;"
+              onclick="rejectEngine()" disabled>
+              ⛔ דחה — לא מאשר
+            </button>
+          </div>
+
+          <div style="margin-top:16px; padding:12px; background:rgba(201,168,76,0.06);
+               border-radius:8px; font-size:12px; color:var(--muted); text-align:center;">
+            🔒 לא ניתן לפרסם ללא אישור מפורש.<br>
+            כל פעולה נרשמת ב-Audit Log בלתי ניתן לשינוי.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let ENGINE_ID  = null;
+let engineData = null;
+
+document.addEventListener('DOMContentLoaded', loadEngineData);
+
+async function loadEngineData() {
+  try {
+    const res      = await fetch('/api/engine/versions');
+    const versions = await res.json();
+    const staging  = versions.find(v => v.status === 'STAGING');
+    const active   = versions.find(v => v.status === 'ACTIVE');
+    engineData     = staging || active || null;
+
+    if (!engineData) {
+      document.getElementById('no-version-warn').style.display   = 'block';
+      document.getElementById('engine-id-label').textContent     = 'אין גרסה';
+      document.getElementById('status-badge').textContent        = '❌ אין גרסה';
+      document.getElementById('status-badge').className          = 'badge badge-red';
+      document.getElementById('engine-summary').innerHTML        = '<span style="color:var(--muted)">לא נמצאה גרסת מנוע</span>';
+      document.getElementById('rule-map').innerHTML              = '';
+      return;
+    }
+
+    ENGINE_ID = engineData.engine_id || engineData.id || engineData.version_id;
+    document.getElementById('engine-id-label').textContent = ENGINE_ID;
+
+    const badgeEl = document.getElementById('status-badge');
+    if (engineData.status === 'STAGING') {
+      badgeEl.textContent = '⏳ ממתין לאישור'; badgeEl.className = 'badge badge-yellow';
+      document.getElementById('btn-publish').disabled = false;
+      document.getElementById('btn-reject').disabled  = false;
+    } else if (engineData.status === 'ACTIVE') {
+      badgeEl.textContent = '✅ פעיל כבר'; badgeEl.className = 'badge badge-green';
+      document.getElementById('btn-publish').textContent = '✅ כבר פורסם';
+    }
+
+    const [rightsRes, validRes] = await Promise.all([fetch('/api/rights'), fetch('/api/validate')]);
+    const rights     = await rightsRes.json();
+    const validation = await validRes.json();
+
+    document.getElementById('engine-summary').innerHTML = `
+      <strong style="color:var(--white)">מנוע:</strong> ${escHtml(ENGINE_ID)}<br>
+      <strong style="color:var(--white)">זכויות מכוסות:</strong> ${rights.length}<br>
+      <strong style="color:var(--white)">סעיפים פעילים:</strong> ${validation.total_clauses||'—'}<br>
+      <strong style="color:var(--white)">מקורות:</strong> ${validation.total_source_docs||'—'} מסמכים<br>
+      <strong style="color:var(--white)">אמינות:</strong> ${validation.traceability?.percent||'—'}%<br>
+      <strong style="color:var(--white)">עמימויות:</strong> ${validation.warnings||0}<br>
+      <strong style="color:var(--white)">סטטוס:</strong>
+      <span style="color:${validation.passed?'var(--green)':'var(--red)'}">
+        ${validation.passed?'✅ PASS':'❌ FAIL'}
+      </span>`;
+
+    const mapContainer = document.getElementById('rule-map');
+    const clauseSelect = document.getElementById('uncertainty-select');
+
+    if (!rights.length) {
+      mapContainer.innerHTML = '<div style="color:var(--muted);font-size:13px">אין זכויות בקטלוג</div>';
+    } else {
+      mapContainer.innerHTML = rights.slice(0,6).map((r,i) => `
+        <div class="rule-map-row">
+          <span class="badge badge-gold" style="font-size:11px;flex-shrink:0">RULE-${String(i+1).padStart(3,'0')}</span>
+          <span class="arrow">→</span>
+          <span class="badge badge-blue" style="font-size:11px;flex-shrink:0">${escHtml(r.catalog_id.slice(-6))}</span>
+          <span class="arrow">→</span>
+          <span style="font-size:12px;color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(r.name)}</span>
+          <span class="badge ${r.discount_value>=25?'badge-yellow':'badge-green'}" style="font-size:11px;flex-shrink:0">${r.discount_value}%</span>
+        </div>`).join('');
+    }
+
+    rights.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.catalog_id; opt.textContent = `${r.catalog_id} — ${r.name}`;
+      clauseSelect.appendChild(opt);
+    });
+
+  } catch(e) {
+    document.getElementById('engine-summary').innerHTML = `<span style="color:var(--red)">שגיאה: ${escHtml(e.message)}</span>`;
+  }
+}
+
+async function publishEngine() {
+  if (!ENGINE_ID) return alert('לא נטען מזהה מנוע');
+  const note = document.getElementById('expert-note').value.trim();
+  if (!confirm(`לאשר ולפרסם את גרסה ${ENGINE_ID}?\nפעולה זו בלתי הפיכה.`)) return;
+  const btn = document.getElementById('btn-publish');
+  btn.disabled=true; btn.textContent='⏳ מפרסם...';
+  try {
+    const res  = await fetch('/api/engine/publish', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({engine_id:ENGINE_ID,published_by:'expert',note}) });
+    const data = await res.json();
+    if (res.ok) {
+      btn.textContent='✅ פורסם!'; btn.style.background='var(--green)';
+      const b = document.getElementById('status-badge'); b.textContent='✅ אושר ופורסם'; b.className='badge badge-green';
+      document.getElementById('btn-reject').disabled=true;
+      alert(`גרסה ${ENGINE_ID} פורסמה בהצלחה.`);
+    } else { alert('שגיאה: '+(data.detail||'לא ניתן לפרסם')); btn.disabled=false; btn.textContent='✅ אשר ופרסם'; }
+  } catch(e) { alert('שגיאת רשת: '+e.message); btn.disabled=false; btn.textContent='✅ אשר ופרסם'; }
+}
+
+async function rejectEngine() {
+  if (!ENGINE_ID) return alert('לא נטען מזהה מנוע');
+  const note = document.getElementById('expert-note').value.trim();
+  if (!note) { alert('נא להוסיף הערת דחייה.'); document.getElementById('expert-note').focus(); return; }
+  if (!confirm(`לדחות את גרסה ${ENGINE_ID}?`)) return;
+  const btn = document.getElementById('btn-reject');
+  btn.disabled=true; btn.textContent='⏳ דוחה...';
+  try {
+    const res  = await fetch('/api/engine/reject', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({engine_id:ENGINE_ID,rejected_by:'expert',reason:note}) });
+    const data = await res.json();
+    if (res.ok) {
+      btn.textContent='⛔ נדחה';
+      const b = document.getElementById('status-badge'); b.textContent='⛔ נדחה'; b.className='badge badge-red';
+      document.getElementById('btn-publish').disabled=true;
+      alert(`גרסה ${ENGINE_ID} נדחתה.`);
+    } else { alert('שגיאה: '+(data.detail||'לא ניתן לדחות')); btn.disabled=false; btn.textContent='⛔ דחה — לא מאשר'; }
+  } catch(e) { alert('שגיאת רשת: '+e.message); btn.disabled=false; btn.textContent='⛔ דחה — לא מאשר'; }
+}
+
+function returnToEdit() {
+  if (confirm('לחזור לעריכה? המנוע יישאר ב-STAGING.')) window.location.href='/screen5';
+}
+
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+{% endblock %}

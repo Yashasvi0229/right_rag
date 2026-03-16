@@ -1,0 +1,442 @@
+{% extends "base.html" %}
+{% set active = 's10' %}
+{% block title %}בדיקת זכאות להנחה בארנונה{% endblock %}
+{% block extra_head %}
+<style>
+  .collector-page {
+    max-width: 680px; margin: 0 auto; padding: 40px 20px 80px;
+  }
+
+  /* Progress steps */
+  .form-steps {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0; margin-bottom: 32px; overflow-x: auto;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .form-steps::-webkit-scrollbar { display: none; }
+  .fstep {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 6px;
+    font-size: 13px; font-weight: 600; white-space: nowrap;
+  }
+  .fstep-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; flex-shrink: 0;
+  }
+  .fstep.done    { color: var(--green); }
+  .fstep.done .fstep-num    { background: rgba(46,204,113,0.2); color: var(--green); }
+  .fstep.active  { color: var(--gold); }
+  .fstep.active .fstep-num  { background: var(--gold-btn); color: #000; }
+  .fstep.pending { color: var(--muted); }
+  .fstep.pending .fstep-num { background: var(--bg-card2); color: var(--muted); }
+  .fstep-sep { color: var(--muted); margin: 0 2px; }
+
+  /* Section cards */
+  .section-card {
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: var(--radius); overflow: hidden; margin-bottom: 20px;
+  }
+  .section-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 20px; background: var(--bg-card2);
+    border-bottom: 1px solid var(--border2);
+  }
+  .section-icon  { font-size: 20px; flex-shrink: 0; }
+  .section-title { font-size: 15px; font-weight: 700; color: var(--gold); }
+  .section-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .section-body  { padding: 20px; }
+
+  .two-col   { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+  /* Type selector */
+  .type-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 8px; }
+  .type-opt {
+    padding: 14px 12px;
+    border: 1.5px solid var(--border2); border-radius: var(--radius-sm);
+    background: var(--bg-navy); text-align: center; cursor: pointer;
+    transition: all 0.2s; font-family: 'Heebo', sans-serif; color: var(--muted);
+  }
+  .type-opt:hover  { border-color: var(--border); color: var(--white); }
+  .type-opt.selected { border-color: var(--gold); background: rgba(201,168,76,0.1); color: var(--gold); }
+  .type-opt .opt-icon  { font-size: 22px; display: block; margin-bottom: 5px; }
+  .type-opt .opt-label { font-size: 13px; font-weight: 700; }
+  .type-opt .opt-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* Tooltip / help */
+  .field-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .help-icon {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--bg-card2); border: 1px solid var(--border);
+    color: var(--muted); font-size: 11px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: help; flex-shrink: 0;
+  }
+  .help-icon:hover { border-color: var(--gold); color: var(--gold); }
+  .field-hint { font-size: 12px; color: var(--muted); margin-top: 5px; }
+
+  /* Toggle buttons */
+  .toggle-row { display: flex; gap: 10px; margin-bottom: 8px; }
+  .toggle-btn {
+    flex: 1; padding: 10px 8px;
+    border: 1px solid var(--border2); border-radius: var(--radius-sm);
+    background: var(--bg-navy); color: var(--muted); font-size: 13px;
+    cursor: pointer; text-align: center; font-family: 'Heebo', sans-serif; transition: all 0.2s;
+  }
+  .toggle-btn.sel { border-color: var(--gold); background: rgba(201,168,76,0.1); color: var(--gold); }
+
+  /* Submit */
+  .submit-section {
+    background: rgba(201,168,76,0.06); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px; text-align: center;
+  }
+
+  /* Field errors */
+  .field-error { font-size: 12px; color: var(--red); margin-top: 4px; display: none; }
+  .form-input.has-error, .form-select.has-error { border-color: var(--red) !important; }
+
+  /* Loading overlay */
+  .loading-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(10,22,40,0.85); z-index: 200;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+  }
+  .loading-overlay.show { display: flex; }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 4px solid var(--border); border-top-color: var(--gold);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── RESPONSIVE ───────────────────────── */
+  @media (max-width: 768px) {
+    .collector-page { padding: 24px 14px 60px; }
+
+    /* two-col → 1 col */
+    .two-col  { grid-template-columns: 1fr; }
+
+    /* three-col installments → 3 col stays (they're short labels) */
+    .three-col { gap: 8px; }
+    .toggle-btn { font-size: 12px; padding: 8px 4px; }
+
+    /* Section body */
+    .section-body { padding: 16px; }
+
+    /* Submit button */
+    .submit-section .btn { width: 100%; justify-content: center; }
+  }
+
+  @media (max-width: 480px) {
+    /* three-col → 1 col on very small */
+    .three-col { grid-template-columns: 1fr; }
+
+    .section-header { padding: 12px 14px; }
+    .section-title  { font-size: 14px; }
+    .type-opt       { padding: 12px 8px; }
+    .type-opt .opt-icon { font-size: 20px; }
+
+    /* Inputs — iOS zoom fix */
+    .form-input, .form-select { font-size: 16px !important; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="collector-page">
+
+  <div class="page-header anim" style="text-align:center">
+    <h2>🏛 בדיקת זכאות להנחה בארנונה</h2>
+    <p>מלאו את הפרטים — המנוע יחשב את זכאותכם תוך שניות</p>
+  </div>
+
+  <div class="form-steps anim anim-1">
+    <div class="fstep active"><span class="fstep-num">1</span> פרטים</div>
+    <span class="fstep-sep">›</span>
+    <div class="fstep pending"><span class="fstep-num">2</span> חישוב</div>
+    <span class="fstep-sep">›</span>
+    <div class="fstep pending"><span class="fstep-num">3</span> תוצאה</div>
+  </div>
+
+  <!-- Section 1: Service type -->
+  <div class="section-card anim anim-1">
+    <div class="section-header">
+      <div class="section-icon">🎖️</div>
+      <div>
+        <div class="section-title">סוג הזכאות</div>
+        <div class="section-sub">בחר את סוג הזכאות הרלוונטי לך</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="type-selector">
+        <div class="type-opt selected" data-type="SOLDIER" onclick="selectReserveType(this)">
+          <span class="opt-icon">🎖️</span>
+          <div class="opt-label">חייל מילואים</div>
+          <div class="opt-sub">תקנה 3ו — עד 5%</div>
+        </div>
+        <div class="type-opt" data-type="COMMANDER" onclick="selectReserveType(this)">
+          <span class="opt-icon">🎗️</span>
+          <div class="opt-label">מפקד מילואים</div>
+          <div class="opt-sub">תקנה 3ז — עד 25% על 100 מ"ר</div>
+        </div>
+      </div>
+      <input type="hidden" id="f-reserve-type" value="SOLDIER" />
+      <div class="form-group" style="margin-top:14px">
+        <label class="form-label">האם יש תעודת שירות מילואים פעיל תקפה?</label>
+        <select class="form-select" id="f-has-approval">
+          <option value="true">כן — יש תעודה תקפה</option>
+          <option value="false">לא — אין תעודה עדיין</option>
+        </select>
+        <div class="field-hint">⚠️ ללא תעודה תקפה לא ניתן לממש את ההנחה</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2: Service record -->
+  <div class="section-card anim anim-2">
+    <div class="section-header">
+      <div class="section-icon">📋</div>
+      <div>
+        <div class="section-title">נתוני שירות</div>
+        <div class="section-sub">ימי שירות מילואים ב-3 שנים האחרונות</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="form-group">
+        <div class="field-row">
+          <label class="form-label" style="margin-bottom:0">ימי שירות מצטברים ב-3 שנים אחרונות</label>
+          <span class="help-icon" title="סכום ימי המילואים מאישור צה&quot;ל. נדרש מינימום 20 ימים.">?</span>
+        </div>
+        <input class="form-input" type="number" id="f-service-days" placeholder="לדוגמה: 45" min="0" max="1095" />
+        <div class="field-error" id="err-service-days">נדרש מינימום 20 ימי שירות לזכאות</div>
+        <div class="field-hint">נדרש מינימום 20 ימים — מקור: תקנה 3ו(א)</div>
+      </div>
+      <div class="two-col">
+        <div class="form-group">
+          <label class="form-label">תאריך תחילת שירות</label>
+          <input class="form-input" type="date" id="f-start-date" min="2020-01-01" max="2026-12-31" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">תאריך סיום שירות</label>
+          <input class="form-input" type="date" id="f-end-date" min="2020-01-01" max="2026-12-31" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3: Property details -->
+  <div class="section-card anim anim-2">
+    <div class="section-header">
+      <div class="section-icon">🏠</div>
+      <div>
+        <div class="section-title">פרטי הנכס</div>
+        <div class="section-sub">נתוני הנכס שעליו מוטלת הארנונה</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="form-group">
+        <label class="form-label">האם אתה רשום כבעל/שוכר הנכס?</label>
+        <select class="form-select" id="f-property-holder">
+          <option value="true">כן — רשום כבעל/שוכר</option>
+          <option value="false">לא — איני הרשום</option>
+        </select>
+      </div>
+      <div class="two-col">
+        <div class="form-group">
+          <div class="field-row">
+            <label class="form-label" style="margin-bottom:0">ארנונה שנתית לפני הנחה (₪)</label>
+            <span class="help-icon" title="הסכום השנתי המלא לפני כל הנחה — מופיע בשובר הארנונה.">?</span>
+          </div>
+          <input class="form-input" type="number" id="f-annual-tax" placeholder="לדוגמה: 10000" min="1" />
+          <div class="field-error" id="err-annual-tax">יש להזין סכום ארנונה תקין</div>
+        </div>
+        <div class="form-group">
+          <div class="field-row">
+            <label class="form-label" style="margin-bottom:0">שיעור הנחה שאישרה הרשות (%)</label>
+            <span class="help-icon" title="לחייל עד 5%, למפקד עד 25%.">?</span>
+          </div>
+          <input class="form-input" type="number" id="f-discount-rate" placeholder="5" min="0" max="100" step="0.5" value="5" />
+        </div>
+      </div>
+      <div id="sqm-group" style="display:none">
+        <div class="form-group">
+          <div class="field-row">
+            <label class="form-label" style="margin-bottom:0">שטח הנכס (מ"ר)</label>
+            <span class="help-icon" title="למפקד — ההנחה חלה על 100 מ&quot;ר ראשונים בלבד.">?</span>
+          </div>
+          <input class="form-input" type="number" id="f-sqm" placeholder="לדוגמה: 120" min="1" />
+          <div class="field-hint">ההנחה תחושב על 100 מ"ר ראשונים בלבד</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">האם הרשות המקומית אישרה את ההנחה?</label>
+        <select class="form-select" id="f-municipality">
+          <option value="true">כן — הרשות אישרה</option>
+          <option value="false">לא יודע / לא אישרה</option>
+        </select>
+        <div class="field-hint">הנחה זו היא הנחת רשות — לא כל עיריה מעניקה אותה.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 4: Payment -->
+  <div class="section-card anim anim-3">
+    <div class="section-header">
+      <div class="section-icon">💳</div>
+      <div>
+        <div class="section-title">אופן תשלום</div>
+        <div class="section-sub">כיצד משולמת הארנונה</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="form-group">
+        <label class="form-label">שיטת תשלום:</label>
+        <div class="toggle-row">
+          <div class="toggle-btn sel" id="btn-upfront" onclick="setPayment('upfront')">💰 מראש</div>
+          <div class="toggle-btn" id="btn-install" onclick="setPayment('installments')">📅 תשלומים</div>
+        </div>
+        <input type="hidden" id="f-payment-upfront" value="true" />
+      </div>
+      <div id="installment-group" style="display:none">
+        <div class="form-group">
+          <label class="form-label">מספר תשלומים:</label>
+          <div class="three-col">
+            <div class="toggle-btn" id="inst-1"  onclick="setInstallments(1)">תשלום 1</div>
+            <div class="toggle-btn sel" id="inst-6"  onclick="setInstallments(6)">6 תשלומים</div>
+            <div class="toggle-btn" id="inst-12" onclick="setInstallments(12)">12 תשלומים</div>
+          </div>
+          <input type="hidden" id="f-installment-count" value="6" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <div class="submit-section anim anim-4">
+    <div id="submit-error" style="color:var(--red); font-size:13px; margin-bottom:12px; display:none;"></div>
+    <button class="btn btn-gold" style="font-size:17px; padding:16px 40px;" onclick="submitFacts()">
+      ▶ בדוק זכאות עכשיו
+    </button>
+    <div style="margin-top:12px; font-size:12px; color:var(--muted);">
+      🔒 הנתונים מחושבים מקומית — לא נשמרים ולא מועברים לגורם שלישי
+    </div>
+  </div>
+
+</div>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+  <div style="color:var(--white); font-size:16px; font-weight:600;">בודק זכאות...</div>
+  <div style="color:var(--muted); font-size:13px;">המנוע מחשב על פי הוראות החוק</div>
+</div>
+
+<script>
+function selectReserveType(el) {
+  document.querySelectorAll('.type-opt').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  const type = el.dataset.type;
+  document.getElementById('f-reserve-type').value = type;
+  document.getElementById('sqm-group').style.display = type === 'COMMANDER' ? '' : 'none';
+  document.getElementById('f-discount-rate').value   = type === 'COMMANDER' ? '25' : '5';
+}
+
+function setPayment(mode) {
+  const upfront = mode === 'upfront';
+  document.getElementById('btn-upfront').classList.toggle('sel', upfront);
+  document.getElementById('btn-install').classList.toggle('sel', !upfront);
+  document.getElementById('f-payment-upfront').value = upfront ? 'true' : 'false';
+  document.getElementById('installment-group').style.display = upfront ? 'none' : '';
+}
+
+function setInstallments(n) {
+  [1,6,12].forEach(v => document.getElementById('inst-'+v).classList.toggle('sel', v===n));
+  document.getElementById('f-installment-count').value = n;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const type = new URLSearchParams(window.location.search).get('type');
+  if (type === 'commander') {
+    const el = document.querySelector('[data-type="COMMANDER"]');
+    if (el) selectReserveType(el);
+  }
+});
+
+function showErr(id, msg) {
+  const e = document.getElementById('err-'+id); const i = document.getElementById('f-'+id);
+  if (e) { e.textContent=msg; e.style.display='block'; }
+  if (i) i.classList.add('has-error');
+}
+function clearErr(id) {
+  const e = document.getElementById('err-'+id); const i = document.getElementById('f-'+id);
+  if (e) e.style.display='none';
+  if (i) i.classList.remove('has-error');
+}
+
+function validate() {
+  let ok = true;
+  clearErr('service-days'); clearErr('annual-tax');
+  const days = parseInt(document.getElementById('f-service-days').value)||0;
+  if (days < 1) { showErr('service-days','יש להזין מספר ימי שירות'); ok=false; }
+  else if (days < 20) { showErr('service-days',`${days} ימים — נדרש מינימום 20 ימים`); }
+  const tax = parseFloat(document.getElementById('f-annual-tax').value)||0;
+  if (tax<=0) { showErr('annual-tax','יש להזין סכום ארנונה שנתי תקין'); ok=false; }
+  const type = document.getElementById('f-reserve-type').value;
+  const sqm  = parseFloat(document.getElementById('f-sqm')?.value)||0;
+  const errEl = document.getElementById('submit-error');
+  if (type==='COMMANDER' && sqm<=0) {
+    errEl.textContent='למפקד מילואים נדרש שטח הנכס (מ"ר)'; errEl.style.display='block'; ok=false;
+  } else { errEl.style.display='none'; }
+  return ok;
+}
+
+async function submitFacts() {
+  if (!validate()) return;
+  const overlay = document.getElementById('loading-overlay');
+  overlay.classList.add('show');
+  try {
+    const sessRes = await fetch('/api/session/start', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    if (!sessRes.ok) throw new Error('שגיאה ביצירת session');
+    const { session_id } = await sessRes.json();
+
+    const type     = document.getElementById('f-reserve-type').value;
+    const days     = parseInt(document.getElementById('f-service-days').value)||0;
+    const tax      = parseFloat(document.getElementById('f-annual-tax').value)||0;
+    const rate     = parseFloat(document.getElementById('f-discount-rate').value)||0;
+    const sqm      = parseFloat(document.getElementById('f-sqm')?.value)||0;
+    const holder   = document.getElementById('f-property-holder').value;
+    const munic    = document.getElementById('f-municipality').value;
+    const upfront  = document.getElementById('f-payment-upfront').value;
+    const installs = parseInt(document.getElementById('f-installment-count').value)||6;
+    const startDate = document.getElementById('f-start-date').value;
+    const endDate   = document.getElementById('f-end-date').value;
+    const approval  = document.getElementById('f-has-approval').value;
+
+    const facts = [
+      {fact_type:'RESERVE_TYPE',        value:JSON.stringify(type)},
+      {fact_type:'SERVICE_DAYS_3Y',     value:JSON.stringify(days)},
+      {fact_type:'IS_PROPERTY_HOLDER',  value:holder},
+      {fact_type:'ANNUAL_TAX_ILS',      value:JSON.stringify(tax)},
+      {fact_type:'DISCOUNT_RATE_PCT',   value:JSON.stringify(rate)},
+      {fact_type:'MUNICIPALITY_GRANTS', value: approval==='false' ? 'false' : munic},
+      {fact_type:'PAYMENT_UPFRONT',     value:upfront},
+      {fact_type:'INSTALLMENT_COUNT',   value:JSON.stringify(installs)},
+    ];
+    if (sqm>0)      facts.push({fact_type:'PROPERTY_SIZE_SQM',  value:JSON.stringify(sqm)});
+    if (startDate)  facts.push({fact_type:'SERVICE_START_DATE', value:JSON.stringify(startDate)});
+    if (endDate)    facts.push({fact_type:'SERVICE_END_DATE',   value:JSON.stringify(endDate)});
+
+    const factRes = await fetch('/api/facts', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({session_id,facts}) });
+    if (!factRes.ok) { const err=await factRes.json().catch(()=>({})); throw new Error(err.detail||'שגיאה בשמירת פרטים'); }
+
+    window.location.href = `/screen11?session_id=${session_id}`;
+  } catch(e) {
+    overlay.classList.remove('show');
+    const errEl = document.getElementById('submit-error');
+    errEl.textContent='❌ '+e.message; errEl.style.display='block';
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% set active = 's7' %}
+{% block title %}ערר ומידע מתקדם{% endblock %}
+{% block extra_head %}
+<style>
+  .appeal-page { max-width: 800px; margin: 0 auto; padding: 40px 20px 80px; }
+
+  .denied-banner {
+    background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.3);
+    border-radius: var(--radius); padding: 20px 20px;
+    display: flex; align-items: flex-start; gap: 14px;
+    margin-bottom: 28px; flex-wrap: wrap;
+  }
+  .denied-icon  { font-size: 32px; flex-shrink: 0; }
+  .denied-body  { flex: 1; min-width: 0; }
+  .denied-title { font-size: 18px; font-weight: 700; color: var(--red); margin-bottom: 4px; }
+  .denied-sub   { font-size: 14px; color: var(--muted); }
+
+  .denied-actions { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+
+  .timeline { position: relative; padding-right: 32px; }
+  .timeline::before {
+    content: ''; position: absolute;
+    right: 10px; top: 0; bottom: 0; width: 2px; background: var(--border2);
+  }
+  .tl-item { position: relative; padding: 0 0 24px 0; }
+  .tl-dot {
+    position: absolute; right: -26px; top: 4px;
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; flex-shrink: 0;
+  }
+  .dot-active { background: var(--gold-btn); color: #000; }
+  .dot-future { background: var(--bg-card2); color: var(--muted); border: 1px solid var(--border2); }
+  .tl-title   { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .tl-desc    { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .tl-deadline {
+    display: inline-block; margin-top: 6px; padding: 3px 10px;
+    background: rgba(241,196,15,0.1); border: 1px solid rgba(241,196,15,0.3);
+    border-radius: 10px; font-size: 12px; color: var(--yellow);
+  }
+
+  .case-law {
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 14px 18px;
+    margin-bottom: 10px; font-size: 13px;
+  }
+  .case-name { font-weight: 700; margin-bottom: 4px; color: var(--gold); }
+  .case-desc { color: var(--muted); line-height: 1.6; }
+
+  .warning-box {
+    background: rgba(231,76,60,0.08); border: 1.5px solid rgba(231,76,60,0.3);
+    border-radius: var(--radius-sm); padding: 14px 16px;
+    font-size: 13px; color: var(--red); font-weight: 600;
+  }
+
+  .failed-reasons {
+    margin-top: 10px; padding: 10px 14px;
+    background: rgba(231,76,60,0.05); border: 1px solid rgba(231,76,60,0.2);
+    border-radius: 8px; font-size: 13px;
+    list-style: none; padding: 0; margin: 0;
+  }
+  .failed-reasons li { color: var(--muted); padding: 3px 0; }
+
+  /* 2-col grid for timeline + case law */
+  .content-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+  }
+
+  /* ── RESPONSIVE ───────────────────────── */
+  @media (max-width: 768px) {
+    .appeal-page { padding: 24px 14px 60px; }
+
+    /* Denied banner — stack actions below */
+    .denied-banner { gap: 12px; }
+    .denied-actions {
+      flex-direction: row; flex-wrap: wrap;
+      width: 100%; flex-shrink: unset;
+    }
+    .denied-actions .btn { flex: 1; text-align: center; justify-content: center; }
+
+    /* Content grid → 1 col */
+    .content-grid { grid-template-columns: 1fr; }
+
+    .denied-title { font-size: 16px; }
+  }
+
+  @media (max-width: 480px) {
+    .denied-icon  { font-size: 26px; }
+    .denied-title { font-size: 15px; }
+    .tl-title     { font-size: 14px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="appeal-page">
+  <div class="page-header anim">
+    <h2>⚖️ ערר ומידע מתקדם</h2>
+    <p>מה לעשות אם הבקשה נדחתה</p>
+  </div>
+
+  <!-- Denial banner — dynamic from URL -->
+  <div class="denied-banner anim anim-1">
+    <div class="denied-icon">❌</div>
+    <div class="denied-body">
+      <div class="denied-title">הבקשה נדחתה — הנחה לא אושרה</div>
+      <div class="denied-sub" id="denial-reason">טוען סיבת הדחייה...</div>
+      <ul class="failed-reasons" id="failed-list" style="display:none;"></ul>
+    </div>
+    <div class="denied-actions">
+      <a href="/screen10" class="btn btn-outline" style="white-space:nowrap; font-size:13px; padding:8px 14px;">
+        ← בדיקת זכאות מחדש
+      </a>
+      <a href="/screen7" class="btn btn-outline" style="white-space:nowrap; font-size:12px; padding:6px 12px; opacity:0.7;">
+        מחשבון מהיר
+      </a>
+    </div>
+  </div>
+
+  <div class="content-grid">
+
+    <!-- Appeal timeline -->
+    <div class="card anim anim-2">
+      <div class="card-title">📅 תהליך הגשת ערר</div>
+      <div class="timeline">
+        <div class="tl-item">
+          <div class="tl-dot dot-active">1</div>
+          <div class="tl-title">קבלת ההחלטה בכתב</div>
+          <div class="tl-desc">מהרשות המקומית — מהווה את נקודת ההתחלה לספירת המועד.</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot dot-future">2</div>
+          <div class="tl-title">הגשת ערר לוועדת ערר</div>
+          <div class="tl-desc">הגש ערר בכתב לוועדת הערר לארנונה בעיריה שלך.</div>
+          <span class="tl-deadline">⏰ עד 30 יום מהקבלה</span>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot dot-future">3</div>
+          <div class="tl-title">ערעור לבית משפט מחוזי</div>
+          <div class="tl-desc">אם הוועדה דחתה — ניתן לערער על ההחלטה לביהמ"ש מחוזי.</div>
+          <span class="tl-deadline">⏰ עד 45 יום מהחלטת הוועדה</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Case law + warning -->
+    <div class="anim anim-3">
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">⚖️ פסיקה רלוונטית</div>
+        <div class="case-law">
+          <div class="case-name">עע"מ 3333/19 — ארנונה ונכות</div>
+          <div class="case-desc">בית המשפט קבע כי החישוב ייעשה לפי ממוצע ימי שירות בפועל, לא לפי ימי אישור.</div>
+        </div>
+        <div class="case-law">
+          <div class="case-name">עת"מ 2156/22 — פרשנות "יום שירות"</div>
+          <div class="case-desc">בית המשפט המחוזי הרחיב את הגדרת "יום שירות" לכלול הכשרות מאושרות.</div>
+        </div>
+        <div class="case-law">
+          <div class="case-name">בג"ץ 4477/20 — שוויון בארנונה</div>
+          <div class="case-desc">עיקרון השוויון מחייב הנחה שווה לכל הזכאים ללא קשר לעיריה.</div>
+        </div>
+      </div>
+      <div class="warning-box anim anim-4">
+        ⚠️ הגשת ערר אינה פוטרת מתשלום הארנונה השוטפת.<br>
+        <span style="font-weight:400; font-size:12px;">יש להמשיך לשלם בזמן למניעת ריבית פיגורים.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="anim anim-4" style="margin-top:24px; padding:18px 20px; background:var(--bg-card);
+       border-radius:var(--radius); border:1px solid var(--border2);
+       font-size:13px; color:var(--muted); text-align:center;">
+    ⚠️ <strong style="color:var(--white)">כתב ויתור:</strong>
+    מערכת זו מספקת מידע לפי הוראות החוק הנוכחי ואינה מהווה ייעוץ משפטי.
+    לקבלת ייעוץ פרטני יש לפנות לעורך דין.
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const params  = new URLSearchParams(window.location.search);
+  const reason  = params.get('reason');
+  const session = params.get('session_id');
+  const condRaw = params.get('conditions');
+
+  const reasonEl = document.getElementById('denial-reason');
+  const listEl   = document.getElementById('failed-list');
+
+  if (reason) {
+    reasonEl.textContent = decodeURIComponent(reason);
+  } else if (session) {
+    loadDenialFromSession(session);
+  } else {
+    reasonEl.textContent = 'לא עמדת בתנאי הזכאות — פרטים מלאים בהמשך';
+  }
+
+  if (condRaw) {
+    const conditions = decodeURIComponent(condRaw).split(',').filter(Boolean);
+    if (conditions.length > 0) {
+      listEl.style.display = 'block';
+      listEl.innerHTML = conditions.map(c => `<li>• ${escHtml(c.trim())}</li>`).join('');
+    }
+  }
+});
+
+async function loadDenialFromSession(session_id) {
+  try {
+    const res    = await fetch(`/api/evaluate/${session_id}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    if (!res.ok) return;
+    const result = await res.json();
+    const reasonEl = document.getElementById('denial-reason');
+    const listEl   = document.getElementById('failed-list');
+    if (!result.is_eligible) {
+      reasonEl.textContent = 'לא נמצאה זכאות להנחה על פי הנתונים שהוזנו';
+      const allFailed = (result.ineligible_summary||[]).flatMap(r => r.failed_conditions||[]);
+      if (allFailed.length > 0) {
+        listEl.style.display = 'block';
+        listEl.innerHTML = allFailed.map(c => `<li>• ${escHtml(c)}</li>`).join('');
+      }
+    } else {
+      window.location.href = `/screen11?session_id=${session_id}`;
+    }
+  } catch(e) {
+    document.getElementById('denial-reason').textContent = 'לא ניתן לטעון את פרטי הדחייה';
+  }
+}
+
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+{% endblock %}

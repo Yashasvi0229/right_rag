@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}מלאך הזכויות: הנחת ארנונה לחיילי מילואים{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ═══════════════════════════════════════
+       RIGHTS ANGEL — DESIGN SYSTEM
+       Client palette: Deep Navy + Gold
+    ═══════════════════════════════════════ */
+    :root {
+      --bg-deep:    #0a1628;
+      --bg-navy:    #0d1f3c;
+      --bg-card:    #112244;
+      --bg-card2:   #162a50;
+      --gold:       #c9a84c;
+      --gold-light: #e4c97a;
+      --gold-btn:   #d4a017;
+      --gold-btn-h: #f0bb20;
+      --white:      #f0e8d0;
+      --muted:      #7a90aa;
+      --border:     rgba(201,168,76,0.2);
+      --border2:    rgba(255,255,255,0.07);
+      --green:      #2ecc71;
+      --yellow:     #f1c40f;
+      --red:        #e74c3c;
+      --blue-acc:   #4a9edd;
+      --shadow:     0 8px 32px rgba(0,0,0,0.4);
+      --radius:     14px;
+      --radius-sm:  8px;
+      --navbar-h:   72px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Heebo', sans-serif;
+      background: var(--bg-deep);
+      color: var(--white);
+      min-height: 100vh;
+      direction: rtl;
+      line-height: 1.6;
+    }
+
+    /* ══════════════════════════════════════
+       NAVBAR
+    ══════════════════════════════════════ */
+    .navbar {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 0 40px; height: var(--navbar-h);
+      background: rgba(10,22,40,0.97);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 200;
+      backdrop-filter: blur(12px); gap: 16px;
+    }
+    .nav-brand { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .nav-logo {
+      width: 44px; height: 44px; background: var(--gold);
+      border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-size: 22px; flex-shrink: 0;
+    }
+    .nav-brand-text h1 {
+      font-family: 'Frank Ruhl Libre', serif;
+      font-size: 18px; color: var(--gold); font-weight: 700; line-height: 1.2;
+    }
+    .nav-brand-text p { font-size: 11px; color: var(--muted); }
+
+    .nav-links { display: flex; gap: 6px; list-style: none; }
+    .nav-links a {
+      color: var(--white); text-decoration: none;
+      padding: 8px 16px; border-radius: var(--radius-sm);
+      font-size: 14px; font-weight: 500; transition: all 0.2s; white-space: nowrap;
+    }
+    .nav-links a:hover { background: var(--bg-card); }
+    .nav-links a.active { background: var(--bg-card); color: var(--gold); }
+
+    .nav-langs { display: flex; gap: 4px; flex-shrink: 0; }
+    .lang-btn {
+      padding: 5px 10px; border-radius: 6px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); font-size: 12px; cursor: pointer;
+      transition: all 0.2s; font-family: 'Heebo', sans-serif;
+    }
+    .lang-btn:hover, .lang-btn.active {
+      background: var(--gold-btn); color: #000; border-color: var(--gold-btn);
+    }
+
+    /* Hamburger — mobile only */
+    .hamburger {
+      display: none; flex-direction: column; gap: 5px;
+      background: none; border: none; cursor: pointer;
+      padding: 8px; flex-shrink: 0;
+    }
+    .hamburger span {
+      display: block; width: 24px; height: 2px;
+      background: var(--white); border-radius: 2px; transition: all 0.3s;
+    }
+    .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+
+    /* Mobile drawer */
+    .mobile-drawer {
+      display: none; position: fixed;
+      top: var(--navbar-h); right: 0; left: 0;
+      background: rgba(10,22,40,0.98);
+      border-bottom: 1px solid var(--border);
+      z-index: 199; padding: 16px 20px 24px;
+      backdrop-filter: blur(12px);
+      animation: slideDown 0.25s ease;
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .mobile-drawer.open { display: block; }
+    .mobile-nav-links { list-style: none; margin-bottom: 16px; }
+    .mobile-nav-links li { border-bottom: 1px solid var(--border2); }
+    .mobile-nav-links a {
+      display: block; padding: 14px 8px;
+      color: var(--white); text-decoration: none;
+      font-size: 16px; font-weight: 500; transition: color 0.2s;
+    }
+    .mobile-nav-links a.active,
+    .mobile-nav-links a:hover { color: var(--gold); }
+    .mobile-langs { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 8px; }
+
+    /* ══════════════════════════════════════
+       ADMIN LAYOUT + SIDEBAR
+    ══════════════════════════════════════ */
+    .admin-layout {
+      display: flex;
+      min-height: calc(100vh - var(--navbar-h));
+    }
+    .sidebar {
+      width: 240px; background: var(--bg-navy);
+      border-left: 1px solid var(--border2);
+      padding: 24px 0; flex-shrink: 0;
+    }
+    .sidebar-section {
+      padding: 8px 20px; font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 1px; margin-top: 16px;
+    }
+    .sidebar-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 20px; color: var(--white); text-decoration: none;
+      font-size: 14px; cursor: pointer; transition: all 0.2s;
+      border-right: 3px solid transparent;
+    }
+    .sidebar-item:hover { background: var(--bg-card); }
+    .sidebar-item.active {
+      background: var(--bg-card); border-right-color: var(--gold); color: var(--gold);
+    }
+    .main-content { flex: 1; padding: 32px 40px; overflow-y: auto; min-width: 0; }
+
+    /* ══════════════════════════════════════
+       COMMON COMPONENTS
+    ══════════════════════════════════════ */
+    .page-header { margin-bottom: 32px; }
+    .page-header h2 {
+      font-family: 'Frank Ruhl Libre', serif;
+      font-size: 28px; color: var(--gold); margin-bottom: 6px;
+    }
+    .page-header p { color: var(--muted); font-size: 15px; }
+
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border2);
+      border-radius: var(--radius); padding: 24px; margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 15px; font-weight: 600; color: var(--gold);
+      margin-bottom: 16px; display: flex; align-items: center;
+      gap: 8px; flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    }
+    .badge-green  { background: rgba(46,204,113,0.15);  color: var(--green);    border: 1px solid rgba(46,204,113,0.3); }
+    .badge-yellow { background: rgba(241,196,15,0.15);  color: var(--yellow);   border: 1px solid rgba(241,196,15,0.3); }
+    .badge-red    { background: rgba(231,76,60,0.15);   color: var(--red);      border: 1px solid rgba(231,76,60,0.3); }
+    .badge-blue   { background: rgba(74,158,221,0.15);  color: var(--blue-acc); border: 1px solid rgba(74,158,221,0.3); }
+    .badge-gold   { background: rgba(201,168,76,0.15);  color: var(--gold);     border: 1px solid var(--border); }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 28px; border-radius: var(--radius-sm);
+      font-size: 15px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s; border: none;
+      text-decoration: none; font-family: 'Heebo', sans-serif;
+    }
+    .btn-gold { background: var(--gold-btn); color: #000; }
+    .btn-gold:hover {
+      background: var(--gold-btn-h); transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(212,160,23,0.4);
+    }
+    .btn-outline { background: transparent; color: var(--gold); border: 1px solid var(--border); }
+    .btn-outline:hover { background: var(--bg-card2); }
+    .btn-danger { background: rgba(231,76,60,0.2); color: var(--red); border: 1px solid rgba(231,76,60,0.3); }
+
+    .divider { border: none; border-top: 1px solid var(--border2); margin: 20px 0; }
+
+    /* ── TABLES ── */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      text-align: right; padding: 10px 14px; font-size: 12px;
+      color: var(--muted); font-weight: 600;
+      border-bottom: 1px solid var(--border2);
+      text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
+    }
+    td { padding: 12px 14px; font-size: 14px; border-bottom: 1px solid var(--border2); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    /* ── FORMS ── */
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 8px; font-weight: 500; }
+    .form-input, .form-select, .form-textarea {
+      width: 100%; background: var(--bg-navy);
+      border: 1px solid var(--border2); border-radius: var(--radius-sm);
+      padding: 11px 14px; color: var(--white);
+      font-size: 15px; font-family: 'Heebo', sans-serif;
+      transition: border-color 0.2s; direction: rtl;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      outline: none; border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(201,168,76,0.15);
+    }
+    .form-input::placeholder { color: var(--muted); }
+
+    /* ── STEPS ── */
+    .steps {
+      display: flex; align-items: center; margin-bottom: 32px;
+      overflow-x: auto; padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .steps::-webkit-scrollbar { display: none; }
+    .step {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; border-radius: 6px;
+      font-size: 13px; font-weight: 600; white-space: nowrap;
+    }
+    .step-num {
+      width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+    .step.done   { color: var(--green); }
+    .step.done .step-num   { background: rgba(46,204,113,0.2); color: var(--green); }
+    .step.active { color: var(--gold); }
+    .step.active .step-num { background: var(--gold-btn); color: #000; }
+    .step.pending { color: var(--muted); }
+    .step.pending .step-num { background: var(--bg-card2); color: var(--muted); }
+    .step-sep { color: var(--muted); margin: 0 2px; font-size: 12px; }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .anim   { animation: fadeInUp 0.5s ease both; }
+    .anim-1 { animation-delay: 0.1s; }
+    .anim-2 { animation-delay: 0.2s; }
+    .anim-3 { animation-delay: 0.3s; }
+    .anim-4 { animation-delay: 0.4s; }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar       { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-navy); }
+    ::-webkit-scrollbar-thumb { background: var(--bg-card2); border-radius: 3px; }
+
+    /* ── CONTACT MODAL ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); z-index: 999;
+      align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 36px;
+      width: 100%; max-width: 480px; position: relative;
+      animation: fadeInUp 0.3s ease both;
+      max-height: 90vh; overflow-y: auto;
+    }
+    .modal-close {
+      position: absolute; top: 14px; left: 14px;
+      background: none; border: none; color: var(--muted);
+      font-size: 22px; cursor: pointer; line-height: 1;
+    }
+    .modal-close:hover { color: var(--white); }
+    .modal-title { font-family: 'Frank Ruhl Libre', serif; font-size: 22px; color: var(--gold); margin-bottom: 6px; }
+    .modal-subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+    .contact-success { display: none; text-align: center; padding: 20px 0; }
+    .contact-success .success-icon { font-size: 48px; margin-bottom: 12px; }
+    .contact-success p { color: var(--green); font-weight: 600; font-size: 16px; }
+
+    /* ══════════════════════════════════════
+       GLOBAL RESPONSIVE
+       One place fixes ALL screens
+    ══════════════════════════════════════ */
+
+    /* ── Tablet 768px ── */
+    @media (max-width: 768px) {
+
+      /* Navbar */
+      .navbar        { padding: 0 16px; }
+      .nav-links     { display: none; }
+      .nav-langs     { display: none; }
+      .hamburger     { display: flex; }
+      .nav-brand-text p { display: none; }
+
+      /* Admin layout — stack vertically */
+      .admin-layout  { flex-direction: column; }
+      .sidebar {
+        width: 100%; border-left: none;
+        border-bottom: 1px solid var(--border2);
+        padding: 8px 0; display: none;
+      }
+      .sidebar.mobile-open { display: block; }
+      .main-content  { padding: 20px 16px; }
+
+      /* Page header */
+      .page-header h2    { font-size: 22px; }
+      .page-header       { margin-bottom: 20px; }
+
+      /* Cards */
+      .card { padding: 16px; }
+
+      /* 2-col → 1-col */
+      .grid-2, .two-col {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+      }
+
+      /* 3-col → 1-col */
+      .three-col,
+      .how-grid,
+      .stats-grid,
+      .guarantees,
+      .demo-grid,
+      .type-grid,
+      .type-tabs     { grid-template-columns: 1fr !important; }
+
+      /* 4-col → 2-col */
+      .summary-bar,
+      .stats-row,
+      .result-breakdown,
+      .breakdown-grid { grid-template-columns: 1fr 1fr !important; }
+
+      /* Filter bars */
+      .filter-bar,
+      .bulk-bar,
+      .source-filter-bar { flex-wrap: wrap; gap: 8px; }
+
+      /* Tables */
+      table { min-width: 480px; }
+      .card > table,
+      .card table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    }
+
+    /* ── Small mobile 480px ── */
+    @media (max-width: 480px) {
+
+      .nav-brand-text h1 { font-size: 14px; }
+      .nav-logo { width: 36px; height: 36px; font-size: 18px; }
+
+      .main-content  { padding: 14px 12px; }
+      .page-header h2 { font-size: 19px; }
+      .card { padding: 14px; border-radius: 10px; }
+
+      /* All grids → 1 col on smallest screens */
+      .summary-bar,
+      .stats-row,
+      .result-breakdown,
+      .breakdown-grid,
+      .type-grid,
+      .type-tabs     { grid-template-columns: 1fr !important; }
+
+      /* Inputs — 16px prevents iOS auto-zoom */
+      .form-input,
+      .form-select,
+      .form-textarea { font-size: 16px !important; }
+
+      /* Buttons */
+      .btn { padding: 10px 18px; font-size: 14px; }
+
+      /* Modal */
+      .modal-box { padding: 20px 14px; }
+
+      /* Steps */
+      .step     { font-size: 11px; padding: 5px 6px; }
+      .step-num { width: 22px; height: 22px; font-size: 11px; }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="nav-logo">👼</div>
+    <div class="nav-brand-text">
+      <h1>מלאך הזכויות</h1>
+      <p>הנחת ארנונה לחיילי מילואים — מנוע זכאות אוטומטי</p>
+    </div>
+  </div>
+
+  <!-- Desktop links -->
+  <ul class="nav-links">
+    <li><a href="/screen0"  {% if active=='s0'  %}class="active"{% endif %}>בית</a></li>
+    <li><a href="/screen10" {% if active=='s10' %}class="active"{% endif %}>בדוק זכאות</a></li>
+    <li><a href="/screen1"  {% if active=='s1'  %}class="active"{% endif %}>ניהול</a></li>
+    <li><a href="/screen9"  {% if active=='s9'  %}class="active"{% endif %}>היסטוריה</a></li>
+    <li><a href="#" onclick="openContact(); return false;">צור קשר</a></li>
+  </ul>
+
+  <div class="nav-langs">
+    <button class="lang-btn active">עב</button>
+    <button class="lang-btn">EN</button>
+    <button class="lang-btn">PY</button>
+    <button class="lang-btn">עד</button>
+    <button class="lang-btn">ייד</button>
+    <button class="lang-btn">אמ׳</button>
+  </div>
+
+  <!-- Hamburger (mobile only) -->
+  <button class="hamburger" id="hamburger" onclick="toggleMenu()" aria-label="תפריט">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- Mobile drawer -->
+<div class="mobile-drawer" id="mobileDrawer">
+  <ul class="mobile-nav-links">
+    <li><a href="/screen0"  {% if active=='s0'  %}class="active"{% endif %}>🏠 בית</a></li>
+    <li><a href="/screen10" {% if active=='s10' %}class="active"{% endif %}>✅ בדוק זכאות</a></li>
+    <li><a href="/screen1"  {% if active=='s1'  %}class="active"{% endif %}>⚙️ ניהול</a></li>
+    <li><a href="/screen9"  {% if active=='s9'  %}class="active"{% endif %}>🕐 היסטוריה</a></li>
+    <li><a href="#" onclick="openContact(); closeMenu(); return false;">📬 צור קשר</a></li>
+  </ul>
+  <div class="mobile-langs">
+    <button class="lang-btn active">עב</button>
+    <button class="lang-btn">EN</button>
+    <button class="lang-btn">PY</button>
+    <button class="lang-btn">עד</button>
+    <button class="lang-btn">ייד</button>
+    <button class="lang-btn">אמ׳</button>
+  </div>
+</div>
+
+{% block content %}{% endblock %}
+
+<!-- CONTACT MODAL -->
+<div class="modal-overlay" id="contactModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeContact()">✕</button>
+    <div id="contactForm">
+      <div class="modal-title">📬 צור קשר</div>
+      <div class="modal-subtitle">נשמח לשמוע מכם — נחזור אליכם בהקדם</div>
+      <div class="form-group">
+        <label class="form-label">שם מלא *</label>
+        <input type="text" id="contactName" class="form-input" placeholder="ישראל ישראלי" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">כתובת דוא"ל *</label>
+        <input type="email" id="contactEmail" class="form-input" placeholder="mail@example.com" dir="ltr" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">הודעה *</label>
+        <textarea id="contactMessage" class="form-textarea" rows="4" placeholder="כתבו את הודעתכם כאן..."></textarea>
+      </div>
+      <div id="contactError" style="color:var(--red);font-size:13px;margin-bottom:12px;display:none;"></div>
+      <button class="btn btn-gold" style="width:100%" onclick="submitContact()">שלח הודעה ✉️</button>
+    </div>
+    <div class="contact-success" id="contactSuccess">
+      <div class="success-icon">✅</div>
+      <p>ההודעה נשלחה בהצלחה!</p>
+      <p style="color:var(--muted);font-size:13px;margin-top:8px;">נחזור אליכם בהקדם</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── Hamburger ─────────────────────────────────── */
+  function toggleMenu() {
+    document.getElementById('hamburger').classList.toggle('open');
+    document.getElementById('mobileDrawer').classList.toggle('open');
+  }
+  function closeMenu() {
+    document.getElementById('hamburger').classList.remove('open');
+    document.getElementById('mobileDrawer').classList.remove('open');
+  }
+  document.addEventListener('click', function(e) {
+    const d = document.getElementById('mobileDrawer');
+    const b = document.getElementById('hamburger');
+    if (d.classList.contains('open') && !d.contains(e.target) && !b.contains(e.target)) closeMenu();
+  });
+
+  /* ── Mobile sidebar (admin screens) ───────────── */
+  function toggleSidebar() {
+    const s = document.querySelector('.sidebar');
+    if (s) s.classList.toggle('mobile-open');
+  }
+
+  /* ── Contact modal ─────────────────────────────── */
+  function openContact() {
+    document.getElementById('contactModal').classList.add('open');
+    document.getElementById('contactForm').style.display    = 'block';
+    document.getElementById('contactSuccess').style.display = 'none';
+    document.getElementById('contactError').style.display   = 'none';
+  }
+  function closeContact() {
+    document.getElementById('contactModal').classList.remove('open');
+    document.getElementById('contactName').value    = '';
+    document.getElementById('contactEmail').value   = '';
+    document.getElementById('contactMessage').value = '';
+  }
+  function submitContact() {
+    const name    = document.getElementById('contactName').value.trim();
+    const email   = document.getElementById('contactEmail').value.trim();
+    const message = document.getElementById('contactMessage').value.trim();
+    const errEl   = document.getElementById('contactError');
+    if (!name || !email || !message) {
+      errEl.textContent = 'נא למלא את כל השדות המסומנים בכוכבית *';
+      errEl.style.display = 'block'; return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errEl.textContent = 'כתובת הדוא"ל אינה תקינה';
+      errEl.style.display = 'block'; return;
+    }
+    fetch('/api/contact', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ name, email, message })
+    })
+    .then(r => r.json())
+    .then(() => {
+      document.getElementById('contactForm').style.display    = 'none';
+      document.getElementById('contactSuccess').style.display = 'block';
+      setTimeout(closeContact, 2500);
+    })
+    .catch(() => {
+      document.getElementById('contactForm').style.display    = 'none';
+      document.getElementById('contactSuccess').style.display = 'block';
+      setTimeout(closeContact, 2500);
+    });
+  }
+  document.getElementById('contactModal').addEventListener('click', function(e) {
+    if (e.target === this) closeContact();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { closeContact(); closeMenu(); }
+  });
+</script>
+
+</body>
+</html>

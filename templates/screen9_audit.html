@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+{% set active = 's9' %}
+{% block title %}היסטוריה וגרסאות — Audit Trail{% endblock %}
+{% block extra_head %}
+<style>
+  .audit-page { max-width: 1100px; margin: 0 auto; padding: 40px; }
+
+  .version-card {
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: var(--radius); overflow: hidden;
+    margin-bottom: 12px; transition: border-color 0.2s;
+  }
+  .version-card.current { border-color: var(--gold); }
+  .version-header {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 16px 20px; cursor: pointer;
+  }
+  .version-header:hover { background: rgba(255,255,255,0.02); }
+  .version-id { font-family: monospace; font-size: 13px; color: var(--gold); font-weight: 700; white-space: nowrap; }
+  .version-meta { flex: 1; min-width: 0; }
+  .version-meta h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .version-meta p  { font-size: 12px; color: var(--muted); }
+  .version-body {
+    padding: 0 20px 16px; border-top: 1px solid var(--border2);
+    font-size: 13px; display: none;
+  }
+
+  .hash-display {
+    font-family: monospace; font-size: 11px; color: var(--muted);
+    background: var(--bg-navy); padding: 4px 8px; border-radius: 4px;
+  }
+
+  /* QA #6: Stats row */
+  .stats-row {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 16px; margin-bottom: 32px;
+  }
+  .stat-box {
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 16px 18px; text-align: center;
+  }
+  .stat-big { font-size: 28px; font-weight: 900; font-family: 'Frank Ruhl Libre', serif; }
+  .stat-sm  { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .filter-bar {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 16px; padding: 12px 14px;
+    background: rgba(201,168,76,0.05); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); font-size: 13px;
+  }
+  .filt-btn {
+    padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border2);
+    background: transparent; color: var(--muted); font-size: 12px;
+    cursor: pointer; font-family: 'Heebo', sans-serif; transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .filt-btn:hover { border-color: var(--border); color: var(--white); }
+  .filt-btn.active { background: rgba(201,168,76,0.12); border-color: var(--gold); color: var(--gold); }
+
+  .action-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px; border-radius: 12px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .act-PUBLISH  { background:rgba(46,204,113,0.15);  color:var(--green);    border:1px solid rgba(46,204,113,0.3); }
+  .act-STAGE    { background:rgba(241,196,15,0.15);  color:var(--yellow);   border:1px solid rgba(241,196,15,0.3); }
+  .act-APPROVE  { background:rgba(46,204,113,0.1);   color:var(--green);    border:1px solid rgba(46,204,113,0.2); }
+  .act-REJECT   { background:rgba(231,76,60,0.15);   color:var(--red);      border:1px solid rgba(231,76,60,0.3); }
+  .act-INGEST   { background:rgba(201,168,76,0.15);  color:var(--gold);     border:1px solid rgba(201,168,76,0.3); }
+  .act-UNAPPROVE{ background:rgba(241,196,15,0.12);  color:var(--yellow);   border:1px solid rgba(241,196,15,0.2); }
+  .act-DEFAULT  { background:rgba(74,158,221,0.12);  color:var(--blue-acc); border:1px solid rgba(74,158,221,0.2); }
+
+  .empty-state { text-align: center; padding: 40px; color: var(--muted); }
+  .empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* ── RESPONSIVE ───────────────────────── */
+  @media (max-width: 768px) {
+    .audit-page { padding: 20px 14px; }
+
+    /* Stats: 4 → 2 col */
+    .stats-row { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .stat-big  { font-size: 24px; }
+    .stat-box  { padding: 12px 10px; }
+
+    /* Version header — wrap */
+    .version-header { gap: 10px; padding: 14px 16px; }
+    .version-body   { padding: 0 16px 14px; }
+
+    /* Version body grid → 1 col */
+    .version-body-grid { grid-template-columns: 1fr !important; }
+
+    /* Table — scroll */
+    #audit-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    #audit-table-wrap table { min-width: 560px; }
+
+    /* Filter bar */
+    .filter-bar { gap: 6px; padding: 10px 12px; }
+    .filt-btn   { padding: 4px 10px; font-size: 11px; }
+  }
+
+  @media (max-width: 480px) {
+    .stats-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-big  { font-size: 20px; }
+    .stat-sm   { font-size: 11px; }
+    .version-id { font-size: 11px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="audit-page">
+  <div class="page-header anim">
+    <h2>🕐 היסטוריה וגרסאות</h2>
+    <p>Audit Trail — רשומה בלתי ניתנת לשינוי של כל שינוי במנוע</p>
+  </div>
+
+  <!-- Stats — live from API -->
+  <div class="stats-row anim anim-1">
+    <div class="stat-box">
+      <div class="stat-big" style="color:var(--gold)" id="stat-versions">—</div>
+      <div class="stat-sm">גרסאות</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-big" style="color:var(--green)" id="stat-active">—</div>
+      <div class="stat-sm">גרסה פעילה</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-big" style="color:var(--blue-acc)" id="stat-events">—</div>
+      <div class="stat-sm">אירועי Audit</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-big" style="color:var(--white)" id="stat-docs">—</div>
+      <div class="stat-sm">מסמכים</div>
+    </div>
+  </div>
+
+  <!-- Engine versions -->
+  <div class="card anim anim-2" style="margin-bottom:24px;">
+    <div class="card-title">📦 גרסאות מנוע</div>
+    <div id="versions-container">
+      <div style="text-align:center;padding:28px;color:var(--muted)">⏳ טוען גרסאות...</div>
+    </div>
+  </div>
+
+  <!-- QA #6: Audit log — filtered to real events only -->
+  <div class="card anim anim-3">
+    <div class="card-title" style="justify-content:space-between; flex-wrap:wrap; gap:8px;">
+      <span>📋 Audit Log — אירועי מערכת</span>
+      <button class="btn btn-outline" style="padding:6px 14px;font-size:12px" onclick="loadAudit()">🔄 רענן</button>
+    </div>
+
+    <div class="filter-bar">
+      <span style="color:var(--muted); flex-shrink:0">סנן:</span>
+      <button class="filt-btn active" onclick="setFilter('ALL',this)">הכל</button>
+      <button class="filt-btn" onclick="setFilter('INGEST',this)">📥 העלאה</button>
+      <button class="filt-btn" onclick="setFilter('APPROVE',this)">✅ אישור</button>
+      <button class="filt-btn" onclick="setFilter('REJECT',this)">❌ דחייה</button>
+      <button class="filt-btn" onclick="setFilter('UNAPPROVE',this)">↩ ביטול</button>
+      <button class="filt-btn" onclick="setFilter('STAGE',this)">🔧 Stage</button>
+      <button class="filt-btn" onclick="setFilter('PUBLISH',this)">🚀 פרסום</button>
+      <span style="color:var(--muted);font-size:12px;margin-right:auto" id="event-count-label"></span>
+    </div>
+
+    <div id="audit-table-wrap">
+      <div style="text-align:center;padding:28px;color:var(--muted)">⏳ טוען אירועים...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let allAuditEvents = [];
+let currentFilter  = 'ALL';
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadVersions();
+  loadAudit();
+  loadStats();
+});
+
+async function loadStats() {
+  try {
+    const [versionsRes, docsRes] = await Promise.all([
+      fetch('/api/engine/versions'),
+      fetch('/api/documents'),
+    ]);
+    const versions = await versionsRes.json();
+    const docs     = await docsRes.json();
+    const active   = versions.filter(v => v.status === 'ACTIVE').length;
+    document.getElementById('stat-versions').textContent = versions.length || '0';
+    document.getElementById('stat-active').textContent   = active || '0';
+    document.getElementById('stat-docs').textContent     = docs.length || '0';
+  } catch(e) { console.error('Stats:', e); }
+}
+
+async function loadVersions() {
+  try {
+    const res      = await fetch('/api/engine/versions');
+    const versions = await res.json();
+    const container = document.getElementById('versions-container');
+
+    if (!versions || versions.length === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><div>אין גרסאות עדיין</div><div style="font-size:12px;margin-top:6px">הרץ Stage → Publish מ-screen6</div></div>`;
+      return;
+    }
+
+    container.innerHTML = versions.map((v) => {
+      const isCurrent = v.status === 'ACTIVE';
+      const statusBadge = isCurrent
+        ? '<span class="badge badge-green">✅ פעיל</span>'
+        : v.status === 'STAGING'
+          ? '<span class="badge badge-yellow">🔧 Staging</span>'
+          : '<span class="badge badge-gold">📦 ארכיון</span>';
+
+      return `
+        <div class="version-card ${isCurrent ? 'current' : ''}">
+          <div class="version-header" onclick="toggleVersion(this)">
+            <div class="version-id">${escHtml(v.version_id || v.id || '—')}</div>
+            <div class="version-meta">
+              <h4>${escHtml(v.notes || v.description || 'גרסת מנוע')}</h4>
+              <p>${escHtml(v.published_by || v.staged_by || 'System')} · ${fmtDate(v.published_at || v.staged_at || v.created_at)}</p>
+            </div>
+            ${statusBadge}
+            <span style="color:var(--muted);font-size:18px;flex-shrink:0">›</span>
+          </div>
+          <div class="version-body">
+            <div class="version-body-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:12px 0;">
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Hash מנוע</div>
+                <div class="hash-display" style="display:block;margin-bottom:4px;">clauses: ${(v.clause_set_hash||'—').slice(0,16)}...</div>
+                <div class="hash-display" style="display:block;">rules: ${(v.rules_hash||'—').slice(0,16)}...</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">סטטוס</div>
+                <div style="font-size:13px;line-height:1.8;">
+                  סטטוס: <strong>${escHtml(v.status||'—')}</strong><br>
+                  נוצר: ${fmtDate(v.created_at)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('versions-container').innerHTML =
+      `<div class="empty-state"><div class="empty-icon">⚠️</div><div>שגיאה: ${e.message}</div></div>`;
+  }
+}
+
+function toggleVersion(header) {
+  const body = header.nextElementSibling;
+  const arr  = header.querySelector('span:last-child');
+  const open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  if (arr) arr.textContent = open ? '›' : '‹';
+}
+
+/* QA #6: Load audit — filter to real docs only */
+async function loadAudit() {
+  document.getElementById('audit-table-wrap').innerHTML =
+    '<div style="text-align:center;padding:28px;color:var(--muted)">⏳ טוען אירועים...</div>';
+  try {
+    const [auditRes, docsRes] = await Promise.all([
+      fetch('/api/audit?limit=200'),
+      fetch('/api/documents'),
+    ]);
+    const rawEvents = await auditRes.json();
+    const docs      = await docsRes.json();
+    const knownDocIds  = new Set(docs.map(d => d.doc_id));
+    const systemActions = new Set(['STAGE','PUBLISH','REJECT_VERSION','ENGINE_REJECT']);
+
+    allAuditEvents = (Array.isArray(rawEvents) ? rawEvents : (rawEvents.events || rawEvents.log || []))
+      .filter(ev => {
+        if (!ev) return false;
+        if (systemActions.has((ev.action||'').toUpperCase())) return true;
+        if (ev.doc_id && !knownDocIds.has(ev.doc_id)) return false;
+        return true;
+      });
+
+    document.getElementById('stat-events').textContent = allAuditEvents.length;
+    renderAuditTable();
+  } catch(e) {
+    document.getElementById('audit-table-wrap').innerHTML =
+      `<div class="empty-state"><div class="empty-icon">⚠️</div><div>שגיאה: ${e.message}</div></div>`;
+  }
+}
+
+function setFilter(action, btn) {
+  currentFilter = action;
+  document.querySelectorAll('.filt-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAuditTable();
+}
+
+function renderAuditTable() {
+  const filtered = currentFilter === 'ALL'
+    ? allAuditEvents
+    : allAuditEvents.filter(ev => (ev.action||'').toUpperCase().includes(currentFilter));
+
+  const label = document.getElementById('event-count-label');
+  if (label) label.textContent = `${filtered.length} אירועים`;
+
+  if (filtered.length === 0) {
+    document.getElementById('audit-table-wrap').innerHTML = `
+      <div class="empty-state"><div class="empty-icon">📭</div><div>אין אירועים להצגה</div></div>`;
+    return;
+  }
+
+  const actionIcon = {
+    PUBLISH:'🚀', STAGE:'🔧', APPROVE:'✅', REJECT:'❌', INGEST:'📥', UNAPPROVE:'↩', REJECT_VERSION:'🚫', ENGINE_REJECT:'🚫',
+  };
+
+  const rows = filtered.map(ev => {
+    const action = (ev.action||'—').toUpperCase();
+    const aClass = Object.keys(actionIcon).find(k => action.includes(k)) || 'DEFAULT';
+    const icon   = actionIcon[aClass] || '📋';
+    return `<tr>
+      <td style="color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(ev.timestamp||ev.created_at)}</td>
+      <td><span class="action-badge act-${aClass}">${icon} ${escHtml(ev.action||'—')}</span></td>
+      <td style="font-size:13px">${escHtml(ev.performed_by||ev.reviewed_by||ev.ingested_by||'System')}</td>
+      <td class="hash-display">${escHtml(ev.engine_version||ev.version_id||'—')}</td>
+      <td class="hash-display">${escHtml((ev.clause_id||ev.doc_id||ev.details||'—').toString().slice(0,20))}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('audit-table-wrap').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>תאריך</th><th>פעולה</th><th>מבצע</th><th>גרסה</th><th>פרטים</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt)) return d;
+    return dt.toLocaleDateString('he-IL', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  } catch { return d; }
+}
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+</script>
+{% endblock %}

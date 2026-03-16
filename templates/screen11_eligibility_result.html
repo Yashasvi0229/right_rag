@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{% set active = 's10' %}
+{% block title %}תוצאת בדיקת זכאות{% endblock %}
+{% block extra_head %}
+<style>
+  .result-page {
+    max-width: 760px; margin: 0 auto; padding: 40px 20px 80px;
+  }
+
+  .form-steps {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0; margin-bottom: 32px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .form-steps::-webkit-scrollbar { display: none; }
+  .fstep {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border-radius: 6px;
+    font-size: 13px; font-weight: 600; white-space: nowrap;
+  }
+  .fstep-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; flex-shrink: 0;
+  }
+  .fstep.done    { color: var(--green); }
+  .fstep.done .fstep-num    { background: rgba(46,204,113,0.2); color: var(--green); }
+  .fstep.active  { color: var(--gold); }
+  .fstep.active .fstep-num  { background: var(--gold-btn); color: #000; }
+  .fstep.pending { color: var(--muted); }
+  .fstep.pending .fstep-num { background: var(--bg-card2); color: var(--muted); }
+  .fstep-sep { color: var(--muted); margin: 0 2px; }
+
+  /* Verdict banner */
+  .verdict-banner {
+    border-radius: var(--radius); padding: 24px 24px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .verdict-banner.eligible   { background: rgba(46,204,113,0.1); border: 2px solid rgba(46,204,113,0.4); }
+  .verdict-banner.ineligible { background: rgba(231,76,60,0.08);  border: 2px solid rgba(231,76,60,0.3); }
+  .verdict-icon  { font-size: 44px; flex-shrink: 0; }
+  .verdict-text  { flex: 1; min-width: 0; }
+  .verdict-title { font-family: 'Frank Ruhl Libre', serif; font-size: 24px; font-weight: 900; }
+  .verdict-sub   { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  /* Amount display */
+  .amount-display {
+    background: var(--bg-card2); border-radius: var(--radius-sm);
+    padding: 16px 20px; text-align: center; flex-shrink: 0;
+  }
+  .amount-num {
+    font-family: 'Frank Ruhl Libre', serif;
+    font-size: 44px; font-weight: 900; color: var(--gold); line-height: 1;
+  }
+  .amount-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* Breakdown grid */
+  .breakdown-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;
+  }
+  .breakdown-item {
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 14px; text-align: center;
+  }
+  .breakdown-num   { font-size: 20px; font-weight: 700; }
+  .breakdown-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  .explain-card {
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: var(--radius); overflow: hidden; margin-bottom: 20px;
+  }
+  .explain-header {
+    padding: 14px 18px; background: var(--bg-card2);
+    border-bottom: 1px solid var(--border2);
+    font-size: 13px; font-weight: 600; color: var(--gold);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .explain-body { padding: 18px 20px; }
+
+  .plain-text {
+    background: var(--bg-navy); border-right: 4px solid var(--gold);
+    border-radius: 6px; padding: 14px 16px;
+    font-size: 14px; line-height: 1.8; color: var(--white); white-space: pre-line;
+  }
+
+  .evidence-item {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 12px; background: var(--bg-navy);
+    border: 1px solid var(--border2); border-radius: var(--radius-sm);
+    margin-bottom: 8px; font-size: 13px;
+  }
+  .ev-ref  { flex: 1; min-width: 80px; font-size: 12px; }
+  .ev-role {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    border: 1px solid var(--border2); color: var(--muted); background: var(--bg-card2); white-space: nowrap;
+  }
+
+  .reason-item {
+    padding: 10px 14px; margin-bottom: 8px;
+    background: rgba(231,76,60,0.06); border: 1px solid rgba(231,76,60,0.2);
+    border-radius: var(--radius-sm); font-size: 13px; color: var(--muted);
+  }
+
+  .cta-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+
+  .loading-state { text-align: center; padding: 60px 20px; }
+  .spinner {
+    width: 48px; height: 48px; margin: 0 auto 16px;
+    border: 4px solid var(--border); border-top-color: var(--gold);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .session-id-badge { font-family: monospace; font-size: 11px; color: var(--muted); background: var(--bg-navy); padding: 4px 10px; border-radius: 4px; }
+
+  /* ── RESPONSIVE ───────────────────────── */
+  @media (max-width: 768px) {
+    .result-page { padding: 24px 14px 60px; }
+
+    /* Verdict banner — amount below on mobile */
+    .verdict-banner { padding: 18px 16px; gap: 12px; }
+    .verdict-icon   { font-size: 36px; }
+    .verdict-title  { font-size: 20px; }
+    .amount-display { width: 100%; padding: 12px 16px; }
+    .amount-num     { font-size: 36px; }
+
+    /* Breakdown: 4 → 2 col */
+    .breakdown-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .breakdown-num  { font-size: 18px; }
+
+    /* Explain body */
+    .explain-body { padding: 14px 16px; }
+    .plain-text   { font-size: 13px; }
+
+    /* CTA */
+    .cta-row .btn { flex: 1; justify-content: center; text-align: center; }
+  }
+
+  @media (max-width: 480px) {
+    .verdict-title { font-size: 18px; }
+    .amount-num    { font-size: 30px; }
+
+    /* Breakdown: 2 col stays */
+    .breakdown-num   { font-size: 16px; }
+    .breakdown-label { font-size: 10px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="result-page">
+
+  <div class="page-header anim" style="text-align:center">
+    <h2>🏛 תוצאת בדיקת זכאות</h2>
+  </div>
+
+  <div class="form-steps anim anim-1">
+    <div class="fstep done"><span class="fstep-num">✓</span> פרטים</div>
+    <span class="fstep-sep">›</span>
+    <div class="fstep done"><span class="fstep-num">✓</span> חישוב</div>
+    <span class="fstep-sep">›</span>
+    <div class="fstep active"><span class="fstep-num">3</span> תוצאה</div>
+  </div>
+
+  <div id="result-area">
+    <div class="loading-state anim">
+      <div class="spinner"></div>
+      <div style="font-size:16px; font-weight:600; color:var(--white)">מחשב את הזכאות...</div>
+      <div style="font-size:13px; color:var(--muted); margin-top:8px">המנוע בוחן את הנתונים לפי הוראות החוק</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SESSION_ID = "{{ session_id }}";
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!SESSION_ID) {
+    showError('לא נמצא מזהה session. חזור ל<a href="/screen10">בדיקת זכאות</a>.');
+    return;
+  }
+  loadResult();
+});
+
+async function loadResult() {
+  try {
+    const res = await fetch(`/api/evaluate/${SESSION_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    if (res.status === 404) { showError('לא נמצאו נתונים. חזור ו<a href="/screen10">מלא את הפרטים שנית</a>.'); return; }
+    if (res.status === 503) { await loadFallback(); return; }
+    if (!res.ok) { const err=await res.json().catch(()=>({})); showError('שגיאה: '+(err.detail||res.status)); return; }
+    renderResult(await res.json());
+  } catch(e) { showError('שגיאת רשת: '+e.message); }
+}
+
+async function loadFallback() {
+  try {
+    const res = await fetch(`/api/evaluate/${SESSION_ID}/calculate`);
+    renderFallback(await res.json());
+  } catch(e) { showError('שגיאת חישוב: '+e.message); }
+}
+
+function renderResult(result) {
+  const area    = document.getElementById('result-area');
+  const rights  = result.eligible_rights || [];
+
+  if (!result.is_eligible || rights.length === 0) {
+    const reasons = (result.ineligible_summary||[]).flatMap(r=>(r.failed_conditions||[]).concat(r.triggered_exclusions||[]));
+    area.innerHTML = `
+      <div class="verdict-banner ineligible anim">
+        <div class="verdict-icon">❌</div>
+        <div class="verdict-text">
+          <div class="verdict-title" style="color:var(--red)">לא נמצאה זכאות להנחה</div>
+          <div class="verdict-sub">על פי הנתונים שהוזנו, לא עמדת בתנאי הזכאות</div>
+        </div>
+      </div>
+      <div class="explain-card anim">
+        <div class="explain-header">❌ תנאים שלא מולאו</div>
+        <div class="explain-body">
+          ${reasons.length>0 ? reasons.map(r=>`<div class="reason-item"><strong>•</strong> ${escHtml(r)}</div>`).join('') : '<div style="color:var(--muted);font-size:13px">לא ניתן לקבל פרטים נוספים</div>'}
+        </div>
+      </div>
+      <div class="cta-row anim">
+        <a href="/screen10" class="btn btn-gold">← נסה שנית</a>
+        <a href="/screen8?session_id=${SESSION_ID}" class="btn btn-outline">⚖️ מידע על ערר</a>
+      </div>`;
+    return;
+  }
+
+  const totalDiscount = result.total_discount_ils || 0;
+  area.innerHTML = `
+    <div class="verdict-banner eligible anim">
+      <div class="verdict-icon">✅</div>
+      <div class="verdict-text">
+        <div class="verdict-title" style="color:var(--green)">זכאי להנחה בארנונה!</div>
+        <div class="verdict-sub">נמצאו ${rights.length} זכות/זכויות · <span class="session-id-badge">${escHtml(SESSION_ID.slice(0,8))}...</span>
+          ${result.flagged_for_review?'<span class="badge badge-yellow" style="margin-right:8px">⚠️ דורש בדיקה</span>':''}
+        </div>
+      </div>
+      <div class="amount-display">
+        <div class="amount-num">${fmtIls(totalDiscount)}</div>
+        <div style="font-size:11px;color:var(--gold)">₪</div>
+        <div class="amount-label">סה"כ הנחה שנתית</div>
+      </div>
+    </div>
+    ${rights.map(r=>buildRightCard(r)).join('')}
+    <div class="cta-row anim">
+      <a href="/screen7" class="btn btn-gold">💰 מחשבון מהיר</a>
+      <a href="/screen8" class="btn btn-outline">⚖️ מידע על ממוש</a>
+      <a href="/screen10" class="btn btn-outline" style="opacity:0.7">← בדיקה חדשה</a>
+    </div>`;
+}
+
+function buildRightCard(r) {
+  const discount = r.discount_ils||0;
+  const after    = r.amount_after_discount_ils||0;
+  const installs = r.installment_count||1;
+  const instNet  = r.installment_net_ils||after;
+  const tax      = discount+after;
+  const rate     = r.discount_value||0;
+
+  const evidenceHtml = (r.evidence_chain||[]).length>0
+    ? (r.evidence_chain||[]).map(ev=>`
+        <div class="evidence-item">
+          <span class="badge badge-gold">${escHtml((ev.clause_id||'').slice(-8))}</span>
+          <span class="ev-ref">${escHtml(ev.source_doc_id||'')} · ${escHtml(ev.section_ref||'')}</span>
+          <span class="ev-role">${escHtml(ev.mapping_role||'')}</span>
+        </div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px;padding:6px 0">הסעיפים טרם קושרו — פרסם גרסת מנוע לשרשרת ראיות מלאה</div>';
+
+  return `
+    <div class="breakdown-grid anim">
+      <div class="breakdown-item"><div class="breakdown-num" style="color:var(--white)">${fmtIls(tax)} ₪</div><div class="breakdown-label">ארנונה מקורית</div></div>
+      <div class="breakdown-item"><div class="breakdown-num" style="color:var(--gold)">${rate}%</div><div class="breakdown-label">שיעור הנחה</div></div>
+      <div class="breakdown-item"><div class="breakdown-num" style="color:var(--green)">${fmtIls(after)} ₪</div><div class="breakdown-label">לתשלום (שנה)</div></div>
+      <div class="breakdown-item"><div class="breakdown-num" style="color:var(--blue-acc)">${fmtIls(instNet)} ₪</div><div class="breakdown-label">${installs>1?`(${installs} תשל')`:'תשלום אחד'}</div></div>
+    </div>
+    <div class="explain-card anim">
+      <div class="explain-header">📝 הסבר בשפה פשוטה</div>
+      <div class="explain-body"><div class="plain-text">${escHtml(r.explanation_he||'אין הסבר זמין')}</div></div>
+    </div>
+    <div class="explain-card anim">
+      <div class="explain-header">⛓ שרשרת ראיות</div>
+      <div class="explain-body">
+        ${evidenceHtml}
+        <div style="margin-top:8px;font-family:monospace;font-size:11px;color:var(--muted);">
+          catalog_id: ${escHtml(r.catalog_id||'')} · engine: ${escHtml(r.engine_id||'—')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderFallback(calc) {
+  const area=document.getElementById('result-area');
+  const discount=calc.discount_ils||0, after=calc.amount_after_discount_ils||0;
+  const installs=calc.installment_count||1, instNet=calc.installment_net_ils||after;
+  area.innerHTML = `
+    <div class="verdict-banner eligible anim">
+      <div class="verdict-icon">💰</div>
+      <div class="verdict-text"><div class="verdict-title" style="color:var(--gold)">חישוב הנחה</div><div class="verdict-sub">מנוע טרם פורסם</div></div>
+      <div class="amount-display"><div class="amount-num">${fmtIls(discount)}</div><div style="font-size:11px;color:var(--gold)">₪</div><div class="amount-label">הנחה שנתית</div></div>
+    </div>
+    <div class="breakdown-grid anim">
+      <div class="breakdown-item"><div class="breakdown-num" style="color:var(--white)">${fmtIls(discount+after)} ₪</div><div class="breakdown-label">ארנונה מקורית</div></div>
+      <div class="breakdown-item"><div class="breakdown-num" style="color:var(--gold)">${calc.discount_rate_pct||0}%</div><div class="breakdown-label">שיעור הנחה</div></div>
+      <div class="breakdown-item"><div class="breakdown-num" style="color:var(--green)">${fmtIls(after)} ₪</div><div class="breakdown-label">לתשלום (שנה)</div></div>
+      <div class="breakdown-item"><div class="breakdown-num" style="color:var(--blue-acc)">${fmtIls(instNet)} ₪</div><div class="breakdown-label">${installs>1?`(${installs} תשל')`:'תשלום אחד'}</div></div>
+    </div>
+    <div class="explain-card anim" style="background:rgba(241,196,15,0.05)">
+      <div class="explain-header" style="color:var(--yellow)">⚠️ הערה</div>
+      <div class="explain-body" style="font-size:13px;color:var(--muted);">לתוצאה מלאה — יש לפרסם מ-<a href="/screen6" style="color:var(--gold)">שלב 6</a></div>
+    </div>
+    <div class="cta-row anim">
+      <a href="/screen10" class="btn btn-gold">← בדיקה חדשה</a>
+      <a href="/screen8" class="btn btn-outline">⚖️ מידע על ערר</a>
+    </div>`;
+}
+
+function showError(msg) {
+  document.getElementById('result-area').innerHTML = `
+    <div style="text-align:center;padding:60px 16px;color:var(--muted);">
+      <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+      <div style="font-size:14px;color:var(--yellow);margin-bottom:16px;">${msg}</div>
+      <a href="/screen10" class="btn btn-outline">← חזור לבדיקת זכאות</a>
+    </div>`;
+}
+
+function fmtIls(n) { return Number(n||0).toLocaleString('he-IL',{maximumFractionDigits:0}); }
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+</script>
+{% endblock %}

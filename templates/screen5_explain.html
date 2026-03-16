@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+{% set active = 's1' %}
+{% block title %}הסברתיות — למה המנוע חושב כך{% endblock %}
+{% block extra_head %}
+<style>
+  .explain-card {
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: var(--radius); overflow: hidden; margin-bottom: 20px;
+  }
+  .verdict-banner {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 18px 20px; border-bottom: 1px solid rgba(46,204,113,0.2);
+  }
+  .verdict-banner.eligible   { background: rgba(46,204,113,0.1); }
+  .verdict-banner.ineligible { background: rgba(231,76,60,0.08); }
+  .verdict-icon  { font-size: 32px; flex-shrink: 0; }
+  .verdict-text  { flex: 1; min-width: 0; }
+  .verdict-title { font-size: 20px; font-weight: 700; }
+  .verdict-sub   { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  .explain-section { padding: 18px 20px; border-bottom: 1px solid var(--border2); }
+  .explain-section:last-child { border-bottom: none; }
+  .explain-title {
+    font-size: 12px; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--muted);
+    font-weight: 600; margin-bottom: 10px;
+  }
+
+  .plain-text {
+    background: var(--bg-navy); border-right: 4px solid var(--gold);
+    border-radius: 6px; padding: 14px 16px;
+    font-size: 14px; line-height: 1.8; color: var(--white); white-space: pre-line;
+  }
+
+  .evidence-chain { display: flex; flex-direction: column; gap: 8px; }
+  .evidence-item {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 12px; background: var(--bg-navy);
+    border: 1px solid var(--border2); border-radius: var(--radius-sm); font-size: 13px;
+  }
+  .ev-ref  { flex: 1; min-width: 100px; font-size: 12px; }
+  .ev-role {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    border: 1px solid var(--border2); color: var(--muted); background: var(--bg-card2);
+    white-space: nowrap;
+  }
+
+  .calc-trace {
+    font-family: monospace; font-size: 12px;
+    direction: ltr; text-align: left;
+    padding: 14px 16px; background: var(--bg-navy);
+    border-radius: var(--radius-sm); color: var(--gold-light);
+    line-height: 1.9; white-space: pre;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  .calc-trace .comment { color: var(--muted); }
+  .calc-trace .result  { color: var(--green); font-weight: 700; }
+
+  /* Demo panel */
+  .demo-panel {
+    background: rgba(201,168,76,0.06); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; margin-bottom: 24px;
+  }
+  .demo-panel h4 { font-size: 14px; font-weight: 700; color: var(--gold); margin-bottom: 14px; }
+  .demo-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+
+  .state-box { text-align: center; padding: 48px 16px; color: var(--muted); font-size: 14px; }
+  .state-box .state-icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* Mobile sidebar toggle */
+  .sidebar-toggle {
+    display: none; align-items: center; gap: 8px;
+    background: var(--bg-card2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 8px 14px;
+    color: var(--gold); font-size: 13px; cursor: pointer;
+    font-family: 'Heebo', sans-serif; margin-bottom: 16px; width: 100%;
+  }
+
+  /* ── RESPONSIVE ───────────────────────── */
+  @media (max-width: 768px) {
+    .sidebar-toggle { display: flex; }
+
+    /* Demo grid: 3 col → 2 col */
+    .demo-grid { grid-template-columns: 1fr 1fr; }
+    /* Run button takes full row */
+    .demo-grid > *:last-child { grid-column: 1 / -1; }
+
+    /* Verdict banner */
+    .verdict-title { font-size: 18px; }
+    .verdict-sub   { font-size: 12px; }
+
+    /* Plain text */
+    .plain-text { font-size: 13px; padding: 12px 14px; }
+
+    /* Calc trace — scroll */
+    .calc-trace { font-size: 11px; }
+  }
+
+  @media (max-width: 480px) {
+    /* Demo grid → 1 col */
+    .demo-grid { grid-template-columns: 1fr; }
+    .demo-grid > *:last-child { grid-column: 1; }
+
+    .verdict-icon  { font-size: 26px; }
+    .verdict-title { font-size: 16px; }
+    .explain-section { padding: 14px 14px; }
+
+    /* Evidence items — stack on mobile */
+    .evidence-item { gap: 6px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-section">זרימת עבודה</div>
+    <a class="sidebar-item" href="/screen1" style="color:var(--green)">✅ מקורות חוק</a>
+    <a class="sidebar-item" href="/screen2" style="color:var(--green)">✅ פירוק סעיפים</a>
+    <a class="sidebar-item" href="/screen3" style="color:var(--green)">✅ טיוטת מנוע</a>
+    <a class="sidebar-item" href="/screen4" style="color:var(--green)">✅ אימות עצמי</a>
+    <a class="sidebar-item active" href="/screen5">💡 הסברתיות</a>
+    <a class="sidebar-item" href="/screen6">👤 אישור מומחה</a>
+    <div class="sidebar-section">מערכת</div>
+    <a class="sidebar-item" href="/screen9">🕐 גרסאות</a>
+  </nav>
+
+  <div class="main-content">
+
+    <button class="sidebar-toggle" onclick="toggleSidebar()">☰ תפריט ניהול</button>
+
+    <div class="page-header anim">
+      <h2>💡 הסברתיות — למה המנוע חושב כך</h2>
+      <p>שלב 5 / 6 — שקיפות מלאה לכל החלטה</p>
+    </div>
+
+    <div class="steps anim anim-1">
+      <div class="step done"><span class="step-num">✓</span> מקורות</div>
+      <span class="step-sep">›</span>
+      <div class="step done"><span class="step-num">✓</span> פירוק</div>
+      <span class="step-sep">›</span>
+      <div class="step done"><span class="step-num">✓</span> טיוטה</div>
+      <span class="step-sep">›</span>
+      <div class="step done"><span class="step-num">✓</span> אימות</div>
+      <span class="step-sep">›</span>
+      <div class="step active"><span class="step-num">5</span> הסברתיות</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">6</span> אישור</div>
+    </div>
+
+    <!-- Demo panel -->
+    <div class="demo-panel anim anim-2">
+      <h4>🧪 הרץ דוגמה חיה — מחובר ל-/api/evaluate</h4>
+      <div class="demo-grid">
+        <div class="form-group">
+          <label class="form-label">סוג משרת</label>
+          <select class="form-select" id="demo-type">
+            <option value="SOLDIER">חייל מילואים (5%)</option>
+            <option value="COMMANDER">מפקד מילואים (25%)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">ארנונה שנתית (₪)</label>
+          <input type="number" class="form-input" id="demo-tax" value="10000" min="100" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">שיעור הנחה (%)</label>
+          <input type="number" class="form-input" id="demo-rate" value="5" min="0" max="100" step="0.5" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">שטח הנכס (מ"ר)</label>
+          <input type="number" class="form-input" id="demo-sqm" value="100" min="1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">מספר תשלומים</label>
+          <select class="form-select" id="demo-installments">
+            <option value="1">מראש — שנה מלאה</option>
+            <option value="6" selected>6 תשלומים</option>
+            <option value="12">12 תשלומים</option>
+          </select>
+        </div>
+        <div class="form-group" style="display:flex; align-items:flex-end;">
+          <button class="btn btn-gold" style="width:100%" onclick="runDemo()">▶ הרץ הדגמה</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result area -->
+    <div id="result-area">
+      <div class="state-box anim anim-3">
+        <div class="state-icon">💡</div>
+        <div>הגדר פרמטרים למעלה ולחץ <strong>הרץ הדגמה</strong></div>
+      </div>
+    </div>
+
+    <div class="anim anim-4" style="display:flex; gap:12px; margin-top:8px; flex-wrap:wrap;">
+      <a href="/screen4" class="btn btn-outline">‹ חזור</a>
+      <a href="/screen6" class="btn btn-gold" style="margin-right:auto">המשך לאישור מומחה ›</a>
+    </div>
+  </div>
+</div>
+
+<script>
+async function runDemo() {
+  const btn      = document.querySelector('.demo-panel .btn-gold');
+  const area     = document.getElementById('result-area');
+  const type     = document.getElementById('demo-type').value;
+  const tax      = parseFloat(document.getElementById('demo-tax').value) || 10000;
+  const rate     = parseFloat(document.getElementById('demo-rate').value) || 5;
+  const sqm      = parseFloat(document.getElementById('demo-sqm').value) || 100;
+  const installs = parseInt(document.getElementById('demo-installments').value) || 1;
+
+  btn.textContent = '⏳ מחשב...'; btn.disabled = true;
+  area.innerHTML  = '<div class="state-box"><div class="state-icon">⏳</div><div>מתחבר למנוע...</div></div>';
+
+  try {
+    const sessRes = await fetch('/api/session/start', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    if (!sessRes.ok) throw new Error('לא ניתן ליצור session');
+    const { session_id } = await sessRes.json();
+
+    const facts = [
+      { fact_type:'RESERVE_TYPE',       value: JSON.stringify(type) },
+      { fact_type:'ANNUAL_TAX_ILS',     value: JSON.stringify(tax) },
+      { fact_type:'DISCOUNT_RATE_PCT',  value: JSON.stringify(rate) },
+      { fact_type:'PROPERTY_SIZE_SQM',  value: JSON.stringify(sqm) },
+      { fact_type:'IS_PROPERTY_HOLDER', value:'true' },
+      { fact_type:'MUNICIPALITY_GRANTS',value:'true' },
+      { fact_type:'SERVICE_DAYS_3Y',    value:'60' },
+      { fact_type:'PAYMENT_UPFRONT',    value: installs===1?'true':'false' },
+      { fact_type:'INSTALLMENT_COUNT',  value: JSON.stringify(installs) },
+    ];
+    const factRes = await fetch('/api/facts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({session_id,facts}) });
+    if (!factRes.ok) throw new Error('שגיאה בשמירת עובדות');
+
+    const evalRes = await fetch(`/api/evaluate/${session_id}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    if (!evalRes.ok) {
+      const err = await evalRes.json().catch(()=>({}));
+      if (evalRes.status === 503) return await runFallbackCalc(session_id, type, tax, rate, sqm, installs);
+      throw new Error(err.detail || 'שגיאת הערכה ' + evalRes.status);
+    }
+    renderResult(await evalRes.json(), session_id);
+  } catch(e) {
+    area.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div>
+      <div style="color:var(--yellow)">${escHtml(e.message)}</div>
+      <div style="font-size:12px;margin-top:8px;color:var(--muted)">
+        לפרסם גרסת מנוע מ-<a href="/screen6" style="color:var(--gold)">שלב 6</a>
+      </div></div>`;
+  } finally { btn.textContent='▶ הרץ הדגמה'; btn.disabled=false; }
+}
+
+async function runFallbackCalc(session_id, type, tax, rate, sqm, installs) {
+  const r = await fetch(`/api/evaluate/${session_id}/calculate`);
+  if (!r.ok) throw new Error('גם /calculate נכשל');
+  renderFallbackCalc(await r.json(), type, tax, rate, sqm, installs);
+}
+
+function renderResult(result, session_id) {
+  const area    = document.getElementById('result-area');
+  const rights  = result.eligible_rights || [];
+  if (!result.is_eligible || rights.length === 0) {
+    const reasons = (result.ineligible_summary||[]).flatMap(r=>(r.failed_conditions||[]));
+    area.innerHTML = `<div class="explain-card anim">
+      <div class="verdict-banner ineligible">
+        <div class="verdict-icon">❌</div>
+        <div class="verdict-text">
+          <div class="verdict-title" style="color:var(--red)">לא זכאי להנחה</div>
+          <div class="verdict-sub">תנאי הזכאות לא מתקיימים</div>
+        </div>
+      </div>
+      <div class="explain-section">
+        ${reasons.map(r=>`<div style="padding:6px 0;font-size:13px;color:var(--muted)">• ${escHtml(r)}</div>`).join('')}
+      </div></div>`;
+    return;
+  }
+  area.innerHTML = rights.map(r => buildRightCard(r, result)).join('');
+}
+
+function buildRightCard(r, result) {
+  const discount = fmtNum(r.discount_ils);
+  const after    = fmtNum(r.amount_after_discount_ils);
+  const installs = r.installment_count || 1;
+  const instNet  = fmtNum(r.installment_net_ils);
+
+  const evidenceHtml = (r.evidence_chain||[]).map(ev => `
+    <div class="evidence-item">
+      <span class="badge badge-gold">${escHtml((ev.clause_id||'').slice(-8))}</span>
+      <span class="ev-ref">${escHtml(ev.source_doc_id||'')} · ${escHtml(ev.section_ref||'')}</span>
+      <span class="ev-role">${escHtml(ev.mapping_role||'')}</span>
+    </div>`).join('') || '<div style="color:var(--muted);font-size:13px">אין שרשרת ראיות — הסעיפים טרם קושרו</div>';
+
+  return `<div class="explain-card anim">
+    <div class="verdict-banner eligible">
+      <div class="verdict-icon">✅</div>
+      <div class="verdict-text">
+        <div class="verdict-title" style="color:var(--green)">זכאי להנחה — ${discount} ₪</div>
+        <div class="verdict-sub">${escHtml(r.name||'')} · לתשלום: ${after} ₪${installs>1?` · ${instNet} ₪ לתשלום (${installs} תשלומים)`:''}</div>
+      </div>
+      <span class="badge badge-green" style="flex-shrink:0">${r.discount_value}% הנחה</span>
+    </div>
+    <div class="explain-section">
+      <div class="explain-title">📝 הסבר בשפה פשוטה</div>
+      <div class="plain-text">${escHtml(r.explanation_he||'אין הסבר זמין')}</div>
+    </div>
+    <div class="explain-section">
+      <div class="explain-title">⛓ שרשרת ראיות</div>
+      <div class="evidence-chain">${evidenceHtml}</div>
+      <div style="margin-top:10px;padding:8px 12px;background:var(--bg-navy);border-radius:6px;font-family:monospace;font-size:11px;color:var(--muted);">
+        session: ${escHtml(result.session_id||'')} · engine: ${escHtml(result.engine_id||'')}
+      </div>
+    </div>
+    <div class="explain-section">
+      <div class="explain-title">🔢 עקבות חישוב</div>
+      <div class="calc-trace">${buildCalcTrace(r)}</div>
+    </div>
+  </div>`;
+}
+
+function buildCalcTrace(r) {
+  const id       = r.catalog_id || '';
+  const tax      = ((r.discount_ils||0) + (r.amount_after_discount_ils||0));
+  const rate     = r.discount_value || 0;
+  const discount = r.discount_ils || 0;
+  const after    = r.amount_after_discount_ils || 0;
+  const installs = r.installment_count || 1;
+  const instNet  = r.installment_net_ils || after;
+  const inst     = installs > 1 ? `\nper_installment  = ${instNet.toFixed(2)} ₪  # ${installs} תשלומים` : '';
+
+  if (id.includes('COMMANDER')) return `<span class="comment"># מפקד מילואים — תקנה 3ז</span>
+annual_tax       = ${tax.toFixed(2)} ₪
+taxable_sqm      = MIN(property_sqm, 100)
+tariff_per_sqm   = annual_tax / property_sqm
+tax_on_100sqm    = taxable_sqm × tariff_per_sqm
+discount         = tax_on_100sqm × ${rate/100}
+<span class="result">discount         = ${discount.toFixed(2)} ₪</span>
+<span class="result">amount_due       = ${after.toFixed(2)} ₪</span>${inst}`;
+
+  return `<span class="comment"># חייל מילואים — תקנה 3ו</span>
+annual_tax       = ${tax.toFixed(2)} ₪
+discount         = annual_tax × ${rate/100}
+discount         = MIN(discount, annual_tax)
+<span class="result">discount         = ${discount.toFixed(2)} ₪</span>
+<span class="result">amount_due       = ${after.toFixed(2)} ₪</span>${inst}`;
+}
+
+function renderFallbackCalc(calc, type, tax, rate, sqm, installs) {
+  const discount = calc.discount_ils || 0;
+  const after    = calc.amount_after_discount_ils || 0;
+  const instNet  = calc.installment_net_ils || after;
+  document.getElementById('result-area').innerHTML = `
+    <div class="explain-card anim">
+      <div class="verdict-banner eligible">
+        <div class="verdict-icon">✅</div>
+        <div class="verdict-text">
+          <div class="verdict-title" style="color:var(--gold)">חישוב הנחה — ${fmtNum(discount)} ₪</div>
+          <div class="verdict-sub">חישוב מהיר · לתשלום: ${fmtNum(after)} ₪</div>
+        </div>
+        <span class="badge badge-yellow" style="flex-shrink:0">⚡ חישוב מהיר</span>
+      </div>
+      <div class="explain-section">
+        <div class="explain-title">🔢 עקבות חישוב</div>
+        <div class="calc-trace">${buildCalcTrace({catalog_id:type==='COMMANDER'?'COMMANDER':'SOLDIER',discount_value:rate,discount_ils:discount,amount_after_discount_ils:after,installment_count:installs,installment_net_ils:instNet})}</div>
+      </div>
+      <div class="explain-section" style="background:rgba(241,196,15,0.05)">
+        <div style="font-size:13px;color:var(--yellow)">⚠️ לתוצאה מלאה — יש לפרסם מ-<a href="/screen6" style="color:var(--gold)">שלב 6</a></div>
+      </div>
+    </div>`;
+}
+
+function fmtNum(n) { return Number(n||0).toLocaleString('he-IL',{maximumFractionDigits:0}); }
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+document.addEventListener('DOMContentLoaded', ()=>runDemo());
+</script>
+{% endblock %}
