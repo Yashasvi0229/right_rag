@@ -46,6 +46,58 @@
     }
 
     /* ══════════════════════════════════════
+       LTR FIX — English / Code / Monospace
+       Page is RTL (Hebrew) but these
+       elements must always be LTR
+    ══════════════════════════════════════ */
+
+    /* All monospace / code elements → LTR */
+    code, pre,
+    .formula-box,
+    .calc-trace,
+    .formula-inline,
+    .hash-display,
+    .clause-id,
+    .engine-id,
+    .version-id,
+    .source-ref,
+    .session-id-badge,
+    .db-state {
+      direction: ltr !important;
+      text-align: left !important;
+      unicode-bidi: embed;
+    }
+
+    /* Badges containing English status words */
+    .badge-green,
+    .badge-yellow,
+    .badge-red,
+    .badge-blue,
+    .badge-gold,
+    .action-badge,
+    .indicator,
+    .layer-tag,
+    .doc-source-label {
+      direction: ltr !important;
+      unicode-bidi: embed;
+    }
+
+    /* Engine/version IDs in monospace */
+    [style*="monospace"],
+    [style*="font-family:monospace"] {
+      direction: ltr;
+      unicode-bidi: embed;
+    }
+
+    /* Email input — always LTR */
+    input[type="email"],
+    input[type="url"],
+    input[dir="ltr"] {
+      direction: ltr !important;
+      text-align: left !important;
+    }
+
+    /* ══════════════════════════════════════
        NAVBAR
     ══════════════════════════════════════ */
     .navbar {
@@ -303,20 +355,13 @@
 
     /* ══════════════════════════════════════
        GLOBAL RESPONSIVE
-       One place fixes ALL screens
     ══════════════════════════════════════ */
-
-    /* ── Tablet 768px ── */
     @media (max-width: 768px) {
-
-      /* Navbar */
       .navbar        { padding: 0 16px; }
       .nav-links     { display: none; }
       .nav-langs     { display: none; }
       .hamburger     { display: flex; }
       .nav-brand-text p { display: none; }
-
-      /* Admin layout — stack vertically */
       .admin-layout  { flex-direction: column; }
       .sidebar {
         width: 100%; border-left: none;
@@ -325,76 +370,33 @@
       }
       .sidebar.mobile-open { display: block; }
       .main-content  { padding: 20px 16px; }
-
-      /* Page header */
       .page-header h2    { font-size: 22px; }
       .page-header       { margin-bottom: 20px; }
-
-      /* Cards */
       .card { padding: 16px; }
-
-      /* 2-col → 1-col */
       .grid-2, .two-col {
         display: grid !important;
         grid-template-columns: 1fr !important;
       }
-
-      /* 3-col → 1-col */
-      .three-col,
-      .how-grid,
-      .stats-grid,
-      .guarantees,
-      .demo-grid,
-      .type-grid,
-      .type-tabs     { grid-template-columns: 1fr !important; }
-
-      /* 4-col → 2-col */
-      .summary-bar,
-      .stats-row,
-      .result-breakdown,
-      .breakdown-grid { grid-template-columns: 1fr 1fr !important; }
-
-      /* Filter bars */
-      .filter-bar,
-      .bulk-bar,
-      .source-filter-bar { flex-wrap: wrap; gap: 8px; }
-
-      /* Tables */
+      .three-col, .how-grid, .stats-grid, .guarantees,
+      .demo-grid, .type-grid, .type-tabs { grid-template-columns: 1fr !important; }
+      .summary-bar, .stats-row,
+      .result-breakdown, .breakdown-grid { grid-template-columns: 1fr 1fr !important; }
+      .filter-bar, .bulk-bar, .source-filter-bar { flex-wrap: wrap; gap: 8px; }
       table { min-width: 480px; }
-      .card > table,
-      .card table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .card > table, .card table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     }
 
-    /* ── Small mobile 480px ── */
     @media (max-width: 480px) {
-
       .nav-brand-text h1 { font-size: 14px; }
       .nav-logo { width: 36px; height: 36px; font-size: 18px; }
-
       .main-content  { padding: 14px 12px; }
       .page-header h2 { font-size: 19px; }
       .card { padding: 14px; border-radius: 10px; }
-
-      /* All grids → 1 col on smallest screens */
-      .summary-bar,
-      .stats-row,
-      .result-breakdown,
-      .breakdown-grid,
-      .type-grid,
-      .type-tabs     { grid-template-columns: 1fr !important; }
-
-      /* Inputs — 16px prevents iOS auto-zoom */
-      .form-input,
-      .form-select,
-      .form-textarea { font-size: 16px !important; }
-
-      /* Buttons */
+      .summary-bar, .stats-row, .result-breakdown, .breakdown-grid,
+      .type-grid, .type-tabs { grid-template-columns: 1fr !important; }
+      .form-input, .form-select, .form-textarea { font-size: 16px !important; }
       .btn { padding: 10px 18px; font-size: 14px; }
-
-      /* Modal */
       .modal-box { padding: 20px 14px; }
-
-      /* Steps */
       .step     { font-size: 11px; padding: 5px 6px; }
       .step-num { width: 22px; height: 22px; font-size: 11px; }
     }
@@ -413,7 +415,6 @@
     </div>
   </div>
 
-  <!-- Desktop links -->
   <ul class="nav-links">
     <li><a href="/screen0"  {% if active=='s0'  %}class="active"{% endif %}>בית</a></li>
     <li><a href="/screen10" {% if active=='s10' %}class="active"{% endif %}>בדוק זכאות</a></li>
@@ -431,13 +432,11 @@
     <button class="lang-btn">אמ׳</button>
   </div>
 
-  <!-- Hamburger (mobile only) -->
   <button class="hamburger" id="hamburger" onclick="toggleMenu()" aria-label="תפריט">
     <span></span><span></span><span></span>
   </button>
 </nav>
 
-<!-- Mobile drawer -->
 <div class="mobile-drawer" id="mobileDrawer">
   <ul class="mobile-nav-links">
     <li><a href="/screen0"  {% if active=='s0'  %}class="active"{% endif %}>🏠 בית</a></li>
@@ -489,7 +488,6 @@
 </div>
 
 <script>
-  /* ── Hamburger ─────────────────────────────────── */
   function toggleMenu() {
     document.getElementById('hamburger').classList.toggle('open');
     document.getElementById('mobileDrawer').classList.toggle('open');
@@ -503,14 +501,10 @@
     const b = document.getElementById('hamburger');
     if (d.classList.contains('open') && !d.contains(e.target) && !b.contains(e.target)) closeMenu();
   });
-
-  /* ── Mobile sidebar (admin screens) ───────────── */
   function toggleSidebar() {
     const s = document.querySelector('.sidebar');
     if (s) s.classList.toggle('mobile-open');
   }
-
-  /* ── Contact modal ─────────────────────────────── */
   function openContact() {
     document.getElementById('contactModal').classList.add('open');
     document.getElementById('contactForm').style.display    = 'block';
