@@ -269,9 +269,10 @@
               </div>
               <div style="margin-top:8px">
                 <input class="form-input" type="date" id="pub-date"
-                       min="1948-01-01" max="2099-12-31"
-                       onchange="validateYear(this)" />
-                <div class="date-error-msg" id="date-error">⚠️ שנה חייבת להיות בת 4 ספרות</div>
+                       min="1900-01-01" max="2099-12-31"
+                       onchange="validateYear(this)"
+                       oninput="validateYear(this)" />
+                <div class="date-error-msg" id="date-error">⚠️ שנה חייבת להיות בת 4 ספרות (1900–2099)</div>
               </div>
             </div>
             <div class="form-group">
@@ -359,14 +360,24 @@ function onDrop(e) {
   }
 }
 
-/* QA #1: 4-digit year validation */
+/* QA #1: 4-digit year validation — blocks 5-digit year in real time */
 function validateYear(input) {
   const val   = input.value;
   const errEl = document.getElementById('date-error');
   if (!val) { input.classList.remove('input-error'); errEl.style.display='none'; return true; }
-  const year = parseInt(val.split('-')[0], 10);
-  if (isNaN(year) || year < 1000 || year > 9999 || val.split('-')[0].length !== 4) {
-    input.classList.add('input-error'); errEl.style.display = 'block'; return false;
+
+  const parts = val.split('-');
+  const yearStr = parts[0] || '';
+  const year    = parseInt(yearStr, 10);
+
+  // Block: year must be exactly 4 digits, between 1900-2099
+  if (yearStr.length !== 4 || isNaN(year) || year < 1900 || year > 2099) {
+    input.classList.add('input-error');
+    errEl.style.display = 'block';
+    errEl.textContent   = `⚠️ שנה "${yearStr}" אינה תקינה — נא להזין שנה בת 4 ספרות (1900–2099)`;
+    // Clear the invalid value immediately
+    input.value = '';
+    return false;
   }
   input.classList.remove('input-error'); errEl.style.display = 'none'; return true;
 }
