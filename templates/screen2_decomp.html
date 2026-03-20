@@ -362,40 +362,61 @@ function filterDoc(val) {
 
 /* Approve */
 async function approveClause(id, btn) {
-  btn.disabled = true; btn.textContent = '...';
+  // btn might be stale reference — always find fresh from DOM
+  const row = document.getElementById('row-'+id);
+  if (!row) return;
+  const freshBtn = btn || row.querySelector('button');
+  if (freshBtn) { freshBtn.disabled = true; freshBtn.textContent = '...'; }
+
   try {
     const res = await fetch('/api/review/approve', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({clause_id:id, reviewed_by:getReviewer(), review_note:'approved via UI'})
     });
     if (res.ok) {
-      const row = document.getElementById('row-'+id);
-      row.classList.remove('pending-review'); row.classList.add('approved'); row.dataset.status = 'approved';
+      row.classList.remove('pending-review','rejected');
+      row.classList.add('approved');
+      row.dataset.status = 'approved';
       row.querySelector('.clause-actions').innerHTML =
         '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">' +
         '<span class="badge badge-green">✔ אושר</span>' +
         '<button class="unapprove-btn" onclick="unapproveClause(&quot;'+id+'&quot;,this)">↩ בטל אישור</button></div>';
       updateCounts();
-    } else { btn.disabled=false; btn.textContent='✔'; }
-  } catch(e) { btn.disabled=false; btn.textContent='✔'; }
+    } else {
+      if (freshBtn) { freshBtn.disabled=false; freshBtn.textContent='✔'; }
+    }
+  } catch(e) {
+    if (freshBtn) { freshBtn.disabled=false; freshBtn.textContent='✔'; }
+  }
 }
 
 /* Reject */
 async function rejectClause(id, btn) {
-  btn.disabled = true;
+  const row = document.getElementById('row-'+id);
+  if (!row) return;
+  const freshBtn = btn || row.querySelector('button:last-child');
+  if (freshBtn) freshBtn.disabled = true;
+
   try {
     const res = await fetch('/api/review/reject', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({clause_id:id, reviewed_by:getReviewer(), reason:'rejected via UI'})
     });
     if (res.ok) {
-      const row = document.getElementById('row-'+id);
-      row.classList.remove('pending-review','approved'); row.classList.add('rejected'); row.dataset.status='rejected';
+      row.classList.remove('pending-review','approved');
+      row.classList.add('rejected');
+      row.dataset.status = 'rejected';
       row.querySelector('.clause-actions').innerHTML =
-        '<span class="badge" style="background:rgba(231,76,60,0.15);color:var(--red);border:1px solid rgba(231,76,60,0.3)">✕ נדחה</span>';
+        '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">' +
+        '<span class="badge" style="background:rgba(231,76,60,0.15);color:var(--red);border:1px solid rgba(231,76,60,0.3)">✕ נדחה</span>' +
+        '<button class="unapprove-btn" onclick="unapproveClause(&quot;'+id+'&quot;,this)">↩ בטל דחייה</button></div>';
       updateCounts();
-    } else { btn.disabled=false; }
-  } catch(e) { btn.disabled=false; }
+    } else {
+      if (freshBtn) freshBtn.disabled = false;
+    }
+  } catch(e) {
+    if (freshBtn) freshBtn.disabled = false;
+  }
 }
 
 /* QA #9: Unapprove → back to PENDING — no confirm, always restores UI */
@@ -428,9 +449,11 @@ async function unapproveClause(id, btn) {
 async function approveAll() {
   const rows = [...document.querySelectorAll('.clause-row[data-status="pending"]')];
   for (const row of rows) {
-    const id=row.id.replace('row-',''); const btn=row.querySelector('button');
-    if (btn && !btn.disabled) await approveClause(id,btn);
-    await new Promise(r=>setTimeout(r,80));
+    const id  = row.id.replace('row-','');
+    // Always get fresh button from current DOM state
+    const btn = row.querySelector('.clause-actions button');
+    await approveClause(id, btn);
+    await new Promise(r => setTimeout(r, 100));
   }
 }
 
