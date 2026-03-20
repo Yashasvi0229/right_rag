@@ -225,17 +225,17 @@
       <button class="filter-btn active-all" id="btn-all"  onclick="filterType('ALL','all')">הכל</button>
     </div>
 
-    {% if pending_clauses %}
-    <div class="bulk-bar anim anim-2">
+    <div class="bulk-bar anim anim-2" id="bulk-bar">
       <span>⚡ פעולה מהירה:</span>
       <button class="btn btn-outline" style="padding:6px 14px;font-size:12px;color:var(--green);border-color:var(--green)"
         onclick="approveAll()">✔ אשר הכל</button>
-      <span style="color:var(--muted);font-size:12px">{{ pending_clauses|length }} סעיפים</span>
+      <button class="btn btn-outline" style="padding:6px 14px;font-size:12px;color:var(--yellow);border-color:var(--yellow)"
+        onclick="unapproveAll()">↩ בטל אישור לכולם</button>
+      <span style="color:var(--muted);font-size:12px" id="bulk-count">{{ pending_clauses|length }} סעיפים ממתינים</span>
       <input id="reviewer-name" class="form-input"
         style="width:150px;padding:6px 10px;font-size:12px;margin-right:auto"
         placeholder="שם הסוקר" value="admin">
     </div>
-    {% endif %}
 
     <!-- Clause list -->
     <div class="clause-tree anim anim-3" id="clauses-container">
@@ -459,10 +459,15 @@ async function approveAll() {
 
 /* Update counts */
 function updateCounts() {
-  document.getElementById('total-count').textContent    = document.querySelectorAll('.clause-row[data-status="pending"]').length;
-  document.getElementById('approved-count').textContent = document.querySelectorAll('.clause-row[data-status="approved"]').length;
+  const pending  = document.querySelectorAll('.clause-row[data-status="pending"]').length;
+  const approved = document.querySelectorAll('.clause-row[data-status="approved"]').length;
+  document.getElementById('total-count').textContent    = pending;
+  document.getElementById('approved-count').textContent = approved;
   document.getElementById('elig-count').textContent     = document.querySelectorAll('.clause-row[data-status="pending"][data-type="ELIGIBILITY"]').length;
   document.getElementById('excl-count').textContent     = document.querySelectorAll('.clause-row[data-status="pending"][data-type="EXCLUSION"]').length;
+  // Update bulk bar count
+  const bulkCount = document.getElementById('bulk-count');
+  if (bulkCount) bulkCount.textContent = pending + ' סעיפים ממתינים · ' + approved + ' מאושרים';
 }
 
 /* Load approved clauses from API for editing */
