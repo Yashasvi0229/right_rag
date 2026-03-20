@@ -83,6 +83,18 @@
     padding: 2px 8px; border-radius: 4px; white-space: nowrap;
   }
 
+  /* Document separation — cards from non-active doc get dimmed */
+  .engine-card.doc-dimmed {
+    opacity: 0.35;
+    filter: grayscale(0.5);
+    pointer-events: none;
+  }
+  /* Current doc cards get a subtle highlight */
+  .engine-card.doc-current {
+    border-color: rgba(201,168,76,0.4);
+    box-shadow: 0 0 0 1px rgba(201,168,76,0.15);
+  }
+
   /* Params row at bottom of card */
   .params-row {
     display: flex; justify-content: space-between;
@@ -170,7 +182,7 @@
     <!-- QA #11: Source filter -->
     <div class="source-filter-bar anim anim-1">
       <span style="color:var(--muted); flex-shrink:0">📄 מקור:</span>
-      <span class="source-tag active" data-doc="ALL" onclick="filterByDoc('ALL', this)">📋 כל המסמכים</span>
+      <span class="source-tag" data-doc="ALL" onclick="filterByDoc('ALL', this)">📋 כל המסמכים</span>
       {% set seen_docs = [] %}
       {% for right in rights %}
         {% if right.linked_clauses %}
@@ -375,6 +387,22 @@
 </div>
 
 <script>
+// Auto-select latest uploaded document on page load
+document.addEventListener('DOMContentLoaded', function() {
+  // Find all source tags except ALL
+  const docTags = document.querySelectorAll('.source-tag[data-doc]:not([data-doc="ALL"])');
+  
+  if (docTags.length > 0) {
+    // Auto-select the last (most recently added) document
+    const latestTag = docTags[docTags.length - 1];
+    filterByDoc(latestTag.dataset.doc, latestTag);
+  } else {
+    // No specific docs — show all
+    const allTag = document.querySelector('.source-tag[data-doc="ALL"]');
+    if (allTag) filterByDoc('ALL', allTag);
+  }
+});
+
 function toggleBody(header) {
   const body = header.nextElementSibling;
   const isOpen = body.style.display === 'block';
@@ -388,10 +416,17 @@ function filterByDoc(docId, clickedTag) {
 
   document.querySelectorAll('.engine-card').forEach(card => {
     if (docId === 'ALL') {
-      card.classList.remove('doc-hidden');
+      card.classList.remove('doc-hidden', 'doc-dimmed', 'doc-current');
     } else {
       const docs = (card.dataset.docs || '').split(',');
-      card.classList.toggle('doc-hidden', !docs.includes(docId));
+      const isMatch = docs.includes(docId);
+      // Show all but visually separate: current doc bright, others dimmed
+      card.classList.remove('doc-hidden', 'doc-dimmed', 'doc-current');
+      if (isMatch) {
+        card.classList.add('doc-current');
+      } else {
+        card.classList.add('doc-dimmed');
+      }
     }
   });
 
