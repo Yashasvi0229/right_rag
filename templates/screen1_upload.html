@@ -268,11 +268,13 @@
                 </div>
               </div>
               <div style="margin-top:8px">
-                <input class="form-input" type="date" id="pub-date"
-                       min="1900-01-01" max="2099-12-31"
-                       onchange="validateYear(this)"
-                       oninput="validateYear(this)" />
-                <div class="date-error-msg" id="date-error">⚠️ שנה חייבת להיות בת 4 ספרות (1900–2099)</div>
+                <input class="form-input" type="text" id="pub-date"
+                       placeholder="DD/MM/YYYY — לדוגמה: 15/03/2026"
+                       maxlength="10"
+                       oninput="validateDateInput(this)"
+                       onblur="validateDateInput(this)"
+                       style="direction:ltr; text-align:left;" />
+                <div class="date-error-msg" id="date-error">⚠️ פורמט לא תקין — יש להזין DD/MM/YYYY עם שנה בת 4 ספרות</div>
               </div>
             </div>
             <div class="form-group">
@@ -360,26 +362,63 @@ function onDrop(e) {
   }
 }
 
-/* QA #1: 4-digit year validation — blocks 5-digit year in real time */
-function validateYear(input) {
-  const val   = input.value;
+/* QA #1: Date validation — DD/MM/YYYY format, 4-digit year only */
+function validateDateInput(input) {
+  const val   = input.value.trim();
   const errEl = document.getElementById('date-error');
   if (!val) { input.classList.remove('input-error'); errEl.style.display='none'; return true; }
 
-  const parts = val.split('-');
-  const yearStr = parts[0] || '';
-  const year    = parseInt(yearStr, 10);
+  // Auto-format: add slashes as user types
+  let digits = val.replace(/\D/g, '');
+  if (digits.length >= 3 && digits.length <= 4) {
+    input.value = digits.slice(0,2) + '/' + digits.slice(2);
+    return true;
+  }
+  if (digits.length >= 5) {
+    input.value = digits.slice(0,2) + '/' + digits.slice(2,4) + '/' + digits.slice(4,8);
+  }
 
-  // Block: year must be exactly 4 digits, between 1900-2099
-  if (yearStr.length !== 4 || isNaN(year) || year < 1900 || year > 2099) {
-    input.classList.add('input-error');
-    errEl.style.display = 'block';
-    errEl.textContent   = `⚠️ שנה "${yearStr}" אינה תקינה — נא להזין שנה בת 4 ספרות (1900–2099)`;
-    // Clear the invalid value immediately
-    input.value = '';
+  // Full validation only when 10 chars entered
+  const formatted = input.value;
+  if (formatted.length < 10) { input.classList.remove('input-error'); errEl.style.display='none'; return true; }
+
+  const parts = formatted.split('/');
+  if (parts.length !== 3) {
+    input.classList.add('input-error'); errEl.style.display='block';
+    errEl.textContent = '⚠️ פורמט לא תקין — יש להזין DD/MM/YYYY';
     return false;
   }
-  input.classList.remove('input-error'); errEl.style.display = 'none'; return true;
+
+  const day  = parseInt(parts[0], 10);
+  const mon  = parseInt(parts[1], 10);
+  const year = parseInt(parts[2], 10);
+  const yearStr = parts[2];
+
+  // Year must be exactly 4 digits between 1900-2099
+  if (yearStr.length !== 4 || isNaN(year) || year < 1900 || year > 2099) {
+    input.classList.add('input-error'); errEl.style.display='block';
+    errEl.textContent = `⚠️ שנה ${yearStr} אינה תקינה — יש להזין שנה בת 4 ספרות (1900–2099)`;
+    return false;
+  }
+  if (isNaN(day) || day < 1 || day > 31 || isNaN(mon) || mon < 1 || mon > 12) {
+    input.classList.add('input-error'); errEl.style.display='block';
+    errEl.textContent = '⚠️ תאריך לא תקין — יש להזין DD/MM/YYYY';
+    return false;
+  }
+
+  input.classList.remove('input-error'); errEl.style.display='none'; return true;
+}
+
+// Keep validateYear as alias for uploadDocument compatibility
+function validateYear(input) { return validateDateInput(input); }
+
+// Convert DD/MM/YYYY → YYYY-MM-DD for API
+function getIsoDate() {
+  const val = document.getElementById('pub-date').value.trim();
+  if (!val) return new Date().toISOString().split('T')[0];
+  const parts = val.split('/');
+  if (parts.length !== 3) return new Date().toISOString().split('T')[0];
+  return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
 }
 
 function showAlert(msg, type) {
@@ -410,7 +449,7 @@ async function uploadDocument() {
   form.append('doc_id', docId);
   form.append('ingested_by', ingestedBy);
   form.append('doc_type', selectedType);
-  const pubDate = pubDateEl.value || new Date().toISOString().split('T')[0];
+  const pubDate = getIsoDate();
   form.append('publication_date', pubDate);
 
   try {
