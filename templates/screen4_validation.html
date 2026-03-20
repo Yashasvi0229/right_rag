@@ -68,6 +68,33 @@
     color: var(--muted); line-height: 1.9;
   }
 
+  /* Expandable warning rows */
+  .warn-row {
+    padding: 10px 12px; margin-bottom: 6px;
+    background: rgba(241,196,15,0.08);
+    border: 1px solid rgba(241,196,15,0.2);
+    border-radius: 6px; font-size: 12px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .warn-row:hover { background: rgba(241,196,15,0.13); border-color: rgba(241,196,15,0.4); }
+  .warn-row-header {
+    display: flex; align-items: center; gap: 8px; justify-content: space-between;
+  }
+  .warn-row-left  { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+  .warn-code      { color: var(--yellow); font-weight: 700; white-space: nowrap; }
+  .warn-clause    { color: var(--muted); font-family: monospace; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .warn-toggle    { color: var(--muted); font-size: 14px; flex-shrink: 0; transition: transform 0.2s; }
+  .warn-toggle.open { transform: rotate(180deg); }
+  .warn-details   {
+    display: none; margin-top: 8px; padding: 8px 10px;
+    background: rgba(0,0,0,0.2); border-radius: 4px;
+    color: var(--white); font-size: 12px; line-height: 1.7;
+    border-right: 3px solid var(--yellow);
+  }
+  .warn-details.show { display: block; }
+  .warn-detail-row { margin-bottom: 4px; }
+  .warn-detail-label { color: var(--muted); font-size: 11px; }
+
   /* ── RESPONSIVE ───────────────────────── */
   @media (max-width: 768px) {
     .sidebar-toggle { display: flex; }
@@ -290,14 +317,49 @@
       </div>
       <div style="padding:14px 20px;">
         {% for w in validation.warnings_list[:5] %}
-        <div style="padding:8px 12px; margin-bottom:6px; background:rgba(241,196,15,0.08); border:1px solid rgba(241,196,15,0.2); border-radius:6px; font-size:12px;">
-          <span style="color:var(--yellow); font-weight:600">{{ w.code }}</span>
-          {% if w.clause_id %}<span style="color:var(--muted); font-family:monospace"> · {{ w.clause_id[-12:] }}</span>{% endif %}
-          <div style="color:var(--muted); margin-top:2px">{{ w.msg }}</div>
+        <div class="warn-row" onclick="toggleWarn(this)">
+          <div class="warn-row-header">
+            <div class="warn-left" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+              <span class="warn-code">⚠ {{ w.code }}</span>
+              {% if w.clause_id %}
+              <span class="warn-clause">· {{ w.clause_id[-12:] }}</span>
+              {% endif %}
+            </div>
+            <span class="warn-toggle">▼</span>
+          </div>
+          <div class="warn-details">
+            <div class="warn-detail-row">
+              <span class="warn-detail-label">תיאור: </span>
+              <span style="color:var(--white)">{{ w.msg }}</span>
+            </div>
+            {% if w.clause_id %}
+            <div class="warn-detail-row">
+              <span class="warn-detail-label">Clause ID: </span>
+              <span style="color:var(--gold);font-family:monospace">{{ w.clause_id }}</span>
+            </div>
+            {% endif %}
+            {% if w.code %}
+            <div class="warn-detail-row">
+              <span class="warn-detail-label">קוד שגיאה: </span>
+              <span style="color:var(--yellow);font-family:monospace">{{ w.code }}</span>
+            </div>
+            {% endif %}
+            <div class="warn-detail-row" style="margin-top:6px;">
+              <span class="warn-detail-label">פעולה מומלצת: </span>
+              <span style="color:var(--muted)">
+                {% if 'SECTION_REF' in w.code %}סעיף זה חסר הפניה ספציפית — יש לבדוק ידנית את המסמך המקורי ולהוסיף section_ref
+                {% elif 'OVERLAP' in w.code %}זכויות חופפות — בדוק את הגדרות הקטגוריות
+                {% elif 'MISSING' in w.code %}שדה חסר — השלם את הנתונים החסרים
+                {% else %}נדרשת בדיקה אנושית — פנה למומחה משפטי{% endif %}
+              </span>
+            </div>
+          </div>
         </div>
         {% endfor %}
         {% if validation.warnings > 5 %}
-        <div style="font-size:12px; color:var(--muted); text-align:center; margin-top:4px">ועוד {{ validation.warnings - 5 }} אזהרות</div>
+        <div style="font-size:12px; color:var(--muted); text-align:center; margin-top:8px; padding:8px; background:rgba(241,196,15,0.05); border-radius:4px; cursor:pointer;" onclick="loadAllWarnings()">
+          ▼ הצג עוד {{ validation.warnings - 5 }} אזהרות
+        </div>
         {% endif %}
       </div>
     </div>
@@ -354,5 +416,52 @@ async function runM2BChecks() {
 }
 
 document.addEventListener('DOMContentLoaded', runM2BChecks);
+
+// Toggle warning details
+function toggleWarn(row) {
+  const details = row.querySelector('.warn-details');
+  const toggle  = row.querySelector('.warn-toggle');
+  if (!details) return;
+  const isOpen = details.classList.contains('show');
+  // Close all others first
+  document.querySelectorAll('.warn-details.show').forEach(d => d.classList.remove('show'));
+  document.querySelectorAll('.warn-toggle.open').forEach(t => t.classList.remove('open'));
+  // Toggle clicked
+  if (!isOpen) {
+    details.classList.add('show');
+    toggle.classList.add('open');
+  }
+}
+
+// Load all warnings via API
+async function loadAllWarnings() {
+  try {
+    const res  = await fetch('/api/validate');
+    const data = await res.json();
+    const all  = data.warnings_list || [];
+    const container = document.querySelector('.warn-row')?.parentElement;
+    if (!container || all.length === 0) return;
+    // Re-render all warnings
+    container.innerHTML = all.map(w => `
+      <div class="warn-row" onclick="toggleWarn(this)">
+        <div class="warn-row-header">
+          <div class="warn-left" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+            <span class="warn-code">⚠ ${escHtml(w.code||'')}</span>
+            ${w.clause_id ? '<span class="warn-clause">· '+escHtml((w.clause_id||'').slice(-12))+'</span>' : ''}
+          </div>
+          <span class="warn-toggle">▼</span>
+        </div>
+        <div class="warn-details">
+          <div class="warn-detail-row"><span class="warn-detail-label">תיאור: </span><span style="color:var(--white)">${escHtml(w.msg||'')}</span></div>
+          ${w.clause_id ? '<div class="warn-detail-row"><span class="warn-detail-label">Clause ID: </span><span style="color:var(--gold);font-family:monospace">'+escHtml(w.clause_id)+'</span></div>' : ''}
+          <div class="warn-detail-row"><span class="warn-detail-label">קוד שגיאה: </span><span style="color:var(--yellow);font-family:monospace">${escHtml(w.code||'')}</span></div>
+        </div>
+      </div>`).join('');
+  } catch(e) { console.error('Failed to load all warnings:', e); }
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 </script>
 {% endblock %}
