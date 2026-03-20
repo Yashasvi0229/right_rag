@@ -241,7 +241,7 @@
     <div class="clause-tree anim anim-3" id="clauses-container">
       {% if pending_clauses %}
         {% for c in pending_clauses %}
-        <div class="clause-row" id="row-{{ c.clause_id }}"
+        <div class="clause-row pending-review" id="row-{{ c.clause_id }}"
              data-type="{{ c.clause_type }}"
              data-doc="{{ c.source_doc_id }}"
              data-status="pending">
@@ -284,6 +284,13 @@
 </div>
 
 <script>
+// Init: ensure all pending rows have correct visual class on load
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.clause-row[data-status="pending"]').forEach(row => {
+    row.classList.add('pending-review');
+  });
+});
+
 function getReviewer() {
   return document.getElementById('reviewer-name')?.value.trim() || 'admin';
 }
@@ -300,6 +307,12 @@ function applyFilters() {
       || (currentStatusFilter === 'approved' && status === 'approved')
       || (currentStatusFilter === 'pending'  && status === 'pending');
     row.style.display = (typeMatch && statusMatch) ? '' : 'none';
+
+    // Always keep correct visual class based on actual status
+    row.classList.remove('pending-review', 'approved', 'rejected');
+    if (status === 'approved')  row.classList.add('approved');
+    else if (status === 'rejected') row.classList.add('rejected');
+    else row.classList.add('pending-review');
   });
 }
 
