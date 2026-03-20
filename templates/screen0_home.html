@@ -60,8 +60,22 @@
   .stat-num {
     font-family: 'Frank Ruhl Libre', serif;
     font-size: 32px; font-weight: 900; color: var(--gold);
+    min-width: 60px; display: inline-block;
   }
   .stat-label { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  /* Live data banner — shows when docs uploaded */
+  .live-banner {
+    display: none;
+    align-items: center; gap: 10px;
+    background: rgba(46,204,113,0.08);
+    border: 1px solid rgba(46,204,113,0.2);
+    border-radius: var(--radius-sm);
+    padding: 10px 18px; font-size: 13px;
+    color: var(--green); margin-top: 20px;
+    animation: fadeInUp 0.5s ease both;
+  }
+  .live-banner.show { display: inline-flex; }
 
   .section { padding: 80px 40px; max-width: 1100px; margin: 0 auto; }
   .section-title {
@@ -153,17 +167,34 @@
     <a href="/screen10" class="btn btn-gold btn-hero">▶ בדוק עכשיו — בחינם</a>
     <a href="/screen1"  class="btn btn-outline btn-hero">⚙️ ניהול מומחים</a>
   </div>
+
+  <!-- Stats — loaded live from API -->
   <div class="stats-bar">
-    <div class="stat"><div class="stat-num">12+</div><div class="stat-label">סוגי הנחות</div></div>
-    <div class="stat"><div class="stat-num">100%</div><div class="stat-label">מבוסס חקיקה</div></div>
-    <div class="stat"><div class="stat-num">0 ₪</div><div class="stat-label">עלות לאזרח</div></div>
+    <div class="stat">
+      <div class="stat-num" id="stat-rights">{{ rights_count }}</div>
+      <div class="stat-label">זכויות בקטלוג</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="stat-clauses">{{ clauses_count }}</div>
+      <div class="stat-label">סעיפים מאושרים</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="stat-docs">{{ docs_count }}</div>
+      <div class="stat-label">מסמכי מקור</div>
+    </div>
+  </div>
+
+  <!-- Live banner — shows when documents uploaded -->
+  <div class="live-banner" id="live-banner">
+    🟢 <span id="live-banner-text">המערכת מעודכנת</span>
+    <a href="/screen1" style="color:var(--green);text-decoration:underline;font-size:12px;">עדכן ›</a>
   </div>
 </section>
 
 <div style="background: var(--bg-navy); padding: 2px 0;">
   <div class="section">
     <h2 class="section-title">זכויות ארנונה בקטלוג</h2>
-    <p class="section-sub">בחר קטגוריה לבדיקת זכאות</p>
+    <p class="section-sub" id="catalog-sub">בחר קטגוריה לבדיקת זכאות</p>
     <div class="rights-grid">
       <div class="right-card anim anim-1" onclick="location.href='/screen10?type=reserve'">
         <div class="right-icon">🎖️</div>
@@ -214,5 +245,45 @@
     </div>
   </div>
 </div>
+
+<script>
+// Load live stats from API on page load
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const [rightsRes, docsRes, clausesRes] = await Promise.all([
+      fetch('/api/rights'),
+      fetch('/api/documents'),
+      fetch('/api/clauses/approved'),
+    ]);
+
+    const rights  = await rightsRes.json();
+    const docs    = await docsRes.json();
+    const clauses = clausesRes.ok ? await clausesRes.json() : [];
+
+    // Update stats
+    document.getElementById('stat-rights').textContent  = rights.length  || '{{ rights_count }}';
+    document.getElementById('stat-docs').textContent    = docs.length    || '{{ docs_count }}';
+    document.getElementById('stat-clauses').textContent = clauses.length || '{{ clauses_count }}';
+
+    // Show live banner if docs uploaded
+    if (docs.length > 0) {
+      const banner   = document.getElementById('live-banner');
+      const lastDoc  = docs[docs.length - 1];
+      const docTitle = lastDoc.title || lastDoc.doc_id || 'מסמך אחרון';
+      document.getElementById('live-banner-text').textContent =
+        `מסמך פעיל: ${docTitle.slice(0, 40)}${docTitle.length > 40 ? '...' : ''}`;
+      banner.classList.add('show');
+
+      // Update catalog subtitle
+      document.getElementById('catalog-sub').textContent =
+        `${docs.length} מסמכ${docs.length === 1 ? '' : 'ים'} הועלו · בחר קטגוריה לבדיקת זכאות`;
+    }
+
+  } catch(e) {
+    // Fallback — keep server-rendered values
+    console.log('Stats API unavailable — using server values');
+  }
+});
+</script>
 
 {% endblock %}
