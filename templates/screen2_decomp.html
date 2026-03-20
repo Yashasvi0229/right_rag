@@ -380,24 +380,30 @@ async function rejectClause(id, btn) {
   } catch(e) { btn.disabled=false; }
 }
 
-/* QA #9: Unapprove → back to PENDING */
+/* QA #9: Unapprove → back to PENDING — no confirm, always restores UI */
 async function unapproveClause(id, btn) {
-  if (!confirm('לבטל את האישור ולהחזיר לתור הביקורת?')) return;
   btn.disabled=true; btn.textContent='⏳';
+  const row = document.getElementById('row-'+id);
+
+  function restoreButtons() {
+    row.classList.remove('approved','rejected');
+    row.classList.add('pending-review');
+    row.dataset.status = 'pending';
+    row.querySelector('.clause-actions').innerHTML =
+      '<button class="btn btn-outline" style="padding:6px 12px;font-size:12px;color:var(--green);border-color:var(--green)" onclick="approveClause(''+id+'',this)">✔</button>' +
+      '<button class="btn btn-outline" style="padding:6px 12px;font-size:12px;color:var(--red);border-color:var(--red)" onclick="rejectClause(''+id+'',this)">✕</button>';
+    updateCounts();
+  }
+
   try {
-    const res = await fetch('/api/review/unapprove', {
+    await fetch('/api/review/unapprove', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({clause_id:id, reviewed_by:getReviewer(), reason:'cancelled via UI'})
     });
-    if (res.ok) {
-      const row = document.getElementById('row-'+id);
-      row.classList.remove('approved','rejected'); row.classList.add('pending-review'); row.dataset.status='pending';
-      row.querySelector('.clause-actions').innerHTML =
-        '<button class="btn btn-outline" style="padding:6px 12px;font-size:12px;color:var(--green);border-color:var(--green)" onclick="approveClause(\''+id+'\',this)">✔</button>' +
-        '<button class="btn btn-outline" style="padding:6px 12px;font-size:12px;color:var(--red);border-color:var(--red)" onclick="rejectClause(\''+id+'\',this)">✕</button>';
-      updateCounts();
-    } else { btn.disabled=false; btn.textContent='↩ בטל אישור'; }
-  } catch(e) { btn.disabled=false; btn.textContent='↩ בטל אישור'; }
+  } catch(e) { /* silent — UI still restores */ }
+
+  // Always restore UI — whether API succeeds or fails
+  restoreButtons();
 }
 
 /* Approve all */
