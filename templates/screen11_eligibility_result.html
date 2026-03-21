@@ -222,7 +222,8 @@ function renderResult(result) {
         </div>
       </div>
       <div class="cta-row anim">
-        <a href="/screen10" class="btn btn-gold">← נסה שנית</a>
+        <a href="/screen10" class="btn btn-gold">✏️ תקן פרטים ← </a>
+        <a href="/screen10" class="btn btn-outline">← בדיקה חדשה</a>
         <a href="/screen8?session_id=${SESSION_ID}" class="btn btn-outline">⚖️ מידע על ערר</a>
       </div>`;
     return;
@@ -246,6 +247,7 @@ function renderResult(result) {
     </div>
     ${rights.map(r=>buildRightCard(r)).join('')}
     <div class="cta-row anim">
+      <a href="/screen10" class="btn btn-outline" style="border-color:var(--gold);color:var(--gold)">✏️ תקן פרטים ←</a>
       <a href="/screen7" class="btn btn-gold">💰 מחשבון מהיר</a>
       <a href="/screen8" class="btn btn-outline">⚖️ מידע על ממוש</a>
       <a href="/screen10" class="btn btn-outline" style="opacity:0.7">← בדיקה חדשה</a>
@@ -312,6 +314,7 @@ function renderFallback(calc) {
       <div class="explain-body" style="font-size:13px;color:var(--muted);">לתוצאה מלאה — יש לפרסם מ-<a href="/screen6" style="color:var(--gold)">שלב 6</a></div>
     </div>
     <div class="cta-row anim">
+      <a href="/screen10" class="btn btn-outline" style="border-color:var(--gold);color:var(--gold)">✏️ תקן פרטים ←</a>
       <a href="/screen10" class="btn btn-gold">← בדיקה חדשה</a>
       <a href="/screen8" class="btn btn-outline">⚖️ מידע על ערר</a>
     </div>`;
