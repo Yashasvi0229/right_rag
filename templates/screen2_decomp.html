@@ -377,10 +377,20 @@ async function approveClause(id, btn) {
       row.classList.remove('pending-review','rejected');
       row.classList.add('approved');
       row.dataset.status = 'approved';
-      row.querySelector('.clause-actions').innerHTML =
-        '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">' +
-        '<span class="badge badge-green">✔ אושר</span>' +
-        '<button class="unapprove-btn" onclick="unapproveClause(&quot;'+id+'&quot;,this)">↩ בטל אישור</button></div>';
+      const actDiv = row.querySelector('.clause-actions');
+      actDiv.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px';
+      const badge = document.createElement('span');
+      badge.className = 'badge badge-green';
+      badge.textContent = '✔ אושר';
+      const unBtn = document.createElement('button');
+      unBtn.className = 'unapprove-btn';
+      unBtn.textContent = '↩ בטל אישור';
+      unBtn.addEventListener('click', function() { unapproveClause(id, unBtn); });
+      wrap.appendChild(badge);
+      wrap.appendChild(unBtn);
+      actDiv.appendChild(wrap);
       updateCounts();
     } else {
       if (freshBtn) { freshBtn.disabled=false; freshBtn.textContent='✔'; }
@@ -406,10 +416,21 @@ async function rejectClause(id, btn) {
       row.classList.remove('pending-review','approved');
       row.classList.add('rejected');
       row.dataset.status = 'rejected';
-      row.querySelector('.clause-actions').innerHTML =
-        '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">' +
-        '<span class="badge" style="background:rgba(231,76,60,0.15);color:var(--red);border:1px solid rgba(231,76,60,0.3)">✕ נדחה</span>' +
-        '<button class="unapprove-btn" onclick="unapproveClause(&quot;'+id+'&quot;,this)">↩ בטל דחייה</button></div>';
+      const actDiv2 = row.querySelector('.clause-actions');
+      actDiv2.innerHTML = '';
+      const wrap2 = document.createElement('div');
+      wrap2.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px';
+      const badge2 = document.createElement('span');
+      badge2.className = 'badge';
+      badge2.style.cssText = 'background:rgba(231,76,60,0.15);color:var(--red);border:1px solid rgba(231,76,60,0.3)';
+      badge2.textContent = '✕ נדחה';
+      const unBtn2 = document.createElement('button');
+      unBtn2.className = 'unapprove-btn';
+      unBtn2.textContent = '↩ בטל דחייה';
+      unBtn2.addEventListener('click', function() { unapproveClause(id, unBtn2); });
+      wrap2.appendChild(badge2);
+      wrap2.appendChild(unBtn2);
+      actDiv2.appendChild(wrap2);
       updateCounts();
     } else {
       if (freshBtn) freshBtn.disabled = false;
@@ -421,16 +442,32 @@ async function rejectClause(id, btn) {
 
 /* QA #9: Unapprove → back to PENDING — no confirm, always restores UI */
 async function unapproveClause(id, btn) {
-  btn.disabled=true; btn.textContent='⏳';
+  if (btn) { btn.disabled=true; btn.textContent='⏳'; }
   const row = document.getElementById('row-'+id);
 
   function restoreButtons() {
     row.classList.remove('approved','rejected');
     row.classList.add('pending-review');
     row.dataset.status = 'pending';
-    row.querySelector('.clause-actions').innerHTML =
-      '<button class="btn btn-outline" style="padding:6px 12px;font-size:12px;color:var(--green);border-color:var(--green)" onclick="approveClause(&quot;'+id+'&quot;,this)">✔</button>' +
-      '<button class="btn btn-outline" style="padding:6px 12px;font-size:12px;color:var(--red);border-color:var(--red)" onclick="rejectClause(&quot;'+id+'&quot;,this)">✕</button>';
+
+    // Use DOM methods — no inline onclick strings to avoid quote issues
+    const actionsDiv = row.querySelector('.clause-actions');
+    actionsDiv.innerHTML = '';
+
+    const approveBtn = document.createElement('button');
+    approveBtn.className = 'btn btn-outline';
+    approveBtn.style.cssText = 'padding:6px 12px;font-size:12px;color:var(--green);border-color:var(--green)';
+    approveBtn.textContent = '✔';
+    approveBtn.addEventListener('click', function() { approveClause(id, approveBtn); });
+
+    const rejectBtn = document.createElement('button');
+    rejectBtn.className = 'btn btn-outline';
+    rejectBtn.style.cssText = 'padding:6px 12px;font-size:12px;color:var(--red);border-color:var(--red)';
+    rejectBtn.textContent = '✕';
+    rejectBtn.addEventListener('click', function() { rejectClause(id, rejectBtn); });
+
+    actionsDiv.appendChild(approveBtn);
+    actionsDiv.appendChild(rejectBtn);
     updateCounts();
   }
 
@@ -441,7 +478,6 @@ async function unapproveClause(id, btn) {
     });
   } catch(e) { /* silent — UI still restores */ }
 
-  // Always restore UI — whether API succeeds or fails
   restoreButtons();
 }
 
@@ -507,14 +543,28 @@ async function loadApprovedClauses() {
             <span class="source-ref">${escHtml(c.section_ref||'')} · SHA:${(c.clause_id||'').slice(-6)}</span>
           </div>
         </div>
-        <div class="clause-actions">
-          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-            <span class="badge badge-green">✔ אושר</span>
-            <button class="unapprove-btn" onclick="unapproveClause(&quot;${c.clause_id}&quot;,this)">↩ בטל אישור</button>
-          </div>
+        <div class="clause-actions" data-clause-id="${c.clause_id}">
         </div>
       </div>`;
     }).join('');
+
+    // Attach event listeners via DOM — no inline onclick
+    document.querySelectorAll('.clause-actions[data-clause-id]').forEach(actDiv => {
+      const cid = actDiv.dataset.clauseId;
+      actDiv.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px';
+      const badge = document.createElement('span');
+      badge.className = 'badge badge-green';
+      badge.textContent = '✔ אושר';
+      const unBtn = document.createElement('button');
+      unBtn.className = 'unapprove-btn';
+      unBtn.textContent = '↩ בטל אישור';
+      unBtn.addEventListener('click', function() { unapproveClause(cid, unBtn); });
+      wrap.appendChild(badge);
+      wrap.appendChild(unBtn);
+      actDiv.appendChild(wrap);
+    });
 
     // Update approved count
     document.getElementById('approved-count').textContent = clauses.length;
