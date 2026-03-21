@@ -611,12 +611,18 @@ function validate() {
     ok = false;
   }
 
-  // Check total days
+  // Check total days — warn if < 20 but don't block
   const totalDays = periods.reduce((sum, p) => sum + (p.days || 0), 0);
   if (totalDays < 1) {
     document.getElementById('err-periods').textContent = 'יש למלא לפחות תקופת שירות אחת עם תאריכים תקינים';
     document.getElementById('err-periods').style.display = 'block';
     ok = false;
+  } else if (totalDays < 20) {
+    // Warning only — allow submit so user can see result and come back
+    document.getElementById('err-periods').textContent = `⚠️ ${totalDays} ימים — פחות מהמינימום הנדרש (20 ימים). ניתן להמשיך אך ייתכן שלא תמצא זכאות.`;
+    document.getElementById('err-periods').style.display = 'block';
+    document.getElementById('err-periods').style.color = 'var(--yellow)';
+    // Don't set ok = false — allow submit
   }
 
   const tax = parseFloat(document.getElementById('f-annual-tax').value)||0;
