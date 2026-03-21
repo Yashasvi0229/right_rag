@@ -95,10 +95,11 @@ async def screen1(request: Request):
 
 @app.get("/screen2")
 async def screen2(request: Request):
+    approved = [c for c in get_clause_store() if c.get("is_current")]
     return templates.TemplateResponse("screen2_decomp.html", {
         "request":        request,
         "pending_clauses": get_pending_review(),
-        "approved_count": len(get_clause_store()),
+        "approved_count": len(approved),
     })
 
 
