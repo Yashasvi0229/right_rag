@@ -7,7 +7,6 @@
     max-width: 680px; margin: 0 auto; padding: 40px 20px 80px;
   }
 
-  /* Progress steps */
   .form-steps {
     display: flex; align-items: center; justify-content: center;
     gap: 0; margin-bottom: 32px; overflow-x: auto;
@@ -32,7 +31,6 @@
   .fstep.pending .fstep-num { background: var(--bg-card2); color: var(--muted); }
   .fstep-sep { color: var(--muted); margin: 0 2px; }
 
-  /* Section cards */
   .section-card {
     background: var(--bg-card); border: 1px solid var(--border2);
     border-radius: var(--radius); overflow: hidden; margin-bottom: 20px;
@@ -50,11 +48,9 @@
   .two-col   { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 
-  /* Type selector */
   .type-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 8px; }
   .type-opt {
-    padding: 14px 12px;
-    border: 1.5px solid var(--border2); border-radius: var(--radius-sm);
+    padding: 14px 12px; border: 1.5px solid var(--border2); border-radius: var(--radius-sm);
     background: var(--bg-navy); text-align: center; cursor: pointer;
     transition: all 0.2s; font-family: 'Heebo', sans-serif; color: var(--muted);
   }
@@ -64,7 +60,6 @@
   .type-opt .opt-label { font-size: 13px; font-weight: 700; }
   .type-opt .opt-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-  /* Tooltip / help */
   .field-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
   .help-icon {
     width: 18px; height: 18px; border-radius: 50%;
@@ -76,27 +71,71 @@
   .help-icon:hover { border-color: var(--gold); color: var(--gold); }
   .field-hint { font-size: 12px; color: var(--muted); margin-top: 5px; }
 
-  /* Toggle buttons */
   .toggle-row { display: flex; gap: 10px; margin-bottom: 8px; }
   .toggle-btn {
-    flex: 1; padding: 10px 8px;
-    border: 1px solid var(--border2); border-radius: var(--radius-sm);
+    flex: 1; padding: 10px 8px; border: 1px solid var(--border2); border-radius: var(--radius-sm);
     background: var(--bg-navy); color: var(--muted); font-size: 13px;
     cursor: pointer; text-align: center; font-family: 'Heebo', sans-serif; transition: all 0.2s;
   }
   .toggle-btn.sel { border-color: var(--gold); background: rgba(201,168,76,0.1); color: var(--gold); }
 
-  /* Submit */
+  /* ── SERVICE PERIODS ── */
+  .period-row {
+    display: grid; grid-template-columns: 1fr 1fr auto;
+    gap: 10px; align-items: end;
+    padding: 12px 14px; margin-bottom: 8px;
+    background: var(--bg-navy); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); position: relative;
+  }
+  .period-row .period-num {
+    position: absolute; top: -10px; right: 12px;
+    font-size: 10px; color: var(--muted);
+    background: var(--bg-card); padding: 1px 8px; border-radius: 8px;
+    border: 1px solid var(--border2);
+  }
+  .period-label { font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+  .period-days  {
+    font-size: 11px; color: var(--green); margin-top: 4px;
+    font-family: monospace; min-height: 16px;
+  }
+  .period-days.error { color: var(--red); }
+  .remove-period-btn {
+    background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.3);
+    color: var(--red); border-radius: var(--radius-sm);
+    padding: 8px 10px; cursor: pointer; font-size: 14px;
+    font-family: 'Heebo', sans-serif; transition: all 0.2s;
+    align-self: end; margin-bottom: 0;
+  }
+  .remove-period-btn:hover { background: rgba(231,76,60,0.2); }
+  .add-period-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px; margin-top: 4px;
+    background: rgba(201,168,76,0.06); border: 1px dashed rgba(201,168,76,0.3);
+    border-radius: var(--radius-sm); color: var(--gold);
+    cursor: pointer; font-size: 13px; font-family: 'Heebo', sans-serif;
+    transition: all 0.2s; width: 100%; justify-content: center;
+  }
+  .add-period-btn:hover { background: rgba(201,168,76,0.12); border-color: var(--gold); }
+
+  /* Total days summary */
+  .days-summary {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; margin-top: 8px;
+    background: rgba(46,204,113,0.06); border: 1px solid rgba(46,204,113,0.2);
+    border-radius: var(--radius-sm); font-size: 13px;
+  }
+  .days-summary.warn { background: rgba(241,196,15,0.06); border-color: rgba(241,196,15,0.2); }
+  .days-total { font-size: 18px; font-weight: 700; color: var(--green); }
+  .days-total.warn { color: var(--yellow); }
+
   .submit-section {
     background: rgba(201,168,76,0.06); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 24px; text-align: center;
   }
 
-  /* Field errors */
   .field-error { font-size: 12px; color: var(--red); margin-top: 4px; display: none; }
   .form-input.has-error, .form-select.has-error { border-color: var(--red) !important; }
 
-  /* Loading overlay */
   .loading-overlay {
     display: none; position: fixed; inset: 0;
     background: rgba(10,22,40,0.85); z-index: 200;
@@ -111,35 +150,26 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ── RESPONSIVE ───────────────────────── */
+  /* ── RESPONSIVE ── */
   @media (max-width: 768px) {
     .collector-page { padding: 24px 14px 60px; }
-
-    /* two-col → 1 col */
     .two-col  { grid-template-columns: 1fr; }
-
-    /* three-col installments → 3 col stays (they're short labels) */
     .three-col { gap: 8px; }
     .toggle-btn { font-size: 12px; padding: 8px 4px; }
-
-    /* Section body */
     .section-body { padding: 16px; }
-
-    /* Submit button */
     .submit-section .btn { width: 100%; justify-content: center; }
+    .period-row { grid-template-columns: 1fr 1fr auto; gap: 8px; }
   }
-
   @media (max-width: 480px) {
-    /* three-col → 1 col on very small */
     .three-col { grid-template-columns: 1fr; }
-
     .section-header { padding: 12px 14px; }
     .section-title  { font-size: 14px; }
     .type-opt       { padding: 12px 8px; }
     .type-opt .opt-icon { font-size: 20px; }
-
-    /* Inputs — iOS zoom fix */
     .form-input, .form-select { font-size: 16px !important; }
+    /* Period row → stack on mobile */
+    .period-row { grid-template-columns: 1fr; }
+    .remove-period-btn { width: 100%; }
   }
 </style>
 {% endblock %}
@@ -194,35 +224,39 @@
     </div>
   </div>
 
-  <!-- Section 2: Service record -->
+  <!-- Section 2: Service record — MULTIPLE PERIODS -->
   <div class="section-card anim anim-2">
     <div class="section-header">
       <div class="section-icon">📋</div>
       <div>
-        <div class="section-title">נתוני שירות</div>
-        <div class="section-sub">ימי שירות מילואים ב-3 שנים האחרונות</div>
+        <div class="section-title">נתוני שירות מילואים</div>
+        <div class="section-sub">הוסף תקופות שירות — מ... עד... (ב-3 שנים האחרונות)</div>
       </div>
     </div>
     <div class="section-body">
-      <div class="form-group">
-        <div class="field-row">
-          <label class="form-label" style="margin-bottom:0">ימי שירות מצטברים ב-3 שנים אחרונות</label>
-          <span class="help-icon" title="סכום ימי המילואים מאישור צה&quot;ל. נדרש מינימום 20 ימים.">?</span>
+
+      <!-- Service periods list -->
+      <div id="periods-container"></div>
+
+      <!-- Add period button -->
+      <button class="add-period-btn" onclick="addPeriod()">
+        ➕ הוסף תקופת שירות
+      </button>
+
+      <!-- Total days summary -->
+      <div class="days-summary" id="days-summary" style="display:none;">
+        <div>
+          <div style="font-size:12px;color:var(--muted);">סה"כ ימי שירות מצטברים</div>
+          <div class="days-total" id="total-days-display">0 ימים</div>
         </div>
-        <input class="form-input" type="number" id="f-service-days" placeholder="לדוגמה: 45" min="0" max="1095" />
-        <div class="field-error" id="err-service-days">נדרש מינימום 20 ימי שירות לזכאות</div>
-        <div class="field-hint">נדרש מינימום 20 ימים — מקור: תקנה 3ו(א)</div>
+        <div style="text-align:left;">
+          <div style="font-size:12px;color:var(--muted);">סטטוס זכאות</div>
+          <div id="eligibility-status" style="font-size:13px;font-weight:700;color:var(--green);">✔ עומד בדרישה המינימלית</div>
+        </div>
       </div>
-      <div class="two-col">
-        <div class="form-group">
-          <label class="form-label">תאריך תחילת שירות</label>
-          <input class="form-input" type="date" id="f-start-date" min="2020-01-01" max="2026-12-31" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">תאריך סיום שירות</label>
-          <input class="form-input" type="date" id="f-end-date" min="2020-01-01" max="2026-12-31" />
-        </div>
-      </div>
+
+      <div class="field-error" id="err-periods" style="margin-top:8px;">יש להוסיף לפחות תקופת שירות אחת</div>
+      <div class="field-hint" style="margin-top:8px;">נדרש מינימום 20 ימים מצטברים ב-3 שנים האחרונות — מקור: תקנה 3ו(א)</div>
     </div>
   </div>
 
@@ -334,6 +368,192 @@
 </div>
 
 <script>
+// ── Service periods state ──────────────────────────────────────────────────
+let periodCount = 0;
+let periods     = []; // [{id, start, end, days}]
+
+// 3 years ago from today
+const THREE_YEARS_AGO = new Date();
+THREE_YEARS_AGO.setFullYear(THREE_YEARS_AGO.getFullYear() - 3);
+const TODAY = new Date();
+
+// Auto-format dd/mm/yyyy as user types
+function formatDateInput(input, pid, field) {
+  let digits = input.value.replace(/\D/g, '');
+  if (digits.length >= 3 && digits.length <= 4) {
+    input.value = digits.slice(0,2) + '/' + digits.slice(2);
+  } else if (digits.length >= 5) {
+    input.value = digits.slice(0,2) + '/' + digits.slice(2,4) + '/' + digits.slice(4,8);
+  }
+  // Live update when complete
+  if (input.value.length === 10) onPeriodChange(pid);
+}
+
+// Convert dd/mm/yyyy → yyyy-mm-dd for calculations
+function parseLocalDate(str) {
+  if (!str || str.length < 10) return null;
+  const parts = str.split('/');
+  if (parts.length !== 3) return null;
+  const day = parts[0], mon = parts[1], year = parts[2];
+  if (year.length !== 4) return null;
+  const d = new Date(`${year}-${mon}-${day}`);
+  return isNaN(d) ? null : d;
+}
+
+// Format date as yyyy-mm-dd for API
+function toIsoString(str) {
+  const d = parseLocalDate(str);
+  if (!d) return '';
+  return d.toISOString().split('T')[0];
+}
+
+function fmtDateHe(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return '';
+  return d.toLocaleDateString('he-IL', {day:'2-digit', month:'2-digit', year:'numeric'});
+}
+
+function calcDays(start, end) {
+  if (!start || !end) return 0;
+  const s = new Date(start), e = new Date(end);
+  if (isNaN(s) || isNaN(e) || e <= s) return 0;
+  return Math.round((e - s) / (1000 * 60 * 60 * 24));
+}
+
+function addPeriod() {
+  periodCount++;
+  const pid = 'period-' + periodCount;
+  periods.push({ id: pid, start: '', end: '', days: 0 });
+
+  const div = document.createElement('div');
+  div.className = 'period-row';
+  div.id = pid;
+  div.innerHTML = `
+    <span class="period-num">תקופה ${periodCount}</span>
+    <div>
+      <div class="period-label">מתאריך</div>
+      <input class="form-input" type="text" id="${pid}-start"
+        placeholder="dd/mm/yyyy"
+        maxlength="10"
+        oninput="formatDateInput(this, '${pid}', 'start')"
+        onblur="onPeriodChange('${pid}')"
+        style="direction:ltr;text-align:left;" />
+    </div>
+    <div>
+      <div class="period-label">עד תאריך</div>
+      <input class="form-input" type="text" id="${pid}-end"
+        placeholder="dd/mm/yyyy"
+        maxlength="10"
+        oninput="formatDateInput(this, '${pid}', 'end')"
+        onblur="onPeriodChange('${pid}')"
+        style="direction:ltr;text-align:left;" />
+    </div>
+    <button class="remove-period-btn" onclick="removePeriod('${pid}')" title="הסר תקופה">✕</button>
+    <div style="grid-column:1/-1">
+      <div class="period-days" id="${pid}-days"></div>
+    </div>`;
+
+  document.getElementById('periods-container').appendChild(div);
+  updateTotalDays();
+}
+
+function removePeriod(pid) {
+  const el = document.getElementById(pid);
+  if (el) el.remove();
+  periods = periods.filter(p => p.id !== pid);
+  updateTotalDays();
+}
+
+function onPeriodChange(pid) {
+  const startEl  = document.getElementById(pid + '-start');
+  const endEl    = document.getElementById(pid + '-end');
+  const daysEl   = document.getElementById(pid + '-days');
+  const startStr = startEl?.value || '';
+  const endStr   = endEl?.value   || '';
+
+  startEl?.classList.remove('has-error');
+  endEl?.classList.remove('has-error');
+
+  // Only validate when both fields have 10 chars (dd/mm/yyyy)
+  if (startStr.length < 10 || endStr.length < 10) {
+    if (daysEl) { daysEl.textContent = ''; daysEl.className = 'period-days'; }
+    updatePeriod(pid, '', '', 0);
+    return;
+  }
+
+  const s = parseLocalDate(startStr);
+  const e = parseLocalDate(endStr);
+
+  if (!s) {
+    startEl?.classList.add('has-error');
+    if (daysEl) { daysEl.textContent = '⚠️ תאריך התחלה לא תקין — יש להזין dd/mm/yyyy'; daysEl.className = 'period-days error'; }
+    updatePeriod(pid, '', '', 0); return;
+  }
+  if (!e) {
+    endEl?.classList.add('has-error');
+    if (daysEl) { daysEl.textContent = '⚠️ תאריך סיום לא תקין — יש להזין dd/mm/yyyy'; daysEl.className = 'period-days error'; }
+    updatePeriod(pid, '', '', 0); return;
+  }
+  if (e <= s) {
+    endEl?.classList.add('has-error');
+    if (daysEl) { daysEl.textContent = '⚠️ תאריך סיום חייב להיות אחרי תאריך התחלה'; daysEl.className = 'period-days error'; }
+    updatePeriod(pid, '', '', 0); return;
+  }
+  if (s < THREE_YEARS_AGO) {
+    startEl?.classList.add('has-error');
+    if (daysEl) { daysEl.textContent = '⚠️ תאריך מחוץ לטווח 3 השנים האחרונות'; daysEl.className = 'period-days error'; }
+    updatePeriod(pid, '', '', 0); return;
+  }
+  if (e > TODAY) {
+    endEl?.classList.add('has-error');
+    if (daysEl) { daysEl.textContent = '⚠️ תאריך סיום לא יכול להיות בעתיד'; daysEl.className = 'period-days error'; }
+    updatePeriod(pid, '', '', 0); return;
+  }
+
+  // All good!
+  const isoStart = toIsoString(startStr);
+  const isoEnd   = toIsoString(endStr);
+  const days     = calcDays(isoStart, isoEnd);
+  if (daysEl) { daysEl.textContent = `✔ ${days} ימי שירות (${startStr} — ${endStr})`; daysEl.className = 'period-days'; }
+  updatePeriod(pid, isoStart, isoEnd, days);
+}
+
+function updatePeriod(pid, start, end, days) {
+  const p = periods.find(x => x.id === pid);
+  if (p) { p.start = start; p.end = end; p.days = days; }
+  updateTotalDays();
+}
+
+function updateTotalDays() {
+  const total   = periods.reduce((sum, p) => sum + (p.days || 0), 0);
+  const summary = document.getElementById('days-summary');
+  const display = document.getElementById('total-days-display');
+  const status  = document.getElementById('eligibility-status');
+
+  if (periods.length === 0 || document.querySelectorAll('.period-row').length === 0) {
+    if (summary) summary.style.display = 'none';
+    return;
+  }
+
+  if (summary) summary.style.display = 'flex';
+  if (display) {
+    display.textContent = total + ' ימים';
+    display.className   = 'days-total' + (total < 20 ? ' warn' : '');
+  }
+  if (summary) summary.className = 'days-summary' + (total < 20 ? ' warn' : '');
+  if (status) {
+    if (total >= 20) {
+      status.textContent = '✔ עומד בדרישה המינימלית (20+ ימים)';
+      status.style.color = 'var(--green)';
+    } else {
+      status.textContent = `⚠️ חסרים ${20 - total} ימים למינימום`;
+      status.style.color = 'var(--yellow)';
+    }
+  }
+}
+
+// ── Type / Payment / Installments ─────────────────────────────────────────
 function selectReserveType(el) {
   document.querySelectorAll('.type-opt').forEach(e => e.classList.remove('selected'));
   el.classList.add('selected');
@@ -356,14 +576,18 @@ function setInstallments(n) {
   document.getElementById('f-installment-count').value = n;
 }
 
+// ── Init ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   const type = new URLSearchParams(window.location.search).get('type');
   if (type === 'commander') {
     const el = document.querySelector('[data-type="COMMANDER"]');
     if (el) selectReserveType(el);
   }
+  // Add first period by default
+  addPeriod();
 });
 
+// ── Validation ─────────────────────────────────────────────────────────────
 function showErr(id, msg) {
   const e = document.getElementById('err-'+id); const i = document.getElementById('f-'+id);
   if (e) { e.textContent=msg; e.style.display='block'; }
@@ -377,21 +601,38 @@ function clearErr(id) {
 
 function validate() {
   let ok = true;
-  clearErr('service-days'); clearErr('annual-tax');
-  const days = parseInt(document.getElementById('f-service-days').value)||0;
-  if (days < 1) { showErr('service-days','יש להזין מספר ימי שירות'); ok=false; }
-  else if (days < 20) { showErr('service-days',`${days} ימים — נדרש מינימום 20 ימים`); }
+  clearErr('annual-tax');
+  document.getElementById('err-periods').style.display = 'none';
+
+  // Check periods
+  const activePeriods = [...document.querySelectorAll('.period-row')];
+  if (activePeriods.length === 0) {
+    document.getElementById('err-periods').style.display = 'block';
+    ok = false;
+  }
+
+  // Check total days
+  const totalDays = periods.reduce((sum, p) => sum + (p.days || 0), 0);
+  if (totalDays < 1) {
+    document.getElementById('err-periods').textContent = 'יש למלא לפחות תקופת שירות אחת עם תאריכים תקינים';
+    document.getElementById('err-periods').style.display = 'block';
+    ok = false;
+  }
+
   const tax = parseFloat(document.getElementById('f-annual-tax').value)||0;
   if (tax<=0) { showErr('annual-tax','יש להזין סכום ארנונה שנתי תקין'); ok=false; }
+
   const type = document.getElementById('f-reserve-type').value;
   const sqm  = parseFloat(document.getElementById('f-sqm')?.value)||0;
   const errEl = document.getElementById('submit-error');
   if (type==='COMMANDER' && sqm<=0) {
     errEl.textContent='למפקד מילואים נדרש שטח הנכס (מ"ר)'; errEl.style.display='block'; ok=false;
   } else { errEl.style.display='none'; }
+
   return ok;
 }
 
+// ── Submit ─────────────────────────────────────────────────────────────────
 async function submitFacts() {
   if (!validate()) return;
   const overlay = document.getElementById('loading-overlay');
@@ -402,7 +643,7 @@ async function submitFacts() {
     const { session_id } = await sessRes.json();
 
     const type     = document.getElementById('f-reserve-type').value;
-    const days     = parseInt(document.getElementById('f-service-days').value)||0;
+    const totalDays = periods.reduce((sum, p) => sum + (p.days || 0), 0);
     const tax      = parseFloat(document.getElementById('f-annual-tax').value)||0;
     const rate     = parseFloat(document.getElementById('f-discount-rate').value)||0;
     const sqm      = parseFloat(document.getElementById('f-sqm')?.value)||0;
@@ -410,13 +651,18 @@ async function submitFacts() {
     const munic    = document.getElementById('f-municipality').value;
     const upfront  = document.getElementById('f-payment-upfront').value;
     const installs = parseInt(document.getElementById('f-installment-count').value)||6;
-    const startDate = document.getElementById('f-start-date').value;
-    const endDate   = document.getElementById('f-end-date').value;
-    const approval  = document.getElementById('f-has-approval').value;
+    const approval = document.getElementById('f-has-approval').value;
+
+    // Get first and last date from all periods
+    const validPeriods = periods.filter(p => p.start && p.end && p.days > 0);
+    const allStarts    = validPeriods.map(p => p.start).sort();
+    const allEnds      = validPeriods.map(p => p.end).sort();
+    const firstStart   = allStarts[0] || '';
+    const lastEnd      = allEnds[allEnds.length - 1] || '';
 
     const facts = [
       {fact_type:'RESERVE_TYPE',        value:JSON.stringify(type)},
-      {fact_type:'SERVICE_DAYS_3Y',     value:JSON.stringify(days)},
+      {fact_type:'SERVICE_DAYS_3Y',     value:JSON.stringify(totalDays)},
       {fact_type:'IS_PROPERTY_HOLDER',  value:holder},
       {fact_type:'ANNUAL_TAX_ILS',      value:JSON.stringify(tax)},
       {fact_type:'DISCOUNT_RATE_PCT',   value:JSON.stringify(rate)},
@@ -424,9 +670,14 @@ async function submitFacts() {
       {fact_type:'PAYMENT_UPFRONT',     value:upfront},
       {fact_type:'INSTALLMENT_COUNT',   value:JSON.stringify(installs)},
     ];
-    if (sqm>0)      facts.push({fact_type:'PROPERTY_SIZE_SQM',  value:JSON.stringify(sqm)});
-    if (startDate)  facts.push({fact_type:'SERVICE_START_DATE', value:JSON.stringify(startDate)});
-    if (endDate)    facts.push({fact_type:'SERVICE_END_DATE',   value:JSON.stringify(endDate)});
+    if (sqm > 0)       facts.push({fact_type:'PROPERTY_SIZE_SQM',  value:JSON.stringify(sqm)});
+    if (firstStart)    facts.push({fact_type:'SERVICE_START_DATE',  value:JSON.stringify(firstStart)});
+    if (lastEnd)       facts.push({fact_type:'SERVICE_END_DATE',    value:JSON.stringify(lastEnd)});
+
+    // Send each period separately for audit trail
+    validPeriods.forEach((p, i) => {
+      facts.push({fact_type:'SERVICE_PERIOD_' + (i+1), value: JSON.stringify({start:p.start, end:p.end, days:p.days})});
+    });
 
     const factRes = await fetch('/api/facts', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({session_id,facts}) });
     if (!factRes.ok) { const err=await factRes.json().catch(()=>({})); throw new Error(err.detail||'שגיאה בשמירת פרטים'); }
