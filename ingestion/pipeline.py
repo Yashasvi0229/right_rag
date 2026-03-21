@@ -455,18 +455,32 @@ def approve_clause(
     """
     Human reviewer approves a clause → enters clause store.
     Architecture Brief §2.1 Human Gate — no clause enters store without this.
+
+    ── BUG FIX (approve after unapprove) ────────────────────────────────────
+    BEFORE: SELECT WHERE status='PENDING' → after unapprove+re-approve flow,
+            HTTP 400 returned → frontend buttons appear broken.
+    AFTER:  SELECT without status filter → only block REJECTED clauses.
+            INSERT OR REPLACE handles re-approval cleanly.
+    ─────────────────────────────────────────────────────────────────────────
     """
     conn = get_db()
     try:
         now = datetime.now(timezone.utc).isoformat()
 
+        # ── FIX: No status='PENDING' filter — allow re-approval after unapprove
         item = conn.execute(
-            "SELECT * FROM review_queue WHERE clause_id=? AND status='PENDING'",
+            "SELECT * FROM review_queue WHERE clause_id=?",
             (clause_id,)
         ).fetchone()
 
         if not item:
-            raise ValueError(f"No pending clause found with id: {clause_id}")
+            raise ValueError(f"Clause not found in review queue: {clause_id}")
+
+        # Only block explicitly REJECTED clauses
+        if item["status"] == "REJECTED":
+            raise ValueError(
+                f"Clause '{clause_id}' was rejected and cannot be re-approved."
+            )
 
         final_type = override_type if override_type else item["clause_type"]
         valid_types = ("ELIGIBILITY", "EXCLUSION", "DEFINITION", "PROCEDURE")
@@ -476,9 +490,9 @@ def approve_clause(
         # Supersede any existing version of this clause
         conn.execute("UPDATE clauses SET is_current=0 WHERE clause_id=?", (clause_id,))
 
-        # Write to clause store
+        # ── FIX: INSERT OR REPLACE handles re-approval cleanly ───────────────
         conn.execute("""
-            INSERT INTO clauses
+            INSERT OR REPLACE INTO clauses
                 (clause_id, source_doc_id, section_ref, text, clause_type,
                  extraction_method, version, is_current, created_at)
             VALUES (?,?,?,?,?,'AI_REVIEWED','1.0',1,?)
@@ -536,21 +550,31 @@ def unapprove_clause(clause_id: str, reviewed_by: str, reason: str) -> dict:
     Un-approve a clause — moves back to PENDING in review queue.
     Client feedback: allows reviewer to undo an approval mistake.
     Removes from clause store + removes rights_clauses_map links.
+
+    ── BUG FIX ──────────────────────────────────────────────────────────────
+    BEFORE: Raised ValueError if clause not in clause store.
+            Edge case: called twice → second call fails → UI stuck.
+    AFTER:  If not in store → still reset review_queue to PENDING (no error).
+            UI always restores correctly regardless of DB state.
+    ─────────────────────────────────────────────────────────────────────────
     """
     conn = get_db()
     try:
         now = datetime.now(timezone.utc).isoformat()
+
+        # Try clause store — but don't fail if not found
         clause = conn.execute(
             "SELECT * FROM clauses WHERE clause_id=? AND is_current=1", (clause_id,)
         ).fetchone()
-        if not clause:
-            raise ValueError(f"No active clause found: {clause_id}")
 
-        # Remove from clause store
-        conn.execute("DELETE FROM clauses WHERE clause_id=?", (clause_id,))
-        # Remove any rights_clauses_map links
-        conn.execute("DELETE FROM rights_clauses_map WHERE clause_id=?", (clause_id,))
-        # Move back to PENDING
+        if clause:
+            # Remove from clause store
+            conn.execute("DELETE FROM clauses WHERE clause_id=?", (clause_id,))
+            # Remove any rights_clauses_map links
+            conn.execute("DELETE FROM rights_clauses_map WHERE clause_id=?", (clause_id,))
+        # else: not in store — still reset queue below (no error raised)
+
+        # ── FIX: Always move to PENDING regardless of current state ──────────
         conn.execute("""
             UPDATE review_queue
             SET status='PENDING', reviewed_by=NULL, review_note=?, reviewed_at=NULL
@@ -558,7 +582,8 @@ def unapprove_clause(clause_id: str, reviewed_by: str, reason: str) -> dict:
         """, (f"Un-approved by {reviewed_by}: {reason}", clause_id))
 
         _audit(conn, "CLAUSE_UNAPPROVED",
-               {"reviewed_by": reviewed_by, "reason": reason},
+               {"reviewed_by": reviewed_by, "reason": reason,
+                "was_in_store": clause is not None},
                clause_ids=[clause_id])
         conn.commit()
         return {"clause_id": clause_id, "status": "PENDING", "message": "Moved back to review queue"}
