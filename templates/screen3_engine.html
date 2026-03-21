@@ -33,7 +33,6 @@
   .conditions-list li:last-child,
   .vars-list li:last-child { border-bottom: none; }
 
-  /* QA #10: Formula box with correct/comment colors */
   .formula-box {
     background: var(--bg-navy); border: 1px solid var(--border2);
     border-radius: var(--radius-sm); padding: 14px 16px;
@@ -59,12 +58,12 @@
     margin: 24px 0 16px 0;
   }
 
-  /* QA #11: Source filter bar */
+  /* Source filter bar */
   .source-filter-bar {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     padding: 12px 14px;
     background: rgba(74,158,221,0.06); border: 1px solid rgba(74,158,221,0.2);
-    border-radius: var(--radius-sm); margin-bottom: 24px; font-size: 13px;
+    border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 13px;
   }
   .source-tag {
     display: inline-flex; align-items: center; gap: 6px;
@@ -83,25 +82,58 @@
     padding: 2px 8px; border-radius: 4px; white-space: nowrap;
   }
 
-  /* Document separation — cards from non-active doc get dimmed */
-  .engine-card.doc-dimmed {
-    opacity: 0.35;
-    filter: grayscale(0.5);
-    pointer-events: none;
+  /* Seed data label */
+  .seed-label {
+    font-size: 11px; color: var(--muted);
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border2);
+    padding: 2px 8px; border-radius: 4px; white-space: nowrap;
   }
-  /* Current doc cards get a subtle highlight */
+
+  .engine-card.doc-dimmed {
+    opacity: 0.35; filter: grayscale(0.5); pointer-events: none;
+  }
   .engine-card.doc-current {
     border-color: rgba(201,168,76,0.4);
     box-shadow: 0 0 0 1px rgba(201,168,76,0.15);
   }
 
-  /* Params row at bottom of card */
+  /* NEW: Toggle switch for show-all vs doc-only */
+  .view-toggle-bar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 14px; margin-bottom: 12px;
+    background: rgba(201,168,76,0.05); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); font-size: 13px;
+  }
+  .toggle-switch {
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+  }
+  .toggle-switch input[type="checkbox"] { display: none; }
+  .toggle-track {
+    width: 40px; height: 22px; background: var(--bg-card2);
+    border: 1px solid var(--border2); border-radius: 11px;
+    position: relative; transition: all 0.2s; flex-shrink: 0;
+  }
+  .toggle-track::after {
+    content: ''; position: absolute;
+    top: 3px; right: 3px;
+    width: 14px; height: 14px;
+    background: var(--muted); border-radius: 50%;
+    transition: all 0.2s;
+  }
+  .toggle-switch input:checked + .toggle-track {
+    background: rgba(201,168,76,0.2); border-color: var(--gold);
+  }
+  .toggle-switch input:checked + .toggle-track::after {
+    background: var(--gold); right: auto; left: 3px;
+  }
+  .toggle-label { color: var(--muted); font-size: 13px; }
+  .toggle-switch input:checked ~ .toggle-label { color: var(--gold); font-weight: 600; }
+
   .params-row {
     display: flex; justify-content: space-between;
     align-items: flex-start; margin-top: 12px; flex-wrap: wrap; gap: 12px;
   }
 
-  /* Mobile sidebar toggle */
   .sidebar-toggle {
     display: none; align-items: center; gap: 8px;
     background: var(--bg-card2); border: 1px solid var(--border);
@@ -110,34 +142,21 @@
     font-family: 'Heebo', sans-serif; margin-bottom: 16px; width: 100%;
   }
 
-  /* ── RESPONSIVE ───────────────────────── */
   @media (max-width: 768px) {
     .sidebar-toggle { display: flex; }
-
-    /* Engine card header — stack on small */
     .engine-header   { padding: 14px 16px; }
     .engine-title    { font-size: 14px; }
     .engine-body     { padding: 16px; }
-
-    /* grid-2 → 1 col */
     .grid-2 { grid-template-columns: 1fr; gap: 14px; }
-
-    /* Formula box — scroll horizontally */
     .formula-box { font-size: 11px; padding: 10px 12px; }
-
-    /* Source filter — wrap tags */
     .source-filter-bar { gap: 8px; padding: 10px 12px; }
-
-    /* Params row — stack */
     .params-row { flex-direction: column; }
   }
-
   @media (max-width: 480px) {
     .engine-title { font-size: 13px; gap: 6px; }
     .engine-id    { font-size: 10px; }
     .formula-box  { font-size: 10px; }
-    .conditions-list li,
-    .vars-list li { font-size: 12px; }
+    .conditions-list li, .vars-list li { font-size: 12px; }
   }
 </style>
 {% endblock %}
@@ -179,7 +198,20 @@
       <div class="step pending"><span class="step-num">6</span> אישור</div>
     </div>
 
-    <!-- QA #11: Source filter -->
+    <!-- NEW: View toggle — doc only vs all with labels -->
+    <div class="view-toggle-bar anim anim-1">
+      <span style="color:var(--muted); flex-shrink:0">👁 תצוגה:</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="show-all-toggle" onchange="onToggleChange(this)">
+        <div class="toggle-track"></div>
+        <span class="toggle-label" id="toggle-label-text">רק הנחות מהמסמך הנוכחי</span>
+      </label>
+      <span style="color:var(--muted); font-size:12px; margin-right:auto;">
+        💡 הפעל כדי לראות גם הנחות ממקורות אחרים עם תיוג מקור
+      </span>
+    </div>
+
+    <!-- Source filter -->
     <div class="source-filter-bar anim anim-1">
       <span style="color:var(--muted); flex-shrink:0">📄 מקור:</span>
       <span class="source-tag" data-doc="ALL" onclick="filterByDoc('ALL', this)">📋 כל המסמכים</span>
@@ -208,18 +240,29 @@
     {% for right in rights %}
     {% if right.subcategory_tag in ('Reserve_Soldiers', 'Reserve_Commander', 'Reserve_Large_Family') %}
     {% set right_docs = right.linked_clauses | map(attribute='source_doc_id') | list %}
-    <div class="engine-card anim anim-2" data-docs="{{ right_docs | join(',') }}" id="card-{{ right.catalog_id }}">
+    {% set is_seed = right.linked_clauses | length == 0 or right.linked_clauses[0].source_doc_id == 'SEED' %}
+    <div class="engine-card anim anim-2"
+         data-docs="{{ right_docs | join(',') }}"
+         data-seed="{{ 'true' if is_seed else 'false' }}"
+         id="card-{{ right.catalog_id }}">
       <div class="engine-header" onclick="toggleBody(this)">
         <div class="engine-title">
           🎖️ {{ right.name }}
           <span class="engine-id">{{ right.catalog_id }}</span>
           {% if right.linked_clauses %}
             <span class="doc-source-label">{{ right.linked_clauses[0].source_doc_id }}</span>
+          {% else %}
+            <span class="seed-label">📦 מקור: נתוני בסיס</span>
           {% endif %}
         </div>
         <span class="badge badge-yellow" style="flex-shrink:0">🟡 טיוטה</span>
       </div>
       <div class="engine-body" style="display:none">
+        {% if is_seed %}
+        <div style="padding:8px 12px; margin-bottom:12px; background:rgba(255,255,255,0.04); border:1px solid var(--border2); border-radius:6px; font-size:12px; color:var(--muted);">
+          📦 <strong style="color:var(--white)">מקור: נתוני בסיס</strong> — הנחה זו אינה נגזרת מהמסמך שהועלה, אלא ממאגר הזכויות הראשוני של המערכת.
+        </div>
+        {% endif %}
         <div class="grid-2">
           <div>
             <div class="sub-label">תנאי זכאות</div>
@@ -249,7 +292,6 @@
           </div>
         </div>
 
-        <!-- QA #10: Correct formulas — no service days -->
         <div class="sub-label" style="margin-top:16px">נוסחת חישוב — תקנה 3ו / 3ז</div>
 
         {% if 'FAMILY5' in right.catalog_id %}
@@ -305,18 +347,29 @@
     {% for right in rights %}
     {% if right.subcategory_tag in ('Low_Income', 'Senior_Income_Support', 'Senior_Pension', 'Women_Retirement_Age', 'Special_Hardship') %}
     {% set right_docs = right.linked_clauses | map(attribute='source_doc_id') | list %}
-    <div class="engine-card anim anim-3" data-docs="{{ right_docs | join(',') }}" id="card-{{ right.catalog_id }}">
+    {% set is_seed = right.linked_clauses | length == 0 or right.linked_clauses[0].source_doc_id == 'SEED' %}
+    <div class="engine-card anim anim-3"
+         data-docs="{{ right_docs | join(',') }}"
+         data-seed="{{ 'true' if is_seed else 'false' }}"
+         id="card-{{ right.catalog_id }}">
       <div class="engine-header" onclick="toggleBody(this)">
         <div class="engine-title">
           👴 {{ right.name }}
           <span class="engine-id">{{ right.catalog_id }}</span>
           {% if right.linked_clauses %}
             <span class="doc-source-label">{{ right.linked_clauses[0].source_doc_id }}</span>
+          {% else %}
+            <span class="seed-label">📦 מקור: נתוני בסיס</span>
           {% endif %}
         </div>
         <span class="badge badge-yellow" style="flex-shrink:0">🟡 טיוטה</span>
       </div>
       <div class="engine-body" style="display:none">
+        {% if is_seed %}
+        <div style="padding:8px 12px; margin-bottom:12px; background:rgba(255,255,255,0.04); border:1px solid var(--border2); border-radius:6px; font-size:12px; color:var(--muted);">
+          📦 <strong style="color:var(--white)">מקור: נתוני בסיס</strong> — הנחה זו אינה נגזרת מהמסמך שהועלה, אלא ממאגר הזכויות הראשוני של המערכת.
+        </div>
+        {% endif %}
         <div class="grid-2">
           <div>
             <div class="sub-label">תנאי זכאות</div>
@@ -387,32 +440,65 @@
 </div>
 
 <script>
-// Auto-select latest uploaded document on page load
-document.addEventListener('DOMContentLoaded', function() {
-  // Find all source tags except ALL
-  const docTags = document.querySelectorAll('.source-tag[data-doc]:not([data-doc="ALL"])');
-  
-  if (docTags.length > 0) {
-    // Auto-select the last (most recently added) document
-    const latestTag = docTags[docTags.length - 1];
-    filterByDoc(latestTag.dataset.doc, latestTag);
-  } else {
-    // No specific docs — show all
-    const allTag = document.querySelector('.source-tag[data-doc="ALL"]');
-    if (allTag) filterByDoc('ALL', allTag);
-  }
-});
+// ── State ──────────────────────────────────────────────────────────────────
+let showAllMode = false; // false = doc only, true = all with labels
+let currentDocFilter = null;
 
-function toggleBody(header) {
-  const body = header.nextElementSibling;
-  const isOpen = body.style.display === 'block';
-  body.style.display = isOpen ? 'none' : 'block';
+// ── Toggle: doc-only vs all-with-labels ───────────────────────────────────
+function onToggleChange(checkbox) {
+  showAllMode = checkbox.checked;
+  const label = document.getElementById('toggle-label-text');
+  label.textContent = showAllMode ? 'כל ההנחות (כולל נתוני בסיס)' : 'רק הנחות מהמסמך הנוכחי';
+  applyView();
 }
 
-/* QA #11: Filter by source doc */
+function applyView() {
+  if (showAllMode) {
+    // Show ALL cards — seed cards get label (already in HTML)
+    // Remove all hiding/dimming
+    document.querySelectorAll('.engine-card').forEach(card => {
+      card.classList.remove('doc-hidden', 'doc-dimmed', 'doc-current');
+      card.style.display = '';
+    });
+    // Hide the source filter bar — not needed in all mode
+    document.querySelector('.source-filter-bar').style.display = 'none';
+  } else {
+    // Doc-only mode — use current doc filter
+    document.querySelector('.source-filter-bar').style.display = 'flex';
+    if (currentDocFilter) {
+      filterByDoc(currentDocFilter, document.querySelector(`.source-tag[data-doc="${currentDocFilter}"]`));
+    } else {
+      // Auto-select latest doc
+      const docTags = document.querySelectorAll('.source-tag[data-doc]:not([data-doc="ALL"])');
+      if (docTags.length > 0) {
+        const latestTag = docTags[docTags.length - 1];
+        filterByDoc(latestTag.dataset.doc, latestTag);
+      } else {
+        const allTag = document.querySelector('.source-tag[data-doc="ALL"]');
+        if (allTag) filterByDoc('ALL', allTag);
+      }
+    }
+  }
+
+  // Show/hide category dividers
+  document.querySelectorAll('.category-divider').forEach(divider => {
+    let next = divider.nextElementSibling;
+    let hasVisible = false;
+    while (next && !next.classList.contains('category-divider')) {
+      if (next.classList.contains('engine-card') && next.style.display !== 'none' && !next.classList.contains('doc-hidden')) {
+        hasVisible = true; break;
+      }
+      next = next.nextElementSibling;
+    }
+    divider.style.display = hasVisible ? '' : 'none';
+  });
+}
+
+// ── Filter by source doc (doc-only mode) ──────────────────────────────────
 function filterByDoc(docId, clickedTag) {
+  currentDocFilter = docId;
   document.querySelectorAll('.source-tag').forEach(t => t.classList.remove('active'));
-  clickedTag.classList.add('active');
+  if (clickedTag) clickedTag.classList.add('active');
 
   document.querySelectorAll('.engine-card').forEach(card => {
     if (docId === 'ALL') {
@@ -420,7 +506,6 @@ function filterByDoc(docId, clickedTag) {
     } else {
       const docs = (card.dataset.docs || '').split(',');
       const isMatch = docs.includes(docId);
-      // Show all but visually separate: current doc bright, others dimmed
       card.classList.remove('doc-hidden', 'doc-dimmed', 'doc-current');
       if (isMatch) {
         card.classList.add('doc-current');
@@ -442,5 +527,24 @@ function filterByDoc(docId, clickedTag) {
     divider.style.display = hasVisible ? '' : 'none';
   });
 }
+
+function toggleBody(header) {
+  const body = header.nextElementSibling;
+  const isOpen = body.style.display === 'block';
+  body.style.display = isOpen ? 'none' : 'block';
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  // Default: doc-only mode — auto-select latest doc
+  const docTags = document.querySelectorAll('.source-tag[data-doc]:not([data-doc="ALL"])');
+  if (docTags.length > 0) {
+    const latestTag = docTags[docTags.length - 1];
+    filterByDoc(latestTag.dataset.doc, latestTag);
+  } else {
+    const allTag = document.querySelector('.source-tag[data-doc="ALL"]');
+    if (allTag) filterByDoc('ALL', allTag);
+  }
+});
 </script>
 {% endblock %}
