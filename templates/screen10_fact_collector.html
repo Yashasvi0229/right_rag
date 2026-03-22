@@ -414,11 +414,12 @@ function fmtDateHe(dateStr) {
   return d.toLocaleDateString('he-IL', {day:'2-digit', month:'2-digit', year:'numeric'});
 }
 
-function calcDays(start, end) {
-  if (!start || !end) return 0;
+start || !end) return 0;
   const s = new Date(start), e = new Date(end);
-  if (isNaN(s) || isNaN(e) || e <= s) return 0;
-  return Math.round((e - s) / (1000 * 60 * 60 * 24));
+  if (isNaN(s) || isNaN(e) || e < s) return 0;
+  // FIX: +1 to include both start and end date (IDF/Bituach Leumi standard)
+  // Example: 01/01 → 20/01 = 20 days (not 19)
+  return Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
 }
 
 function addPeriod() {
