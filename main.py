@@ -216,6 +216,32 @@ async def screen12(request: Request):
 async def startup():
     init_db()
     seed_rights_catalog()
+
+    # ── ✅ FIX: Auto-publish engine version if none exists ────────────────────
+    # Wajah: bina active engine version ke /api/evaluate/ 503 deta tha.
+    # Ab startup pe check karta hai — agar koi active version nahi
+    # toh automatically stage + publish kar deta hai.
+    from engine.version_manager import get_active_version, create_staging_version, publish_version
+
+    if not get_active_version():
+        try:
+            staged = create_staging_version(
+                law_version="2026-seed-v1",
+                notes="Auto-staged on first startup — no manual publish needed"
+            )
+            if staged.get("status") == "STAGED":
+                publish_version(
+                    engine_id=staged["engine_id"],
+                    published_by="system-auto-startup",
+                )
+                print(f"✅ Engine version auto-published: {staged['engine_id']}")
+            else:
+                # Validation fail hui — DB mein kuch masla hai
+                print(f"⚠️  Engine auto-stage blocked: {staged.get('reason', 'unknown')}")
+        except Exception as e:
+            # Engine publish fail ho toh bhi app start ho — sirf warn karo
+            print(f"⚠️  Engine auto-publish failed (non-fatal): {e}")
+
     print("✅ Rights Angel v2.0 started")
     print("   Home       : http://localhost:8000/screen0")
     print("   Check right: http://localhost:8000/screen10")
