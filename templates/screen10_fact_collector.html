@@ -390,13 +390,15 @@ function formatDateInput(input, pid, field) {
 }
 
 // Convert dd/mm/yyyy → yyyy-mm-dd for calculations
+// ✅ FIX: Use local date constructor to avoid UTC timezone shift
+// Bug was: new Date("2026-01-01") interpreted as UTC → showed wrong date in Israel/India timezone
 function parseLocalDate(str) {
   if (!str || str.length < 10) return null;
   const parts = str.split('/');
   if (parts.length !== 3) return null;
-  const day = parts[0], mon = parts[1], year = parts[2];
-  if (year.length !== 4) return null;
-  const d = new Date(`${year}-${mon}-${day}`);
+  const day = parseInt(parts[0], 10), mon = parseInt(parts[1], 10), year = parseInt(parts[2], 10);
+  if (year < 1900 || year > 2100 || mon < 1 || mon > 12 || day < 1 || day > 31) return null;
+  const d = new Date(year, mon - 1, day);
   return isNaN(d) ? null : d;
 }
 
