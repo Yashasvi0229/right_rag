@@ -28,8 +28,6 @@ SEED_RIGHTS = [
         "discount_value": 5.0,
         "discount_unit": "PERCENT",
         "friction_score": 5,
-        # Friction: needs active certificate + form + local authority approval
-        # Not automatic in most authorities → medium friction
         "effective_from": "2018-03-27",
         "effective_to": None,
         "status": "ACTIVE",
@@ -43,8 +41,6 @@ SEED_RIGHTS = [
         "discount_value": 25.0,
         "discount_unit": "PERCENT",
         "friction_score": 7,
-        # Friction: needs commander certificate + command role proof + form
-        # Only some municipalities adopted this amendment
         "effective_from": "2022-11-02",
         "effective_to": None,
         "status": "ACTIVE",
@@ -58,7 +54,6 @@ SEED_RIGHTS = [
         "discount_value": 100.0,
         "discount_unit": "PERCENT",
         "friction_score": 6,
-        # Friction: needs IDF certificate + family status proof (5+ people)
         "effective_from": "2018-03-27",
         "effective_to": None,
         "status": "ACTIVE",
@@ -75,7 +70,6 @@ SEED_RIGHTS = [
         "discount_value": 100.0,
         "discount_unit": "PERCENT",
         "friction_score": 4,
-        # Friction: needs Bituach Leumi certificate + automatic renewal over 70
         "effective_from": "2026-01-01",
         "effective_to": None,
         "status": "ACTIVE",
@@ -89,7 +83,6 @@ SEED_RIGHTS = [
         "discount_value": 25.0,
         "discount_unit": "PERCENT",
         "friction_score": 3,
-        # Friction: low — pension auto-verified, standard form
         "effective_from": "2026-01-01",
         "effective_to": None,
         "status": "ACTIVE",
@@ -103,7 +96,6 @@ SEED_RIGHTS = [
         "discount_value": 70.0,
         "discount_unit": "PERCENT",
         "friction_score": 8,
-        # Friction: high — income declaration + proofs + discretion of authority
         "effective_from": "2026-01-01",
         "effective_to": None,
         "status": "ACTIVE",
@@ -130,7 +122,6 @@ SEED_RIGHTS = [
         "discount_value": 70.0,
         "discount_unit": "PERCENT",
         "friction_score": 9,
-        # Friction: very high — ועדת חריגים, medical expense receipts required
         "effective_from": "2026-01-01",
         "effective_to": None,
         "status": "ACTIVE",
@@ -139,15 +130,93 @@ SEED_RIGHTS = [
 ]
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# ✅ FIX: Seed source documents — in pehle insert karo taaki
+#         clauses ka parent record exist kare.
+#         Yahi wajah thi source_docs: 0 aur critical_errors: 7 ki.
+# ─────────────────────────────────────────────────────────────────────────────
+SEED_SOURCE_DOCS = [
+    {
+        "doc_id": "GOV-IL-RESERVE-ARNONA-2026",
+        "title": "זכות ההנחה בארנונה לחיילי מילואים בישראל — ריכוז חומר משפטי מקיף",
+        "publisher": "ריכוז משפטי | עודכן פברואר 2026",
+        "publication_date": "2026-02-01",
+        "file_hash": "seed-reserve-arnona-2026-v1",
+        "ingested_by": "system-seed",
+    },
+    {
+        "doc_id": "GOV-IL-LOWINCOME-ARNONA-2026",
+        "title": "הנחה בארנונה למעוטי יכולת בישראל — חוברת בסיס הידע המשפטי",
+        "publisher": "מערכת Angel Rights | פברואר 2026",
+        "publication_date": "2026-02-19",
+        "file_hash": "seed-lowincome-arnona-2026-v1",
+        "ingested_by": "system-seed",
+    },
+    {
+        "doc_id": "GOV-IL-ARNONA-REGULATIONS-1993",
+        "title": "תקנות הסדרים במשק המדינה (הנחה מארנונה), תשנ\"ג-1993",
+        "publisher": "כנסת ישראל / משרד הפנים",
+        "publication_date": "1993-01-01",
+        "file_hash": "seed-arnona-regulations-1993-v1",
+        "ingested_by": "system-seed",
+    },
+    {
+        "doc_id": "GOV-IL-RESERVE-REGULATION-3VAV",
+        "title": "תקנה 3ו — הנחה לחיילי מילואים פעילים (תיקון 3, תשע\"ח-2018)",
+        "publisher": "משרד הפנים",
+        "publication_date": "2018-03-27",
+        "file_hash": "seed-reserve-regulation-3vav-v1",
+        "ingested_by": "system-seed",
+    },
+    {
+        "doc_id": "GOV-IL-RESERVE-COMMANDER-2022",
+        "title": "תיקון תקנות ארנונה — מפקד מילואים פעיל 25%, תשפ\"ג-2022",
+        "publisher": "עיריית נתניה / משרד הפנים",
+        "publication_date": "2022-11-02",
+        "file_hash": "seed-reserve-commander-2022-v1",
+        "ingested_by": "system-seed",
+    },
+    {
+        "doc_id": "GOV-IL-HORA-AT-SHA-A-2024",
+        "title": "הוראת שעה — תגמולי מילואים לא ייחשבו כהכנסה, תשפ\"ה-2024",
+        "publisher": "שר הפנים משה ארבל",
+        "publication_date": "2024-10-15",
+        "file_hash": "seed-hora-at-sha-a-2024-v1",
+        "ingested_by": "system-seed",
+    },
+]
+
+
 def seed_rights_catalog():
     """
-    Populate rights table with seed data from client PDFs.
+    Populate source_documents + rights tables with seed data.
     Idempotent — uses INSERT OR IGNORE.
+
+    ✅ FIX: source_documents pehle seed hoti hain taaki clauses ke
+            foreign key constraints satisfy hon aur critical_errors: 0 ho.
     """
     conn = get_db()
     now = datetime.now(timezone.utc).isoformat()
 
     try:
+        # ── Step 1: Source documents seed karo (FIX) ─────────────────────────
+        for doc in SEED_SOURCE_DOCS:
+            conn.execute("""
+                INSERT OR IGNORE INTO source_documents
+                    (doc_id, title, publisher, publication_date,
+                     file_hash, ingested_at, ingested_by, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
+            """, (
+                doc["doc_id"],
+                doc["title"],
+                doc["publisher"],
+                doc["publication_date"],
+                doc["file_hash"],
+                now,
+                doc["ingested_by"],
+            ))
+
+        # ── Step 2: Rights seed karo (existing logic unchanged) ───────────────
         for r in SEED_RIGHTS:
             conn.execute("""
                 INSERT OR IGNORE INTO rights
@@ -164,7 +233,11 @@ def seed_rights_catalog():
             ))
 
         conn.commit()
-        return {"seeded": len(SEED_RIGHTS), "status": "OK"}
+        return {
+            "seeded_docs": len(SEED_SOURCE_DOCS),
+            "seeded_rights": len(SEED_RIGHTS),
+            "status": "OK",
+        }
 
     finally:
         conn.close()
