@@ -432,7 +432,26 @@
     </div>
     {% endif %}
 
-    <div class="anim anim-4" style="display:flex; gap:12px; flex-wrap:wrap;">
+    <!-- ✅ FIX: Stage Version button — was missing, Screen 6 needs a staged version -->
+    <div class="card anim anim-4" style="margin-top:24px; padding:20px;">
+      <div class="card-title">🚀 העבר למנוע — Stage Version</div>
+      <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">
+        לאחר בדיקת כל הזכויות — צור גרסת Staging לאישור מומחה בשלב 6.
+      </p>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <input id="law-version-input" class="form-input"
+          style="width:200px; padding:8px 12px; font-size:13px;"
+          placeholder="גרסת חוק (למשל: 2026-v1)"
+          value="2026-v1">
+        <button class="btn btn-gold" id="btn-stage" onclick="stageVersion()"
+          style="padding:10px 24px; font-size:14px;">
+          ⚡ צור גרסת Staging
+        </button>
+        <span id="stage-status" style="font-size:13px; color:var(--muted);"></span>
+      </div>
+    </div>
+
+    <div class="anim anim-4" style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
       <a href="/screen2" class="btn btn-outline">‹ חזור</a>
       <a href="/screen4" class="btn btn-gold" style="margin-right:auto">המשך לאימות עצמי ›</a>
     </div>
@@ -546,5 +565,48 @@ document.addEventListener('DOMContentLoaded', function() {
     if (allTag) filterByDoc('ALL', allTag);
   }
 });
+
+// ── ✅ FIX: Stage Version — was missing, now calls POST /api/engine/stage ──
+async function stageVersion() {
+  const btn        = document.getElementById('btn-stage');
+  const statusEl   = document.getElementById('stage-status');
+  const lawVersion = document.getElementById('law-version-input').value.trim() || '2026-v1';
+
+  btn.disabled     = true;
+  btn.textContent  = '⏳ יוצר גרסה...';
+  statusEl.style.color = 'var(--muted)';
+  statusEl.textContent = '';
+
+  try {
+    const res  = await fetch('/api/engine/stage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ law_version: lawVersion, notes: 'Staged from Screen 3' }),
+    });
+    const data = await res.json();
+
+    if (res.ok && data.status === 'STAGED') {
+      btn.textContent       = '✅ נוצרה גרסה!';
+      btn.style.background  = 'var(--green)';
+      statusEl.style.color  = 'var(--green)';
+      statusEl.textContent  = '✅ ' + data.engine_id + ' — עבור לשלב 6 לאישור';
+    } else if (data.status === 'BLOCKED') {
+      btn.disabled     = false;
+      btn.textContent  = '⚡ צור גרסת Staging';
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = '❌ חסום: ' + (data.reason || 'אימות נכשל');
+    } else {
+      btn.disabled     = false;
+      btn.textContent  = '⚡ צור גרסת Staging';
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = '❌ שגיאה: ' + (data.detail || JSON.stringify(data));
+    }
+  } catch(e) {
+    btn.disabled     = false;
+    btn.textContent  = '⚡ צור גרסת Staging';
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = '❌ שגיאת רשת: ' + e.message;
+  }
+}
 </script>
 {% endblock %}
