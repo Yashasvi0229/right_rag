@@ -92,8 +92,11 @@ CRITICAL RULES — NO EXCEPTIONS:
 2. section_ref MUST be the EXACT reference found in the document text (e.g. "תקנה 3ו(א)", "תקנה 3ז", "סעיף 2(א)(8)")
    - If no section ref found in the text, use "לא צוין" — NEVER invent or hallucinate a reference
 3. Each clause must be independently meaningful
-4. Minimum clause length: 30 characters
+4. Minimum clause length: 50 characters
 5. Return ONLY valid JSON — no preamble, no explanation, no markdown
+6. NEVER extract incomplete sentences — each clause must be a complete legal statement
+7. If a sentence ends abruptly, seems cut off, or contains only a fragment — SKIP IT
+8. Each clause must contain at least one complete legal predicate (subject + verb + object)
 
 RETURN FORMAT:
 {"clauses": [{"section_ref": "תקנה 3ו(א)", "text": "verbatim Hebrew text here", "clause_type": "ELIGIBILITY"}]}"""
@@ -369,8 +372,8 @@ def ingest_document(
             text = str(c.get("text", "")).strip()
             clause_type = c.get("clause_type", "ELIGIBILITY")
 
-            if len(text) < 10:
-                continue  # Skip empty/trivial clauses
+            if len(text) < 50:
+                continue  # Skip empty/trivial/incomplete clauses (min 50 chars)
 
             if clause_type not in ("ELIGIBILITY", "EXCLUSION", "DEFINITION", "PROCEDURE"):
                 clause_type = "ELIGIBILITY"  # Safe default; reviewer can override
@@ -698,12 +701,12 @@ def validate_clause_integrity() -> dict:
                     })
 
             # Check 3: text length
-            if len(c["text"].strip()) < 10:
+            if len(c["text"].strip()) < 50:
                 warnings.append({
                     "code": "SHORT_TEXT",
                     "severity": "WARNING",
                     "clause_id": c["clause_id"],
-                    "msg": f"Clause text is suspiciously short ({len(c['text'])} chars)"
+                    "msg": f"Clause text is suspiciously short ({len(c['text'])} chars) — may be incomplete"
                 })
 
             # Check 4: weak section ref — client feedback: must have real ref
