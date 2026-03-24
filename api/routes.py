@@ -67,6 +67,8 @@ class ApproveRequest(BaseModel):
     reviewed_by:   str
     review_note:   Optional[str] = None
     override_type: Optional[str] = None
+    section_ref:   Optional[str] = None   # ✅ FIX: reviewer can update weak section_ref
+    section_ref:   Optional[str] = None   # ✅ FIX: reviewer can update weak section_ref
 
 class RejectRequest(BaseModel):
     clause_id:   str
@@ -211,6 +213,7 @@ def api_approve_clause(req: ApproveRequest):
             reviewed_by=req.reviewed_by,
             review_note=req.review_note,
             override_type=req.override_type,
+            section_ref=req.section_ref,   # ✅ FIX: pass updated section_ref
         )
         return _safe_json(result)
     except ValueError as e:
