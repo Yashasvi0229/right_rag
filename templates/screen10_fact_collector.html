@@ -385,19 +385,29 @@ function formatDateInput(input, pid, field) {
   } else if (digits.length >= 5) {
     input.value = digits.slice(0,2) + '/' + digits.slice(2,4) + '/' + digits.slice(4,8);
   }
-  // Live update when complete
-  if (input.value.length === 10) onPeriodChange(pid);
+  // ✅ FIX: Only trigger validation when full 10 chars AND year is 4 digits
+  const val = input.value;
+  if (val.length === 10) {
+    const parts = val.split('/');
+    // Block if year is not exactly 4 digits — e.g. 03/03/36 is invalid
+    if (parts.length === 3 && parts[2].length === 4) {
+      onPeriodChange(pid);
+    }
+  }
 }
 
 // Convert dd/mm/yyyy → yyyy-mm-dd for calculations
 // ✅ FIX: Use local date constructor to avoid UTC timezone shift
-// Bug was: new Date("2026-01-01") interpreted as UTC → showed wrong date in Israel/India timezone
+// ✅ FIX 2: Year must be exactly 4 digits — rejects 03/03/36 type invalid years
 function parseLocalDate(str) {
   if (!str || str.length < 10) return null;
   const parts = str.split('/');
   if (parts.length !== 3) return null;
-  const day = parseInt(parts[0], 10), mon = parseInt(parts[1], 10), year = parseInt(parts[2], 10);
-  if (year < 1900 || year > 2100 || mon < 1 || mon > 12 || day < 1 || day > 31) return null;
+  const yearStr = parts[2];
+  const day = parseInt(parts[0], 10), mon = parseInt(parts[1], 10), year = parseInt(yearStr, 10);
+  // Year must be exactly 4 digits AND in valid range
+  if (yearStr.length !== 4 || year < 1900 || year > 2100) return null;
+  if (mon < 1 || mon > 12 || day < 1 || day > 31) return null;
   const d = new Date(year, mon - 1, day);
   return isNaN(d) ? null : d;
 }
@@ -491,12 +501,22 @@ function onPeriodChange(pid) {
 
   if (!s) {
     startEl?.classList.add('has-error');
-    if (daysEl) { daysEl.textContent = '⚠️ תאריך התחלה לא תקין — יש להזין dd/mm/yyyy'; daysEl.className = 'period-days error'; }
+    // ✅ FIX: Show specific error for non-4-digit year
+    const startYear = startStr.split('/')[2] || '';
+    const startMsg = startYear.length !== 4
+      ? '⚠️ שנה לא תקינה — יש להזין 4 ספרות (למשל: 2024)'
+      : '⚠️ תאריך התחלה לא תקין — יש להזין dd/mm/yyyy';
+    if (daysEl) { daysEl.textContent = startMsg; daysEl.className = 'period-days error'; }
     updatePeriod(pid, '', '', 0); return;
   }
   if (!e) {
     endEl?.classList.add('has-error');
-    if (daysEl) { daysEl.textContent = '⚠️ תאריך סיום לא תקין — יש להזין dd/mm/yyyy'; daysEl.className = 'period-days error'; }
+    // ✅ FIX: Show specific error for non-4-digit year
+    const endYear = endStr.split('/')[2] || '';
+    const endMsg = endYear.length !== 4
+      ? '⚠️ שנה לא תקינה — יש להזין 4 ספרות (למשל: 2024)'
+      : '⚠️ תאריך סיום לא תקין — יש להזין dd/mm/yyyy';
+    if (daysEl) { daysEl.textContent = endMsg; daysEl.className = 'period-days error'; }
     updatePeriod(pid, '', '', 0); return;
   }
   if (e <= s) {
