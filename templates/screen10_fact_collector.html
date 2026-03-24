@@ -80,6 +80,18 @@
   .toggle-btn.sel { border-color: var(--gold); background: rgba(201,168,76,0.1); color: var(--gold); }
 
   /* ── SERVICE PERIODS ── */
+  /* ✅ FIX: scrollable container so user can go back to period 1 */
+  #periods-container {
+    max-height: 420px;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    padding-right: 4px;
+  }
+  #periods-container::-webkit-scrollbar { width: 4px; }
+  #periods-container::-webkit-scrollbar-track { background: var(--bg-navy); border-radius: 2px; }
+  #periods-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  #periods-container::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
   .period-row {
     display: grid; grid-template-columns: 1fr 1fr auto;
     gap: 10px; align-items: end;
@@ -237,6 +249,16 @@
 
       <!-- Service periods list -->
       <div id="periods-container"></div>
+
+      <!-- ✅ FIX: Scroll to top button — appears when more than 1 period -->
+      <div id="scroll-to-top-bar" style="display:none; margin-bottom:6px;">
+        <button onclick="document.getElementById('periods-container').scrollTo({top:0,behavior:'smooth'})"
+          style="width:100%; padding:7px; font-size:12px; background:rgba(201,168,76,0.06);
+          border:1px dashed rgba(201,168,76,0.3); border-radius:6px; color:var(--muted);
+          cursor:pointer; font-family:'Heebo',sans-serif;">
+          ↑ חזור לתקופה הראשונה
+        </button>
+      </div>
 
       <!-- Add period button -->
       <button class="add-period-btn" onclick="addPeriod()">
@@ -473,6 +495,13 @@ function addPeriod() {
 
   document.getElementById('periods-container').appendChild(div);
   updateTotalDays();
+
+  // ✅ FIX: Scroll new period into view smoothly
+  setTimeout(() => {
+    div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const startInput = document.getElementById(pid + '-start');
+    if (startInput) startInput.focus();
+  }, 50);
 }
 
 function removePeriod(pid) {
@@ -554,6 +583,12 @@ function updatePeriod(pid, start, end, days) {
 
 function updateTotalDays() {
   const total   = periods.reduce((sum, p) => sum + (p.days || 0), 0);
+
+  // ✅ FIX: Show scroll-to-top button when more than 1 period exists
+  const scrollBar = document.getElementById('scroll-to-top-bar');
+  const rowCount  = document.querySelectorAll('.period-row').length;
+  if (scrollBar) scrollBar.style.display = rowCount > 1 ? 'block' : 'none';
+
   const summary = document.getElementById('days-summary');
   const display = document.getElementById('total-days-display');
   const status  = document.getElementById('eligibility-status');
