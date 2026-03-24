@@ -185,13 +185,30 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function loadResult() {
+  // ✅ FIX: Add 30s timeout — prevents infinite spinner (e.g. when annual_tax=1)
+  const controller = new AbortController();
+  const timeoutId  = setTimeout(() => controller.abort(), 30000);
+
   try {
-    const res = await fetch(`/api/evaluate/${SESSION_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    const res = await fetch(`/api/evaluate/${SESSION_ID}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
     if (res.status === 404) { showError('לא נמצאו נתונים. חזור ו<a href="/screen10">מלא את הפרטים שנית</a>.'); return; }
     if (res.status === 503) { await loadFallback(); return; }
     if (!res.ok) { const err=await res.json().catch(()=>({})); showError('שגיאה: '+(err.detail||res.status)); return; }
     renderResult(await res.json());
-  } catch(e) { showError('שגיאת רשת: '+e.message); }
+  } catch(e) {
+    clearTimeout(timeoutId);
+    if (e.name === 'AbortError') {
+      showError('החישוב לקח יותר מדי זמן. <a href="/screen10" style="color:var(--gold)">חזור ובדוק את הנתונים שהוזנו</a>.');
+    } else {
+      showError('שגיאת רשת: '+e.message);
+    }
+  }
 }
 
 async function loadFallback() {
