@@ -454,6 +454,7 @@ def approve_clause(
     reviewed_by: str,
     review_note: Optional[str] = None,
     override_type: Optional[str] = None,
+    section_ref: Optional[str] = None,   # ✅ FIX: allow reviewer to fix weak section_ref
 ) -> dict:
     """
     Human reviewer approves a clause → enters clause store.
@@ -494,13 +495,23 @@ def approve_clause(
         conn.execute("UPDATE clauses SET is_current=0 WHERE clause_id=?", (clause_id,))
 
         # ── FIX: INSERT OR REPLACE handles re-approval cleanly ───────────────
+        # ✅ FIX: Use updated section_ref if reviewer provided one
+        final_section_ref = section_ref.strip() if section_ref and section_ref.strip() else item["section_ref"]
+
         conn.execute("""
             INSERT OR REPLACE INTO clauses
                 (clause_id, source_doc_id, section_ref, text, clause_type,
                  extraction_method, version, is_current, created_at)
             VALUES (?,?,?,?,?,'AI_REVIEWED','1.0',1,?)
-        """, (clause_id, item["source_doc_id"], item["section_ref"],
+        """, (clause_id, item["source_doc_id"], final_section_ref,
               item["text"], final_type, now))
+        
+        # Also update section_ref in review_queue for consistency
+        if section_ref and section_ref.strip():
+            conn.execute(
+                "UPDATE review_queue SET section_ref=? WHERE clause_id=?",
+                (final_section_ref, clause_id)
+            )
 
         # Mark queue item approved
         conn.execute("""
