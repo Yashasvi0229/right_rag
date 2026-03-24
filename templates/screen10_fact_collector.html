@@ -332,8 +332,9 @@
       <div class="form-group">
         <label class="form-label">האם הרשות המקומית אישרה את ההנחה?</label>
         <select class="form-select" id="f-municipality">
-          <option value="true">כן — הרשות אישרה</option>
-          <option value="false">לא יודע / לא אישרה</option>
+          <option value="true">כן — הרשות המקומית אישרה</option>
+          <option value="false">לא — הרשות לא אישרה</option>
+          <option value="unknown">לא יודע</option>
         </select>
         <div class="field-hint">הנחה זו היא הנחת רשות — לא כל עיריה מעניקה אותה.</div>
       </div>
@@ -762,7 +763,8 @@ async function submitFacts() {
       {fact_type:'IS_PROPERTY_HOLDER',  value:holder},
       {fact_type:'ANNUAL_TAX_ILS',      value:JSON.stringify(tax)},
       {fact_type:'DISCOUNT_RATE_PCT',   value:JSON.stringify(rate)},
-      {fact_type:'MUNICIPALITY_GRANTS', value: approval==='false' ? 'false' : munic},
+      // ✅ FIX: 3 options — true/false/unknown (unknown treated as true to not block eligibility check)
+      {fact_type:'MUNICIPALITY_GRANTS', value: munic === 'false' ? 'false' : munic === 'unknown' ? 'true' : 'true'},
       {fact_type:'PAYMENT_UPFRONT',     value:upfront},
       {fact_type:'INSTALLMENT_COUNT',   value:JSON.stringify(installs)},
     ];
