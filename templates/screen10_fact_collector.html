@@ -272,10 +272,13 @@
     <div class="section-body">
       <div class="form-group">
         <label class="form-label">האם אתה רשום כבעל/שוכר הנכס?</label>
-        <select class="form-select" id="f-property-holder">
+        <select class="form-select" id="f-property-holder" onchange="onPropertyHolderChange(this.value)">
           <option value="true">כן — רשום כבעל/שוכר</option>
           <option value="false">לא — איני הרשום</option>
         </select>
+        <div id="err-property-holder" style="display:none; margin-top:8px; padding:10px 14px; background:rgba(241,196,15,0.08); border:1px solid rgba(241,196,15,0.3); border-radius:6px; font-size:13px; color:var(--yellow);">
+          ⚠️ רק בעל הנכס או שוכר רשום זכאי להנחה בארנונה. לא ניתן להגיש בקשה עבור נכס שאינך רשום עליו.
+        </div>
       </div>
       <div class="two-col">
         <div class="form-group">
@@ -578,6 +581,18 @@ function updateTotalDays() {
 }
 
 // ── Type / Payment / Installments ─────────────────────────────────────────
+// ✅ FIX: Live warning when property holder = false
+function onPropertyHolderChange(val) {
+  const errEl = document.getElementById('err-property-holder');
+  const submitBtn = document.getElementById('submit-error');
+  if (val === 'false') {
+    errEl.style.display = 'block';
+  } else {
+    errEl.style.display = 'none';
+    if (submitBtn) submitBtn.style.display = 'none';
+  }
+}
+
 function selectReserveType(el) {
   document.querySelectorAll('.type-opt').forEach(e => e.classList.remove('selected'));
   el.classList.add('selected');
@@ -627,6 +642,20 @@ function validate() {
   let ok = true;
   clearErr('annual-tax');
   document.getElementById('err-periods').style.display = 'none';
+
+  // ✅ FIX: Block submit if user is not registered as property holder
+  const holderVal = document.getElementById('f-property-holder').value;
+  const errEl = document.getElementById('submit-error');
+  if (holderVal === 'false') {
+    errEl.textContent = '⚠️ רק בעל הנכס או שוכר רשום זכאי להנחה בארנונה. לא ניתן להגיש בקשה עבור נכס שאינך רשום עליו.';
+    errEl.style.display = 'block';
+    errEl.style.color = 'var(--yellow)';
+    // Scroll to error
+    errEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    return false;
+  } else {
+    errEl.style.display = 'none';
+  }
 
   // Check periods
   const activePeriods = [...document.querySelectorAll('.period-row')];
