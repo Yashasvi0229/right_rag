@@ -311,7 +311,8 @@
                   {% if doc.status == 'ACTIVE' %}✔ מנותח{% else %}⏳ {{ doc.status }}{% endif %}
                 </span>
                 <div class="source-actions">
-                  <button class="btn btn-outline" style="padding:6px 10px;font-size:12px">👁</button>
+                  <button class="btn btn-outline" style="padding:6px 10px;font-size:12px"
+                    onclick="showDocModal('{{ doc.doc_id }}','{{ doc.title }}','{{ doc.publisher }}','{{ doc.publication_date }}','{{ doc.file_hash }}','{{ doc.status }}','{{ doc.ingested_at[:10] }}','{{ doc.ingested_by }}')">👁</button>
                 </div>
               </div>
               {% endfor %}
@@ -329,6 +330,27 @@
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- ✅ FIX: Document view modal -->
+<div id="doc-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; align-items:center; justify-content:center;">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:28px; max-width:520px; width:90%; position:relative;">
+    <button onclick="closeDocModal()" style="position:absolute; top:12px; left:16px; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer;">✕</button>
+    <div style="font-size:18px; font-weight:700; color:var(--gold); margin-bottom:16px;">📄 פרטי מסמך</div>
+    <table style="width:100%; font-size:13px; border-collapse:collapse;">
+      <tr><td style="padding:8px 0; color:var(--muted); width:40%;">שם</td><td id="m-title" style="color:var(--white); font-weight:600;"></td></tr>
+      <tr><td style="padding:8px 0; color:var(--muted);">מזהה</td><td id="m-docid" style="font-family:monospace; color:var(--gold);"></td></tr>
+      <tr><td style="padding:8px 0; color:var(--muted);">מפרסם</td><td id="m-publisher" style="color:var(--white);"></td></tr>
+      <tr><td style="padding:8px 0; color:var(--muted);">תאריך פרסום</td><td id="m-pubdate" style="color:var(--white);"></td></tr>
+      <tr><td style="padding:8px 0; color:var(--muted);">הועלה ב</td><td id="m-ingested" style="color:var(--white);"></td></tr>
+      <tr><td style="padding:8px 0; color:var(--muted);">הועלה ע"י</td><td id="m-by" style="color:var(--white);"></td></tr>
+      <tr><td style="padding:8px 0; color:var(--muted);">סטטוס</td><td id="m-status"></td></tr>
+      <tr><td style="padding:8px 0; color:var(--muted);">SHA-256</td><td id="m-hash" style="font-family:monospace; font-size:11px; color:var(--muted); word-break:break-all;"></td></tr>
+    </table>
+    <div style="margin-top:20px; text-align:center;">
+      <button onclick="closeDocModal()" class="btn btn-outline">סגור</button>
     </div>
   </div>
 </div>
@@ -409,6 +431,31 @@ function validateDateInput(input) {
   input.classList.remove('input-error'); errEl.style.display='none'; return true;
 }
 
+// ✅ FIX: Eye button modal functions
+function showDocModal(docId, title, publisher, pubDate, hash, status, ingested, ingestedBy) {
+  document.getElementById('m-docid').textContent     = docId;
+  document.getElementById('m-title').textContent     = title;
+  document.getElementById('m-publisher').textContent = publisher;
+  document.getElementById('m-pubdate').textContent   = pubDate;
+  document.getElementById('m-ingested').textContent  = ingested;
+  document.getElementById('m-by').textContent        = ingestedBy || 'לא ידוע';
+  document.getElementById('m-hash').textContent      = hash;
+  const statusEl = document.getElementById('m-status');
+  statusEl.innerHTML = status === 'ACTIVE'
+    ? '<span class="badge badge-green">✔ פעיל</span>'
+    : '<span class="badge badge-yellow">⏳ ' + status + '</span>';
+  const modal = document.getElementById('doc-modal');
+  modal.style.display = 'flex';
+}
+function closeDocModal() {
+  document.getElementById('doc-modal').style.display = 'none';
+}
+// Close modal on backdrop click
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('doc-modal');
+  if (e.target === modal) closeDocModal();
+});
+
 // Keep validateYear as alias for uploadDocument compatibility
 function validateYear(input) { return validateDateInput(input); }
 
@@ -467,7 +514,8 @@ async function uploadDocument() {
             <div class="source-meta">${d.publisher} · ${(d.ingested_at||'').slice(0,10)} · SHA: ${(d.file_hash||'').slice(0,6)}...</div>
           </div>
           <span class="badge ${d.status==='ACTIVE'?'badge-green':'badge-yellow'}">${d.status==='ACTIVE'?'✔ מנותח':'⏳ '+d.status}</span>
-          <div class="source-actions"><button class="btn btn-outline" style="padding:6px 10px;font-size:12px">👁</button></div>
+          <div class="source-actions"><button class="btn btn-outline" style="padding:6px 10px;font-size:12px"
+            onclick="showDocModal('${d.doc_id}','${d.title}','${d.publisher}','${d.publication_date}','${d.file_hash}','${d.status}','${(d.ingested_at||'').slice(0,10)}','${d.ingested_by||''}')">👁</button></div>
         </div>`).join('');
     } else if (res.status === 409) {
       showAlert('⚠️ ' + (data.detail || 'המסמך לא השתנה — העלה גרסה עדכנית'), 'warning');
