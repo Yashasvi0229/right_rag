@@ -551,9 +551,11 @@ function onPeriodChange(pid) {
     if (daysEl) { daysEl.textContent = endMsg; daysEl.className = 'period-days error'; }
     updatePeriod(pid, '', '', 0); return;
   }
-  if (e <= s) {
+  // ✅ FIX: Allow same-day service (e < s only blocks, e === s = 1 day is valid)
+  // Israel reserve service can be 1 day or even half-day (counted as 1 day)
+  if (e < s) {
     endEl?.classList.add('has-error');
-    if (daysEl) { daysEl.textContent = '⚠️ תאריך סיום חייב להיות אחרי תאריך התחלה'; daysEl.className = 'period-days error'; }
+    if (daysEl) { daysEl.textContent = '⚠️ תאריך סיום חייב להיות שווה או אחרי תאריך התחלה'; daysEl.className = 'period-days error'; }
     updatePeriod(pid, '', '', 0); return;
   }
   if (s < THREE_YEARS_AGO) {
