@@ -455,16 +455,3 @@ function fmtDateHe(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   if (isNaN(d)) return '';
-  return d.toLocaleDateString('he-IL', {day:'2-digit', month:'2-digit', year:'numeric'});
-}
-
-function calcDays(start, end) {
-  if (!start || !end) return 0;
-  const s = new Date(start), e = new Date(end);
-  if (isNaN(s) || isNaN(e) || e < s) return 0;
-  // FIX: +1 to include both start and end date (IDF/Bituach Leumi standard)
-  // Example: 01/01/2026 → 20/01/2026 = 20 days (not 19)
-  return Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
-}
-
-function a
