@@ -1,236 +1,533 @@
-"""
-Rights Angel — Engine Version Manager
-Architecture Brief v1.2 §6.1 Steps 4-6
+{% extends "base.html" %}
+{% set active = 's1' %}
+{% block title %}העלאת מקורות משפטיים — ניהול{% endblock %}
+{% block extra_head %}
+<style>
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+    background: rgba(201,168,76,0.03);
+  }
+  .upload-zone:hover {
+    border-color: var(--gold);
+    background: rgba(201,168,76,0.07);
+  }
+  .upload-icon { font-size: 48px; margin-bottom: 12px; }
+  .upload-zone h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+  .upload-zone p  { font-size: 14px; color: var(--muted); }
 
-Controlled Update Workflow:
-Step 4: Automated validation (schema, integrity, regression)
-Step 5: Human review gate — NO publish without explicit approval
-Step 6: Version publish — computes clause_set_hash + rules_hash, archives previous
-"""
-import hashlib
-import json
-from datetime import datetime, timezone
-from typing import Optional
+  .source-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); margin-bottom: 10px; transition: all 0.2s;
+    flex-wrap: wrap;
+  }
+  .source-row:hover { border-color: var(--border); }
+  .source-icon { font-size: 22px; flex-shrink: 0; }
+  .source-info { flex: 1; min-width: 0; }
+  .source-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .source-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .source-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-from database.schema import get_db
-from ingestion.pipeline import validate_clause_integrity
+  /* QA #2: 5 type buttons */
+  .type-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px; margin-bottom: 20px;
+  }
+  .type-btn {
+    padding: 10px 6px;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card); color: var(--muted);
+    font-size: 12px; cursor: pointer; text-align: center;
+    transition: all 0.2s; font-family: 'Heebo', sans-serif;
+  }
+  .type-btn:hover, .type-btn.active {
+    border-color: var(--gold); color: var(--gold);
+    background: rgba(201,168,76,0.08);
+  }
+  .type-icon { font-size: 18px; display: block; margin-bottom: 4px; }
 
+  .progress-bar { width:100%; height:4px; background:var(--bg-navy); border-radius:2px; overflow:hidden; margin-top:8px; display:none; }
+  .progress-fill { height:100%; background:var(--gold); border-radius:2px; animation:pp 1.5s ease-in-out infinite; }
+  @keyframes pp { 0%,100%{opacity:1} 50%{opacity:0.6} }
 
-def _compute_clause_set_hash(conn) -> str:
-    """
-    Compute SHA-256 of all current active clauses.
-    Deterministic: sorted by clause_id before hashing.
-    """
-    rows = conn.execute("""
-        SELECT clause_id, text, clause_type, source_doc_id, section_ref
-        FROM clauses WHERE is_current=1
-        ORDER BY clause_id
-    """).fetchall()
+  .alert { padding:12px 16px; border-radius:var(--radius-sm); font-size:13px; margin-bottom:12px; display:none; }
+  .alert-success { background:rgba(46,204,113,0.15); border:1px solid rgba(46,204,113,0.3); color:var(--green); }
+  .alert-error   { background:rgba(231,76,60,0.15);  border:1px solid rgba(231,76,60,0.3);  color:var(--red); }
+  .alert-info    { background:rgba(201,168,76,0.15); border:1px solid rgba(201,168,76,0.3); color:var(--gold); }
+  .alert-warning { background:rgba(241,196,15,0.15); border:1px solid rgba(241,196,15,0.3); color:#f1c40f; }
 
-    payload = json.dumps([dict(r) for r in rows], ensure_ascii=False, sort_keys=True)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+  /* QA #3 + #4: Tooltips */
+  .field-help { display: flex; align-items: center; gap: 6px; }
+  .tooltip-wrap { position: relative; display: inline-flex; }
+  .tooltip-icon {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--bg-card2); border: 1px solid var(--border);
+    color: var(--muted); font-size: 11px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: help; flex-shrink: 0;
+  }
+  .tooltip-icon:hover { border-color: var(--gold); color: var(--gold); }
+  .tooltip-box {
+    display: none; position: absolute;
+    bottom: calc(100% + 8px); right: 0;
+    background: var(--bg-card2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    font-size: 12px; color: var(--white); line-height: 1.6;
+    width: 240px; z-index: 50; box-shadow: var(--shadow); pointer-events: none;
+  }
+  .tooltip-wrap:hover .tooltip-box { display: block; }
+  .field-hint { font-size: 12px; color: var(--muted); margin-top: 5px; line-height: 1.5; }
 
+  /* QA #1: Date error */
+  .form-input.input-error { border-color: var(--red) !important; }
+  .date-error-msg { color: var(--red); font-size: 12px; margin-top: 4px; display: none; }
 
-def _compute_rules_hash(conn) -> str:
-    """
-    Compute SHA-256 of the compiled rule set.
-    Includes: active rights + rights_clauses_map + discount values + friction scores.
-    This hash changes if any eligibility rule changes.
-    """
-    rights_rows = conn.execute("""
-        SELECT catalog_id, discount_value, discount_unit, friction_score,
-               category_tag, effective_from, effective_to, status
-        FROM rights WHERE status='ACTIVE'
-        ORDER BY catalog_id
-    """).fetchall()
+  /* Two-col layout for upload + list */
+  .upload-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
 
-    map_rows = conn.execute("""
-        SELECT catalog_id, clause_id, mapping_role
-        FROM rights_clauses_map
-        ORDER BY catalog_id, clause_id
-    """).fetchall()
+  /* Date + publisher row */
+  .date-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
 
-    payload = json.dumps({
-        "rights": [dict(r) for r in rights_rows],
-        "mappings": [dict(r) for r in map_rows],
-    }, ensure_ascii=False, sort_keys=True)
+  /* Mobile sidebar toggle button */
+  .sidebar-toggle {
+    display: none;
+    align-items: center; gap: 8px;
+    background: var(--bg-card2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 8px 14px;
+    color: var(--gold); font-size: 13px; cursor: pointer;
+    font-family: 'Heebo', sans-serif; margin-bottom: 16px;
+    width: 100%;
+  }
 
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+  /* ── RESPONSIVE ───────────────────────── */
+  @media (max-width: 768px) {
+    .sidebar-toggle  { display: flex; }
+    .upload-grid     { grid-template-columns: 1fr; }
+    .type-grid       { grid-template-columns: repeat(3, 1fr); }
+    .upload-zone     { padding: 32px 16px; }
+    .upload-icon     { font-size: 36px; }
+    .date-row        { grid-template-columns: 1fr; }
+    /* Tooltip — open below on mobile to avoid clipping */
+    .tooltip-box     { bottom: auto; top: calc(100% + 6px); right: 0; width: 220px; }
+  }
 
+  @media (max-width: 480px) {
+    .type-grid       { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    .source-row      { gap: 8px; }
+    .source-name     { font-size: 13px; }
+    .upload-zone     { padding: 24px 12px; }
+  }
+</style>
+{% endblock %}
 
-def create_staging_version(law_version: str, notes: Optional[str] = None) -> dict:
-    """
-    Create a new STAGING engine version.
-    Step 4: Runs automated validation suite before staging.
-    Will not create if validation fails.
-    """
-    conn = get_db()
-    now = datetime.now(timezone.utc).isoformat()
+{% block content %}
+<div class="admin-layout">
 
-    try:
-        # Step 4: Automated validation
-        validation = validate_clause_integrity()
-        if not validation["passed"]:
-            return {
-                "status": "BLOCKED",
-                "reason": "Automated validation failed — cannot stage new version",
-                "errors": validation["errors"],
-            }
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-section">זרימת עבודה</div>
+    <a class="sidebar-item active" href="/screen1">📥 מקורות חוק</a>
+    <a class="sidebar-item" href="/screen2">⚙️ פירוק סעיפים</a>
+    <a class="sidebar-item" href="/screen3">📋 טיוטת מנוע</a>
+    <a class="sidebar-item" href="/screen4">✅ אימות עצמי</a>
+    <a class="sidebar-item" href="/screen5">💡 הסברתיות</a>
+    <a class="sidebar-item" href="/screen6">👤 אישור מומחה</a>
+    <div class="sidebar-section">מערכת</div>
+    <a class="sidebar-item" href="/screen9">🕐 גרסאות</a>
+    <a class="sidebar-item" href="/screen0">🏠 דף הבית</a>
+  </nav>
 
-        clause_set_hash = _compute_clause_set_hash(conn)
-        rules_hash = _compute_rules_hash(conn)
+  <div class="main-content">
 
-        # Generate engine_id: ENGINE-{YEAR}-v{sequence}
-        existing_count = conn.execute("SELECT COUNT(*) as c FROM engine_versions").fetchone()["c"]
-        year = datetime.now().year
-        engine_id = f"ENGINE-{year}-v1.{existing_count}.0"
+    <!-- Mobile sidebar toggle -->
+    <button class="sidebar-toggle" onclick="toggleSidebar()">
+      ☰ תפריט ניהול
+    </button>
 
-        conn.execute("""
-            INSERT INTO engine_versions
-                (engine_id, law_version, clause_set_hash, rules_hash,
-                 published_at, published_by, status, notes)
-            VALUES (?,?,?,?,NULL,NULL,'STAGING',?)
-        """, (engine_id, law_version, clause_set_hash, rules_hash, notes))
+    <div class="page-header anim">
+      <h2>📥 מקורות משפטיים</h2>
+      <p>שלב 1 / 6 — העלאת מסמכים משפטיים לניתוח</p>
+    </div>
 
-        conn.execute("""
-            INSERT INTO audit_log (event_type, engine_id, details, created_at)
-            VALUES ('ENGINE_STAGED', ?, ?, ?)
-        """, (engine_id, json.dumps({
-            "law_version": law_version,
-            "clause_set_hash": clause_set_hash,
-            "rules_hash": rules_hash,
-        }, ensure_ascii=False), now))
+    <div class="steps anim anim-1">
+      <div class="step active"><span class="step-num">1</span> מקורות חוק</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">2</span> פירוק סעיפים</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">3</span> טיוטת מנוע</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">4</span> אימות</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">5</span> הסברתיות</div>
+      <span class="step-sep">›</span>
+      <div class="step pending"><span class="step-num">6</span> אישור</div>
+    </div>
 
-        conn.commit()
+    <div class="upload-grid">
 
-        return {
-            "status": "STAGED",
-            "engine_id": engine_id,
-            "clause_set_hash": clause_set_hash,
-            "rules_hash": rules_hash,
-            "law_version": law_version,
-            "message": "Staged. Human review and approval required before activation.",
-        }
+      <!-- Upload card -->
+      <div class="anim anim-2">
+        <div class="card">
+          <div class="card-title">📤 העלה מסמך חדש</div>
+          <div id="alert-box" class="alert"></div>
 
-    finally:
-        conn.close()
+          <!-- QA #2: 5 type buttons including Other -->
+          <div class="type-grid">
+            <button class="type-btn active" data-type="חוק" onclick="setType(this)">
+              <span class="type-icon">📜</span> חוק
+            </button>
+            <button class="type-btn" data-type="תקנות" onclick="setType(this)">
+              <span class="type-icon">📋</span> תקנות
+            </button>
+            <button class="type-btn" data-type="הוראות" onclick="setType(this)">
+              <span class="type-icon">📝</span> הוראות
+            </button>
+            <button class="type-btn" data-type="פסיקה" onclick="setType(this)">
+              <span class="type-icon">⚖️</span> פסיקה
+            </button>
+            <button class="type-btn" data-type="אחר" onclick="setType(this)">
+              <span class="type-icon">📎</span> אחר
+            </button>
+          </div>
 
+          <!-- Upload zone -->
+          <div class="upload-zone" id="upload-zone"
+               onclick="document.getElementById('file-input').click()"
+               ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
+               ondragleave="this.style.borderColor=''"
+               ondrop="onDrop(event)">
+            <div class="upload-icon">📂</div>
+            <h3 id="zone-title">גרור קובץ לכאן</h3>
+            <p id="zone-sub">PDF, DOC, DOCX — עד 50MB</p>
+            <br>
+            <button class="btn btn-outline" style="margin-top:8px"
+              onclick="event.stopPropagation();document.getElementById('file-input').click()">בחר קובץ</button>
+            <input type="file" id="file-input" accept=".pdf,.docx,.doc,.txt"
+                   style="display:none" onchange="onFileSelected(this)">
+          </div>
+          <div class="progress-bar" id="progress-bar">
+            <div class="progress-fill" style="width:70%"></div>
+          </div>
 
-def publish_version(engine_id: str, published_by: str) -> dict:
-    """
-    Step 5+6: Human approval → publish engine version to ACTIVE.
-    Archives previous ACTIVE version.
-    No version reaches production without this explicit call.
-    """
-    conn = get_db()
-    now = datetime.now(timezone.utc).isoformat()
+          <hr class="divider">
 
-    try:
-        version = conn.execute(
-            "SELECT * FROM engine_versions WHERE engine_id=?", (engine_id,)
-        ).fetchone()
+          <!-- QA #3: Tooltip for approved source -->
+          <div class="form-group">
+            <div class="field-help">
+              <label class="form-label" style="margin-bottom:0">מזהה מסמך (מקור מאושר)</label>
+              <div class="tooltip-wrap">
+                <span class="tooltip-icon">?</span>
+                <div class="tooltip-box">
+                  <strong>מה זה מקור מאושר?</strong><br>
+                  רשימת המסמכים שאושרו כמקורות חוק תקפים במערכת.<br><br>
+                  <strong>מה קורה כשבוחרים?</strong><br>
+                  הסעיפים שיחולצו יקושרו למקור זה בשרשרת הראיות.
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:8px">
+              <select class="form-select" id="doc-id-select">
+                <option value="">— בחר מקור מאושר —</option>
+                {% for src in approved_sources %}
+                <option value="{{ src.doc_id }}">{{ src.doc_id }}{% if src.title %} — {{ src.title[:40] }}{% endif %}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field-hint">⚠️ ניתן להעלות רק מסמכים מהרשימה המאושרת.</div>
+          </div>
 
-        if not version:
-            raise ValueError(f"Engine version not found: {engine_id}")
+          <!-- QA #4: Date help + QA #1: year validation -->
+          <div class="date-row">
+            <div class="form-group">
+              <div class="field-help">
+                <label class="form-label" style="margin-bottom:0">תאריך פרסום</label>
+                <div class="tooltip-wrap">
+                  <span class="tooltip-icon">?</span>
+                  <div class="tooltip-box">
+                    <strong>מה זה תאריך פרסום?</strong><br>
+                    התאריך שבו המסמך פורסם רשמית ברשומות.<br><br>
+                    <strong>למה זה חשוב?</strong><br>
+                    המערכת משתמשת בו לבדיקת תוקף הגרסה.
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top:8px">
+                <input class="form-input" type="text" id="pub-date"
+                       placeholder="DD/MM/YYYY — לדוגמה: 15/03/2026"
+                       maxlength="10"
+                       oninput="validateDateInput(this)"
+                       onblur="validateDateInput(this)"
+                       style="direction:ltr; text-align:left;" />
+                <div class="date-error-msg" id="date-error">⚠️ פורמט לא תקין — יש להזין DD/MM/YYYY עם שנה בת 4 ספרות</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">מפרסם</label>
+              <input class="form-input" id="ingested-by" value="admin" />
+            </div>
+          </div>
 
-        if version["status"] != "STAGING":
-            raise ValueError(
-                f"Only STAGING versions can be published. "
-                f"Current status: {version['status']}"
-            )
+          <button class="btn btn-gold" style="width:100%" id="upload-btn"
+                  onclick="uploadDocument()">⬆ העלה מסמך</button>
+        </div>
+      </div>
 
-        # Archive all currently ACTIVE versions
-        conn.execute(
-            "UPDATE engine_versions SET status='ARCHIVED' WHERE status='ACTIVE'"
-        )
+      <!-- Documents list -->
+      <div class="anim anim-3">
+        <div class="card">
+          <div class="card-title">
+            📚 מקורות שהועלו
+            <span style="margin-right:auto" class="badge badge-blue">
+              <span id="doc-count">{{ documents|length }}</span>
+            </span>
+          </div>
 
-        # Publish this version
-        conn.execute("""
-            UPDATE engine_versions
-            SET status='ACTIVE', published_at=?, published_by=?
-            WHERE engine_id=?
-        """, (now, published_by, engine_id))
+          <div id="documents-list">
+            {% if documents %}
+              {% for doc in documents %}
+              <div class="source-row">
+                <div class="source-icon">📜</div>
+                <div class="source-info">
+                  <div class="source-name">{{ doc.title }}</div>
+                  <div class="source-meta">{{ doc.publisher }} · {{ doc.ingested_at[:10] }} · SHA: {{ doc.file_hash[:6] }}...</div>
+                </div>
+                <span class="badge {% if doc.status == 'ACTIVE' %}badge-green{% else %}badge-yellow{% endif %}">
+                  {% if doc.status == 'ACTIVE' %}✔ מנותח{% else %}⏳ {{ doc.status }}{% endif %}
+                </span>
+                <div class="source-actions">
+                  <button class="btn btn-outline" style="padding:6px 10px;font-size:12px"
+                    onclick="showDocModal('{{ doc.doc_id }}','{{ doc.title }}','{{ doc.publisher }}','{{ doc.publication_date }}','{{ doc.file_hash }}','{{ doc.status }}','{{ doc.ingested_at[:10] }}','{{ doc.ingested_by }}')">👁</button>
+                </div>
+              </div>
+              {% endfor %}
+            {% else %}
+              <div style="text-align:center;padding:40px;color:var(--muted);font-size:14px;">
+                📭 אין מסמכים עדיין<br><small>העלה מסמך ראשון</small>
+              </div>
+            {% endif %}
+          </div>
 
-        conn.execute("""
-            INSERT INTO audit_log (event_type, engine_id, details, created_at)
-            VALUES ('ENGINE_PUBLISHED', ?, ?, ?)
-        """, (engine_id, json.dumps({
-            "published_by": published_by,
-            "law_version": version["law_version"],
-            "clause_set_hash": version["clause_set_hash"],
-        }, ensure_ascii=False), now))
+          <hr class="divider">
+          <a href="/screen2" class="btn btn-gold" style="width:100%; justify-content:center">
+            המשך לפירוק סעיפים ›
+          </a>
+        </div>
+      </div>
 
-        conn.commit()
+    </div>
+  </div>
+</div>
 
-        return {
-            "status": "PUBLISHED",
-            "engine_id": engine_id,
-            "published_by": published_by,
-            "published_at": now,
-            "clause_set_hash": version["clause_set_hash"],
-            "rules_hash": version["rules_hash"],
-        }
+<!-- ✅ FIX: Document view modal -->
+<div id="doc-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; align-items:center; justify-content:center;">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:28px; max-width:520px; width:90%; position:relative;">
+    <button onclick="closeDocModal()" style="position:absolute; top:12px; left:16px; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer;">✕</button>
+    <div style="font-size:18px; font-weight:700; color:var(--gold); margin-bottom:16px;">📄 פרטי מסמך</div>
+    <table style="width:100%; font-size:13px; border-collapse:collapse;">
+      <tr><td style="padding:8px 0; color:var(--muted); width:40%;">שם</td><td id="m-title" style="color:var(--white); font-weight:600;"></td></tr>
+      <tr><td style="padding:8px 0; color:var(--muted);">מזהה</td><td id="m-docid" style="font-family:monospace; color:var(--gold);"></td></tr>
+      <tr><td style="padding:8px 0; color:var(--muted);">מפרסם</td><td id="m-publisher" style="color:var(--white);"></td></tr>
+      <tr><td style="padding:8px 0; color:var(--muted);">תאריך פרסום</td><td id="m-pubdate" style="color:var(--white);"></td></tr>
+      <tr><td style="padding:8px 0; color:var(--muted);">הועלה ב</td><td id="m-ingested" style="color:var(--white);"></td></tr>
+      <tr><td style="padding:8px 0; color:var(--muted);">הועלה ע"י</td><td id="m-by" style="color:var(--white);"></td></tr>
+      <tr><td style="padding:8px 0; color:var(--muted);">סטטוס</td><td id="m-status"></td></tr>
+      <tr><td style="padding:8px 0; color:var(--muted);">SHA-256</td><td id="m-hash" style="font-family:monospace; font-size:11px; color:var(--muted); word-break:break-all;"></td></tr>
+    </table>
+    <div style="margin-top:20px; text-align:center;">
+      <button onclick="closeDocModal()" class="btn btn-outline">סגור</button>
+    </div>
+  </div>
+</div>
 
-    finally:
-        conn.close()
+<script>
+let selectedFile = null;
+let selectedType = 'חוק';
 
+function setType(btn) {
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedType = btn.dataset.type || btn.textContent.trim();
+}
 
-def reject_version(engine_id: str, rejected_by: str, reason: str) -> dict:
-    """Reject a staged version — blocks it from being published."""
-    conn = get_db()
-    now = datetime.now(timezone.utc).isoformat()
-    try:
-        result = conn.execute("""
-            UPDATE engine_versions SET status='ARCHIVED', notes=?
-            WHERE engine_id=? AND status='STAGING'
-        """, (f"REJECTED by {rejected_by}: {reason}", engine_id))
+function onFileSelected(input) {
+  if (input.files && input.files[0]) {
+    selectedFile = input.files[0];
+    document.getElementById('zone-title').textContent = selectedFile.name;
+    document.getElementById('zone-sub').textContent   = (selectedFile.size/1024/1024).toFixed(2) + ' MB';
+  }
+}
 
-        if result.rowcount == 0:
-            raise ValueError(f"No staging version found: {engine_id}")
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').style.borderColor = '';
+  const f = e.dataTransfer.files[0];
+  if (f) {
+    selectedFile = f;
+    document.getElementById('zone-title').textContent = f.name;
+    document.getElementById('zone-sub').textContent   = (f.size/1024/1024).toFixed(2) + ' MB';
+  }
+}
 
-        conn.execute("""
-            INSERT INTO audit_log (event_type, engine_id, details, created_at)
-            VALUES ('ENGINE_REJECTED', ?, ?, ?)
-        """, (engine_id, json.dumps({
-            "rejected_by": rejected_by, "reason": reason
-        }, ensure_ascii=False), now))
+/* QA #1: Date validation — DD/MM/YYYY format, 4-digit year only */
+function validateDateInput(input) {
+  const val   = input.value.trim();
+  const errEl = document.getElementById('date-error');
+  if (!val) { input.classList.remove('input-error'); errEl.style.display='none'; return true; }
 
-        conn.commit()
-        return {"status": "REJECTED", "engine_id": engine_id}
-    finally:
-        conn.close()
+  // Auto-format: add slashes as user types
+  let digits = val.replace(/\D/g, '');
+  if (digits.length >= 3 && digits.length <= 4) {
+    input.value = digits.slice(0,2) + '/' + digits.slice(2);
+    return true;
+  }
+  if (digits.length >= 5) {
+    input.value = digits.slice(0,2) + '/' + digits.slice(2,4) + '/' + digits.slice(4,8);
+  }
 
+  // Full validation only when 10 chars entered
+  const formatted = input.value;
+  if (formatted.length < 10) { input.classList.remove('input-error'); errEl.style.display='none'; return true; }
 
-def get_active_version() -> Optional[dict]:
-    conn = get_db()
-    try:
-        row = conn.execute(
-            "SELECT * FROM engine_versions WHERE status='ACTIVE' ORDER BY published_at DESC LIMIT 1"
-        ).fetchone()
-        return dict(row) if row else None
-    finally:
-        conn.close()
+  const parts = formatted.split('/');
+  if (parts.length !== 3) {
+    input.classList.add('input-error'); errEl.style.display='block';
+    errEl.textContent = '⚠️ פורמט לא תקין — יש להזין DD/MM/YYYY';
+    return false;
+  }
 
+  const day  = parseInt(parts[0], 10);
+  const mon  = parseInt(parts[1], 10);
+  const year = parseInt(parts[2], 10);
+  const yearStr = parts[2];
 
-def list_versions() -> list[dict]:
-    conn = get_db()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM engine_versions ORDER BY published_at DESC NULLS LAST"
-        ).fetchall()
-        return [dict(r) for r in rows]
-    finally:
-        conn.close()
+  // Year must be exactly 4 digits between 1900-2099
+  if (yearStr.length !== 4 || isNaN(year) || year < 1900 || year > 2099) {
+    input.classList.add('input-error'); errEl.style.display='block';
+    errEl.textContent = `⚠️ שנה ${yearStr} אינה תקינה — יש להזין שנה בת 4 ספרות (1900–2099)`;
+    return false;
+  }
+  if (isNaN(day) || day < 1 || day > 31 || isNaN(mon) || mon < 1 || mon > 12) {
+    input.classList.add('input-error'); errEl.style.display='block';
+    errEl.textContent = '⚠️ תאריך לא תקין — יש להזין DD/MM/YYYY';
+    return false;
+  }
 
+  input.classList.remove('input-error'); errEl.style.display='none'; return true;
+}
 
-def get_audit_log(limit: int = 50) -> list[dict]:
-    conn = get_db()
-    try:
-        rows = conn.execute("""
-            SELECT * FROM audit_log
-            ORDER BY created_at DESC
-            LIMIT ?
-        """, (limit,)).fetchall()
-        return [dict(r) for r in rows]
-    finally:
-        conn.close()
+// ✅ FIX: Eye button modal functions
+function showDocModal(docId, title, publisher, pubDate, hash, status, ingested, ingestedBy) {
+  document.getElementById('m-docid').textContent     = docId;
+  document.getElementById('m-title').textContent     = title;
+  document.getElementById('m-publisher').textContent = publisher;
+  document.getElementById('m-pubdate').textContent   = pubDate;
+  document.getElementById('m-ingested').textContent  = ingested;
+  document.getElementById('m-by').textContent        = ingestedBy || 'לא ידוע';
+  document.getElementById('m-hash').textContent      = hash;
+  const statusEl = document.getElementById('m-status');
+  statusEl.innerHTML = status === 'ACTIVE'
+    ? '<span class="badge badge-green">✔ פעיל</span>'
+    : '<span class="badge badge-yellow">⏳ ' + status + '</span>';
+  const modal = document.getElementById('doc-modal');
+  modal.style.display = 'flex';
+}
+function closeDocModal() {
+  document.getElementById('doc-modal').style.display = 'none';
+}
+// Close modal on backdrop click
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('doc-modal');
+  if (e.target === modal) closeDocModal();
+});
+
+// Keep validateYear as alias for uploadDocument compatibility
+function validateYear(input) { return validateDateInput(input); }
+
+// Convert DD/MM/YYYY → YYYY-MM-DD for API
+function getIsoDate() {
+  const val = document.getElementById('pub-date').value.trim();
+  if (!val) return new Date().toISOString().split('T')[0];
+  const parts = val.split('/');
+  if (parts.length !== 3) return new Date().toISOString().split('T')[0];
+  return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+}
+
+function showAlert(msg, type) {
+  const box = document.getElementById('alert-box');
+  box.className = 'alert alert-' + type;
+  box.textContent = msg; box.style.display = 'block';
+  if (type === 'success') setTimeout(() => box.style.display='none', 6000);
+}
+
+async function uploadDocument() {
+  const docId      = document.getElementById('doc-id-select').value;
+  const ingestedBy = document.getElementById('ingested-by').value.trim();
+  const pubDateEl  = document.getElementById('pub-date');
+
+  if (pubDateEl.value && !validateYear(pubDateEl))
+    return showAlert('⚠️ תאריך פרסום אינו תקין — נא להזין שנה בת 4 ספרות', 'error');
+  if (!docId)        return showAlert('אנא בחר מזהה מסמך', 'error');
+  if (!ingestedBy)   return showAlert('אנא הזן שם משתמש', 'error');
+  if (!selectedFile) return showAlert('אנא בחר קובץ', 'error');
+
+  const btn = document.getElementById('upload-btn');
+  btn.disabled = true; btn.textContent = '⏳ מעלה...';
+  document.getElementById('progress-bar').style.display = 'block';
+  showAlert('מעלה ומנתח... עשוי לקחת 20-30 שניות', 'info');
+
+  const form = new FormData();
+  form.append('file', selectedFile);
+  form.append('doc_id', docId);
+  form.append('ingested_by', ingestedBy);
+  form.append('doc_type', selectedType);
+  const pubDate = getIsoDate();
+  form.append('publication_date', pubDate);
+
+  try {
+    const res  = await fetch('/api/ingest', { method: 'POST', body: form });
+    const data = await res.json();
+    if (res.ok) {
+      showAlert('✅ ' + data.clause_count + ' סעיפים חולצו! סטטוס: ' + data.status, 'success');
+      const docs = await (await fetch('/api/documents')).json();
+      document.getElementById('doc-count').textContent = docs.length;
+      document.getElementById('documents-list').innerHTML = docs.map(d => `
+        <div class="source-row">
+          <div class="source-icon">📜</div>
+          <div class="source-info">
+            <div class="source-name">${d.title}</div>
+            <div class="source-meta">${d.publisher} · ${(d.ingested_at||'').slice(0,10)} · SHA: ${(d.file_hash||'').slice(0,6)}...</div>
+          </div>
+          <span class="badge ${d.status==='ACTIVE'?'badge-green':'badge-yellow'}">${d.status==='ACTIVE'?'✔ מנותח':'⏳ '+d.status}</span>
+          <div class="source-actions"><button class="btn btn-outline" style="padding:6px 10px;font-size:12px"
+            onclick="showDocModal('${d.doc_id}','${d.title}','${d.publisher}','${d.publication_date}','${d.file_hash}','${d.status}','${(d.ingested_at||'').slice(0,10)}','${d.ingested_by||''}')">👁</button></div>
+        </div>`).join('');
+    } else if (res.status === 409) {
+      showAlert('⚠️ ' + (data.detail || 'המסמך לא השתנה — העלה גרסה עדכנית'), 'warning');
+    } else {
+      showAlert('❌ ' + (data.detail || 'שגיאה'), 'error');
+    }
+  } catch(e) {
+    showAlert('❌ שגיאת רשת: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '⬆ העלה מסמך';
+    document.getElementById('progress-bar').style.display = 'none';
+  }
+}
+</script>
+{% endblock %}
