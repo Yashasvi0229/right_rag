@@ -521,19 +521,29 @@ function filterByDoc(docId, clickedTag) {
 
   document.querySelectorAll('.engine-card').forEach(card => {
     if (docId === 'ALL') {
+      // ALL selected — show everything, no dimming/hiding
       card.classList.remove('doc-hidden', 'doc-dimmed', 'doc-current');
     } else {
-      const docs = (card.dataset.docs || '').split(',');
+      const docs = (card.dataset.docs || '').split(',').filter(Boolean);
+      const isSeed = card.dataset.seed === 'true';
       const isMatch = docs.includes(docId);
+
       card.classList.remove('doc-hidden', 'doc-dimmed', 'doc-current');
+
       if (isMatch) {
+        // This card belongs to the selected doc — highlight it
         card.classList.add('doc-current');
       } else {
-        card.classList.add('doc-dimmed');
+        // BUG FIX: Non-matching cards (including seed cards with empty data-docs)
+        // must be HIDDEN (display:none), not just dimmed.
+        // Previously they got doc-dimmed which kept them visible — causing seed
+        // discounts from other sources to still show when toggle was OFF.
+        card.classList.add('doc-hidden');
       }
     }
   });
 
+  // Hide category headers if all cards under them are hidden
   document.querySelectorAll('.category-divider').forEach(divider => {
     let next = divider.nextElementSibling;
     let hasVisible = false;
