@@ -1,0 +1,798 @@
+{% extends "base.html" %}
+{% set active = 's10' %}
+{% block title %}בדיקת זכאות להנחה בארנונה{% endblock %}
+{% block extra_head %}
+<style>
+  .collector-page {
+    max-width: 680px; margin: 0 auto; padding: 40px 20px 80px;
+  }
+
+  .form-steps {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0; margin-bottom: 32px; overflow-x: auto;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .form-steps::-webkit-scrollbar { display: none; }
+  .fstep {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 6px;
+    font-size: 13px; font-weight: 600; white-space: nowrap;
+  }
+  .fstep-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; flex-shrink: 0;
+  }
+  .fstep.done    { color: var(--green); }
+  .fstep.done .fstep-num    { background: rgba(46,204,113,0.2); color: var(--green); }
+  .fstep.active  { color: var(--gold); }
+  .fstep.active .fstep-num  { background: var(--gold-btn); color: #000; }
+  .fstep.pending { color: var(--muted); }
+  .fstep.pending .fstep-num { background: var(--bg-card2); color: var(--muted); }
+  .fstep-sep { color: var(--muted); margin: 0 2px; }
+
+  .section-card {
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: var(--radius); overflow: hidden; margin-bottom: 20px;
+  }
+  .section-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 20px; background: var(--bg-card2);
+    border-bottom: 1px solid var(--border2);
+  }
+  .section-icon  { font-size: 20px; flex-shrink: 0; }
+  .section-title { font-size: 15px; font-weight: 700; color: var(--gold); }
+  .section-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .section-body  { padding: 20px; }
+
+  .two-col   { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+  .type-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 8px; }
+  .type-opt {
+    padding: 14px 12px; border: 1.5px solid var(--border2); border-radius: var(--radius-sm);
+    background: var(--bg-navy); text-align: center; cursor: pointer;
+    transition: all 0.2s; font-family: 'Heebo', sans-serif; color: var(--muted);
+  }
+  .type-opt:hover  { border-color: var(--border); color: var(--white); }
+  .type-opt.selected { border-color: var(--gold); background: rgba(201,168,76,0.1); color: var(--gold); }
+  .type-opt .opt-icon  { font-size: 22px; display: block; margin-bottom: 5px; }
+  .type-opt .opt-label { font-size: 13px; font-weight: 700; }
+  .type-opt .opt-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .field-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .help-icon {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--bg-card2); border: 1px solid var(--border);
+    color: var(--muted); font-size: 11px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: help; flex-shrink: 0;
+  }
+  .help-icon:hover { border-color: var(--gold); color: var(--gold); }
+  .field-hint { font-size: 12px; color: var(--muted); margin-top: 5px; }
+
+  .toggle-row { display: flex; gap: 10px; margin-bottom: 8px; }
+  .toggle-btn {
+    flex: 1; padding: 10px 8px; border: 1px solid var(--border2); border-radius: var(--radius-sm);
+    background: var(--bg-navy); color: var(--muted); font-size: 13px;
+    cursor: pointer; text-align: center; font-family: 'Heebo', sans-serif; transition: all 0.2s;
+  }
+  .toggle-btn.sel { border-color: var(--gold); background: rgba(201,168,76,0.1); color: var(--gold); }
+
+  /* ── SERVICE PERIODS ── */
+  /* ✅ FIX: scrollable container so user can go back to period 1 */
+  #periods-container {
+    max-height: 420px;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    padding-right: 4px;
+  }
+  #periods-container::-webkit-scrollbar { width: 4px; }
+  #periods-container::-webkit-scrollbar-track { background: var(--bg-navy); border-radius: 2px; }
+  #periods-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  #periods-container::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+  .period-row {
+    display: grid; grid-template-columns: 1fr 1fr auto;
+    gap: 10px; align-items: end;
+    padding: 12px 14px; margin-bottom: 8px;
+    background: var(--bg-navy); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); position: relative;
+  }
+  .period-row .period-num {
+    position: absolute; top: -10px; right: 12px;
+    font-size: 10px; color: var(--muted);
+    background: var(--bg-card); padding: 1px 8px; border-radius: 8px;
+    border: 1px solid var(--border2);
+  }
+  .period-label { font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+  .period-days  {
+    font-size: 11px; color: var(--green); margin-top: 4px;
+    font-family: monospace; min-height: 16px;
+  }
+  .period-days.error { color: var(--red); }
+  .remove-period-btn {
+    background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.3);
+    color: var(--red); border-radius: var(--radius-sm);
+    padding: 8px 10px; cursor: pointer; font-size: 14px;
+    font-family: 'Heebo', sans-serif; transition: all 0.2s;
+    align-self: end; margin-bottom: 0;
+  }
+  .remove-period-btn:hover { background: rgba(231,76,60,0.2); }
+  .add-period-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px; margin-top: 4px;
+    background: rgba(201,168,76,0.06); border: 1px dashed rgba(201,168,76,0.3);
+    border-radius: var(--radius-sm); color: var(--gold);
+    cursor: pointer; font-size: 13px; font-family: 'Heebo', sans-serif;
+    transition: all 0.2s; width: 100%; justify-content: center;
+  }
+  .add-period-btn:hover { background: rgba(201,168,76,0.12); border-color: var(--gold); }
+
+  /* Total days summary */
+  .days-summary {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; margin-top: 8px;
+    background: rgba(46,204,113,0.06); border: 1px solid rgba(46,204,113,0.2);
+    border-radius: var(--radius-sm); font-size: 13px;
+  }
+  .days-summary.warn { background: rgba(241,196,15,0.06); border-color: rgba(241,196,15,0.2); }
+  .days-total { font-size: 18px; font-weight: 700; color: var(--green); }
+  .days-total.warn { color: var(--yellow); }
+
+  .submit-section {
+    background: rgba(201,168,76,0.06); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px; text-align: center;
+  }
+
+  .field-error { font-size: 12px; color: var(--red); margin-top: 4px; display: none; }
+  .form-input.has-error, .form-select.has-error { border-color: var(--red) !important; }
+
+  .loading-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(10,22,40,0.85); z-index: 200;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+  }
+  .loading-overlay.show { display: flex; }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 4px solid var(--border); border-top-color: var(--gold);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .collector-page { padding: 24px 14px 60px; }
+    .two-col  { grid-template-columns: 1fr; }
+    .three-col { gap: 8px; }
+    .toggle-btn { font-size: 12px; padding: 8px 4px; }
+    .section-body { padding: 16px; }
+    .submit-section .btn { width: 100%; justify-content: center; }
+    .period-row { grid-template-columns: 1fr 1fr auto; gap: 8px; }
+  }
+  @media (max-width: 480px) {
+    .three-col { grid-template-columns: 1fr; }
+    .section-header { padding: 12px 14px; }
+    .section-title  { font-size: 14px; }
+    .type-opt       { padding: 12px 8px; }
+    .type-opt .opt-icon { font-size: 20px; }
+    .form-input, .form-select { font-size: 16px !important; }
+    /* Period row → stack on mobile */
+    .period-row { grid-template-columns: 1fr; }
+    .remove-period-btn { width: 100%; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="collector-page">
+
+  <div class="page-header anim" style="text-align:center">
+    <h2>🏛 בדיקת זכאות להנחה בארנונה</h2>
+    <p>מלאו את הפרטים — המנוע יחשב את זכאותכם תוך שניות</p>
+  </div>
+
+  <div class="form-steps anim anim-1">
+    <div class="fstep active"><span class="fstep-num">1</span> פרטים</div>
+    <span class="fstep-sep">›</span>
+    <div class="fstep pending"><span class="fstep-num">2</span> חישוב</div>
+    <span class="fstep-sep">›</span>
+    <div class="fstep pending"><span class="fstep-num">3</span> תוצאה</div>
+  </div>
+
+  <!-- Section 1: Service type -->
+  <div class="section-card anim anim-1">
+    <div class="section-header">
+      <div class="section-icon">🎖️</div>
+      <div>
+        <div class="section-title">סוג הזכאות</div>
+        <div class="section-sub">בחר את סוג הזכאות הרלוונטי לך</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="type-selector">
+        <div class="type-opt selected" data-type="SOLDIER" onclick="selectReserveType(this)">
+          <span class="opt-icon">🎖️</span>
+          <div class="opt-label">חייל מילואים</div>
+          <div class="opt-sub">תקנה 3ו — עד 5%</div>
+        </div>
+        <div class="type-opt" data-type="COMMANDER" onclick="selectReserveType(this)">
+          <span class="opt-icon">🎗️</span>
+          <div class="opt-label">מפקד מילואים</div>
+          <div class="opt-sub">תקנה 3ז — עד 25% על 100 מ"ר</div>
+        </div>
+      </div>
+      <input type="hidden" id="f-reserve-type" value="SOLDIER" />
+      <div class="form-group" style="margin-top:14px">
+        <label class="form-label">האם יש תעודת שירות מילואים פעיל תקפה?</label>
+        <select class="form-select" id="f-has-approval">
+          <option value="true">כן — יש תעודה תקפה</option>
+          <option value="false">לא — אין תעודה עדיין</option>
+        </select>
+        <div class="field-hint">⚠️ ללא תעודה תקפה לא ניתן לממש את ההנחה</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2: Service record — MULTIPLE PERIODS -->
+  <div class="section-card anim anim-2">
+    <div class="section-header">
+      <div class="section-icon">📋</div>
+      <div>
+        <div class="section-title">נתוני שירות מילואים</div>
+        <div class="section-sub">הוסף תקופות שירות — מ... עד... (ב-3 שנים האחרונות)</div>
+      </div>
+    </div>
+    <div class="section-body">
+
+      <!-- Service periods list -->
+      <div id="periods-container"></div>
+
+      <!-- ✅ FIX: Scroll to top button — appears when more than 1 period -->
+      <div id="scroll-to-top-bar" style="display:none; margin-bottom:6px;">
+        <button onclick="document.getElementById('periods-container').scrollTo({top:0,behavior:'smooth'})"
+          style="width:100%; padding:7px; font-size:12px; background:rgba(201,168,76,0.06);
+          border:1px dashed rgba(201,168,76,0.3); border-radius:6px; color:var(--muted);
+          cursor:pointer; font-family:'Heebo',sans-serif;">
+          ↑ חזור לתקופה הראשונה
+        </button>
+      </div>
+
+      <!-- Add period button -->
+      <button class="add-period-btn" onclick="addPeriod()">
+        ➕ הוסף תקופת שירות
+      </button>
+
+      <!-- Total days summary -->
+      <div class="days-summary" id="days-summary" style="display:none;">
+        <div>
+          <div style="font-size:12px;color:var(--muted);">סה"כ ימי שירות מצטברים</div>
+          <div class="days-total" id="total-days-display">0 ימים</div>
+        </div>
+        <div style="text-align:left;">
+          <div style="font-size:12px;color:var(--muted);">סטטוס זכאות</div>
+          <div id="eligibility-status" style="font-size:13px;font-weight:700;color:var(--green);">✔ עומד בדרישה המינימלית</div>
+        </div>
+      </div>
+
+      <div class="field-error" id="err-periods" style="margin-top:8px;">יש להוסיף לפחות תקופת שירות אחת</div>
+      <div class="field-hint" style="margin-top:8px;">נדרש מינימום 20 ימים מצטברים ב-3 שנים האחרונות — מקור: תקנה 3ו(א)</div>
+    </div>
+  </div>
+
+  <!-- Section 3: Property details -->
+  <div class="section-card anim anim-2">
+    <div class="section-header">
+      <div class="section-icon">🏠</div>
+      <div>
+        <div class="section-title">פרטי הנכס</div>
+        <div class="section-sub">נתוני הנכס שעליו מוטלת הארנונה</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="form-group">
+        <label class="form-label">האם אתה רשום כבעל/שוכר הנכס?</label>
+        <select class="form-select" id="f-property-holder" onchange="onPropertyHolderChange(this.value)">
+          <option value="true">כן — רשום כבעל/שוכר</option>
+          <option value="false">לא — איני הרשום</option>
+        </select>
+        <div id="err-property-holder" style="display:none; margin-top:8px; padding:10px 14px; background:rgba(241,196,15,0.08); border:1px solid rgba(241,196,15,0.3); border-radius:6px; font-size:13px; color:var(--yellow);">
+          ⚠️ רק בעל הנכס או שוכר רשום זכאי להנחה בארנונה. לא ניתן להגיש בקשה עבור נכס שאינך רשום עליו.
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="form-group">
+          <div class="field-row">
+            <label class="form-label" style="margin-bottom:0">ארנונה שנתית לפני הנחה (₪)</label>
+            <span class="help-icon" title="הסכום השנתי המלא לפני כל הנחה — מופיע בשובר הארנונה.">?</span>
+          </div>
+          <input class="form-input" type="number" id="f-annual-tax" placeholder="לדוגמה: 10000" min="1" />
+          <div class="field-error" id="err-annual-tax">יש להזין סכום ארנונה תקין</div>
+        </div>
+        <div class="form-group">
+          <div class="field-row">
+            <label class="form-label" style="margin-bottom:0">שיעור הנחה שאישרה הרשות (%)</label>
+            <span class="help-icon" title="לחייל עד 5%, למפקד עד 25%.">?</span>
+          </div>
+          <input class="form-input" type="number" id="f-discount-rate" placeholder="5" min="0" max="100" step="0.5" value="5" />
+        </div>
+      </div>
+      <div id="sqm-group" style="display:none">
+        <div class="form-group">
+          <div class="field-row">
+            <label class="form-label" style="margin-bottom:0">שטח הנכס (מ"ר)</label>
+            <span class="help-icon" title="למפקד — ההנחה חלה על 100 מ&quot;ר ראשונים בלבד.">?</span>
+          </div>
+          <input class="form-input" type="number" id="f-sqm" placeholder="לדוגמה: 120" min="1" />
+          <div class="field-hint">ההנחה תחושב על 100 מ"ר ראשונים בלבד</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">האם הרשות המקומית אישרה את ההנחה?</label>
+        <select class="form-select" id="f-municipality">
+          <option value="true">כן — הרשות המקומית אישרה</option>
+          <option value="false">לא — הרשות לא אישרה</option>
+          <option value="unknown">לא יודע</option>
+        </select>
+        <div class="field-hint">הנחה זו היא הנחת רשות — לא כל עיריה מעניקה אותה.</div>
+      </div>
+    </div>
+  </div>
+<!-- Section 4: Payment -->
+  <div class="section-card anim anim-3">
+    <div class="section-header">
+      <div class="section-icon">💳</div>
+      <div>
+        <div class="section-title">אופן תשלום</div>
+        <div class="section-sub">כיצד משולמת הארנונה</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="form-group">
+        <label class="form-label">שיטת תשלום:</label>
+        <div class="toggle-row">
+          <div class="toggle-btn sel" id="btn-upfront" onclick="setPayment('upfront')">💰 מראש</div>
+          <div class="toggle-btn" id="btn-install" onclick="setPayment('installments')">📅 תשלומים</div>
+        </div>
+        <input type="hidden" id="f-payment-upfront" value="true" />
+      </div>
+      <div id="installment-group" style="display:none">
+        <div class="form-group">
+          <label class="form-label">מספר תשלומים:</label>
+          <div class="three-col">
+            <div class="toggle-btn" id="inst-1"  onclick="setInstallments(1)">תשלום 1</div>
+            <div class="toggle-btn sel" id="inst-6"  onclick="setInstallments(6)">6 תשלומים</div>
+            <div class="toggle-btn" id="inst-12" onclick="setInstallments(12)">12 תשלומים</div>
+          </div>
+          <input type="hidden" id="f-installment-count" value="6" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <div class="submit-section anim anim-4">
+    <div id="submit-error" style="color:var(--red); font-size:13px; margin-bottom:12px; display:none;"></div>
+    <button class="btn btn-gold" style="font-size:17px; padding:16px 40px;" onclick="submitFacts()">
+      ▶ בדוק זכאות עכשיו
+    </button>
+    <div style="margin-top:12px; font-size:12px; color:var(--muted);">
+      🔒 הנתונים מחושבים מקומית — לא נשמרים ולא מועברים לגורם שלישי
+    </div>
+  </div>
+
+</div>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+  <div style="color:var(--white); font-size:16px; font-weight:600;">בודק זכאות...</div>
+  <div style="color:var(--muted); font-size:13px;">המנוע מחשב על פי הוראות החוק</div>
+</div>
+
+<script>
+// ── Service periods state ──────────────────────────────────────────────────
+let periodCount = 0;
+let periods     = []; // [{id, start, end, days}]
+
+// 3 years ago from today
+const THREE_YEARS_AGO = new Date();
+THREE_YEARS_AGO.setFullYear(THREE_YEARS_AGO.getFullYear() - 3);
+const TODAY = new Date();
+
+// Auto-format dd/mm/yyyy as user types
+function formatDateInput(input, pid, field) {
+  let digits = input.value.replace(/\D/g, '');
+  if (digits.length >= 3 && digits.length <= 4) {
+    input.value = digits.slice(0,2) + '/' + digits.slice(2);
+  } else if (digits.length >= 5) {
+    input.value = digits.slice(0,2) + '/' + digits.slice(2,4) + '/' + digits.slice(4,8);
+  }
+  // ✅ FIX: Only trigger validation when full 10 chars AND year is 4 digits
+  const val = input.value;
+  if (val.length === 10) {
+    const parts = val.split('/');
+    // Block if year is not exactly 4 digits — e.g. 03/03/36 is invalid
+    if (parts.length === 3 && parts[2].length === 4) {
+      onPeriodChange(pid);
+    }
+  }
+}
+
+// Convert dd/mm/yyyy → yyyy-mm-dd for calculations
+// ✅ FIX: Use local date constructor to avoid UTC timezone shift
+// ✅ FIX 2: Year must be exactly 4 digits — rejects 03/03/36 type invalid years
+function parseLocalDate(str) {
+  if (!str || str.length < 10) return null;
+  const parts = str.split('/');
+  if (parts.length !== 3) return null;
+  const yearStr = parts[2];
+  const day = parseInt(parts[0], 10), mon = parseInt(parts[1], 10), year = parseInt(yearStr, 10);
+  // Year must be exactly 4 digits AND in valid range
+  if (yearStr.length !== 4 || year < 1900 || year > 2100) return null;
+  if (mon < 1 || mon > 12 || day < 1 || day > 31) return null;
+  const d = new Date(year, mon - 1, day);
+  return isNaN(d) ? null : d;
+}
+
+// Format date as yyyy-mm-dd for API
+// BUG FIX: toISOString() shifts to UTC — in Israel (UTC+2/+3) midnight local
+// becomes previous day in UTC → wrong date sent to API.
+// Fix: build yyyy-mm-dd string directly from local date parts.
+function toIsoString(str) {
+  const d = parseLocalDate(str);
+  if (!d) return '';
+  const yyyy = d.getFullYear();
+  const mm   = String(d.getMonth() + 1).padStart(2, '0');
+  const dd   = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function fmtDateHe(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return '';
+  return d.toLocaleDateString('he-IL', {day:'2-digit', month:'2-digit', year:'numeric'});
+}
+
+function calcDays(start, end) {
+  if (!start || !end) return 0;
+  const s = new Date(start), e = new Date(end);
+  if (isNaN(s) || isNaN(e) || e < s) return 0;
+  // FIX: +1 to include both start and end date (IDF/Bituach Leumi standard)
+  // Example: 01/01/2026 → 20/01/2026 = 20 days (not 19)
+  return Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
+}
+
+function addPeriod() {
+  periodCount++;
+  const pid = 'period-' + periodCount;
+  periods.push({ id: pid, start: '', end: '', days: 0 });
+const div = document.createElement('div');
+  div.className = 'period-row';
+  div.id = pid;
+  div.innerHTML = `
+    <span class="period-num">תקופה ${periodCount}</span>
+    <div>
+      <div class="period-label">מתאריך</div>
+      <input class="form-input" type="text" id="${pid}-start"
+        placeholder="dd/mm/yyyy"
+        maxlength="10"
+        oninput="formatDateInput(this, '${pid}', 'start')"
+        onblur="onPeriodChange('${pid}')"
+        style="direction:ltr;text-align:left;" />
+    </div>
+    <div>
+      <div class="period-label">עד תאריך</div>
+      <input class="form-input" type="text" id="${pid}-end"
+        placeholder="dd/mm/yyyy"
+        maxlength="10"
+        oninput="formatDateInput(this, '${pid}', 'end')"
+        onblur="onPeriodChange('${pid}')"
+        style="direction:ltr;text-align:left;" />
+    </div>
+    <button class="remove-period-btn" onclick="removePeriod('${pid}')" title="הסר תקופה">✕</button>
+    <div style="grid-column:1/-1">
+      <div class="period-days" id="${pid}-days"></div>
+    </div>`;
+
+  document.getElementById('periods-container').appendChild(div);
+  updateTotalDays();
+
+  // ✅ FIX: Scroll new period into view smoothly
+  setTimeout(() => {
+    div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const startInput = document.getElementById(pid + '-start');
+    if (startInput) startInput.focus();
+  }, 50);
+}
+
+function removePeriod(pid) {
+  const el = document.getElementById(pid);
+  if (el) el.remove();
+  periods = periods.filter(p => p.id !== pid);
+  updateTotalDays();
+}
+
+function onPeriodChange(pid) {
+  const startEl  = document.getElementById(pid + '-start');
+  const endEl    = document.getElementById(pid + '-end');
+  const daysEl   = document.getElementById(pid + '-days');
+  const startStr = startEl?.value || '';
+  const endStr   = endEl?.value   || '';
+
+  startEl?.classList.remove('has-error');
+  endEl?.classList.remove('has-error');
+
+  // Only validate when both fields have 10 chars (dd/mm/yyyy)
+  if (startStr.length < 10 || endStr.length < 10) {
+    if (daysEl) { daysEl.textContent = ''; daysEl.className = 'period-days'; }
+    updatePeriod(pid, '', '', 0);
+    return;
+  }
+
+  const s = parseLocalDate(startStr);
+  const e = parseLocalDate(endStr);
+
+  if (!s) {
+    startEl?.classList.add('has-error');
+    // ✅ FIX: Show specific error for non-4-digit year
+    const startYear = startStr.split('/')[2] || '';
+    const startMsg = startYear.length !== 4
+      ? '⚠️ שנה לא תקינה — יש להזין 4 ספרות (למשל: 2024)'
+      : '⚠️ תאריך התחלה לא תקין — יש להזין dd/mm/yyyy';
+    if (daysEl) { daysEl.textContent = startMsg; daysEl.className = 'period-days error'; }
+    updatePeriod(pid, '', '', 0); return;
+  }
+  if (!e) {
+    endEl?.classList.add('has-error');
+    // ✅ FIX: Show specific error for non-4-digit year
+    const endYear = endStr.split('/')[2] || '';
+    const endMsg = endYear.length !== 4
+      ? '⚠️ שנה לא תקינה — יש להזין 4 ספרות (למשל: 2024)'
+      : '⚠️ תאריך סיום לא תקין — יש להזין dd/mm/yyyy';
+    if (daysEl) { daysEl.textContent = endMsg; daysEl.className = 'period-days error'; }
+    updatePeriod(pid, '', '', 0); return;
+  }
+  // ✅ FIX: Allow same-day service (e < s only blocks, e === s = 1 day is valid)
+  // Israel reserve service can be 1 day or even half-day (counted as 1 day)
+  if (e < s) {
+    endEl?.classList.add('has-error');
+    if (daysEl) { daysEl.textContent = '⚠️ תאריך סיום חייב להיות שווה או אחרי תאריך התחלה'; daysEl.className = 'period-days error'; }
+    updatePeriod(pid, '', '', 0); return;
+  }
+  if (s < THREE_YEARS_AGO) {
+    startEl?.classList.add('has-error');
+    if (daysEl) { daysEl.textContent = '⚠️ תאריך מחוץ לטווח 3 השנים האחרונות'; daysEl.className = 'period-days error'; }
+    updatePeriod(pid, '', '', 0); return;
+  }
+  if (e > TODAY) {
+    endEl?.classList.add('has-error');
+    if (daysEl) { daysEl.textContent = '⚠️ תאריך סיום לא יכול להיות בעתיד'; daysEl.className = 'period-days error'; }
+    updatePeriod(pid, '', '', 0); return;
+  }
+
+  // All good!
+  const isoStart = toIsoString(startStr);
+  const isoEnd   = toIsoString(endStr);
+  const days     = calcDays(isoStart, isoEnd);
+  if (daysEl) { daysEl.textContent = `✔ ${days} ימי שירות (${startStr} — ${endStr})`; daysEl.className = 'period-days'; }
+  updatePeriod(pid, isoStart, isoEnd, days);
+}
+
+function updatePeriod(pid, start, end, days) {
+  const p = periods.find(x => x.id === pid);
+  if (p) { p.start = start; p.end = end; p.days = days; }
+  updateTotalDays();
+}
+
+function updateTotalDays() {
+  const total   = periods.reduce((sum, p) => sum + (p.days || 0), 0);
+
+  // ✅ FIX: Show scroll-to-top button when more than 1 period exists
+  const scrollBar = document.getElementById('scroll-to-top-bar');
+  const rowCount  = document.querySelectorAll('.period-row').length;
+  if (scrollBar) scrollBar.style.display = rowCount > 1 ? 'block' : 'none';
+
+  const summary = document.getElementById('days-summary');
+  const display = document.getElementById('total-days-display');
+  const status  = document.getElementById('eligibility-status');
+
+  if (periods.length === 0 || document.querySelectorAll('.period-row').length === 0) {
+    if (summary) summary.style.display = 'none';
+    return;
+  }
+
+  if (summary) summary.style.display = 'flex';
+  if (display) {
+    display.textContent = total + ' ימים';
+    display.className   = 'days-total' + (total < 20 ? ' warn' : '');
+  }
+  if (summary) summary.className = 'days-summary' + (total < 20 ? ' warn' : '');
+  if (status) {
+    if (total >= 20) {
+      status.textContent = '✔ עומד בדרישה המינימלית (20+ ימים)';
+      status.style.color = 'var(--green)';
+    } else {
+      status.textContent = `⚠️ חסרים ${20 - total} ימים למינימום`;
+      status.style.color = 'var(--yellow)';
+    }
+  }
+}
+// ── Type / Payment / Installments ─────────────────────────────────────────
+// ✅ FIX: Live warning when property holder = false
+function onPropertyHolderChange(val) {
+  const errEl = document.getElementById('err-property-holder');
+  const submitBtn = document.getElementById('submit-error');
+  if (val === 'false') {
+    errEl.style.display = 'block';
+  } else {
+    errEl.style.display = 'none';
+    if (submitBtn) submitBtn.style.display = 'none';
+  }
+}
+
+function selectReserveType(el) {
+  document.querySelectorAll('.type-opt').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  const type = el.dataset.type;
+  document.getElementById('f-reserve-type').value = type;
+  document.getElementById('sqm-group').style.display = type === 'COMMANDER' ? '' : 'none';
+  document.getElementById('f-discount-rate').value   = type === 'COMMANDER' ? '25' : '5';
+}
+
+function setPayment(mode) {
+  const upfront = mode === 'upfront';
+  document.getElementById('btn-upfront').classList.toggle('sel', upfront);
+  document.getElementById('btn-install').classList.toggle('sel', !upfront);
+  document.getElementById('f-payment-upfront').value = upfront ? 'true' : 'false';
+  document.getElementById('installment-group').style.display = upfront ? 'none' : '';
+}
+
+function setInstallments(n) {
+  [1,6,12].forEach(v => document.getElementById('inst-'+v).classList.toggle('sel', v===n));
+  document.getElementById('f-installment-count').value = n;
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const type = new URLSearchParams(window.location.search).get('type');
+  if (type === 'commander') {
+    const el = document.querySelector('[data-type="COMMANDER"]');
+    if (el) selectReserveType(el);
+  }
+  // Add first period by default
+  addPeriod();
+});
+
+// ── Validation ─────────────────────────────────────────────────────────────
+function showErr(id, msg) {
+  const e = document.getElementById('err-'+id); const i = document.getElementById('f-'+id);
+  if (e) { e.textContent=msg; e.style.display='block'; }
+  if (i) i.classList.add('has-error');
+}
+function clearErr(id) {
+  const e = document.getElementById('err-'+id); const i = document.getElementById('f-'+id);
+  if (e) e.style.display='none';
+  if (i) i.classList.remove('has-error');
+}
+
+function validate() {
+  let ok = true;
+  clearErr('annual-tax');
+  document.getElementById('err-periods').style.display = 'none';
+
+  // ✅ FIX: Block submit if user is not registered as property holder
+  const holderVal = document.getElementById('f-property-holder').value;
+  const errEl = document.getElementById('submit-error');
+  if (holderVal === 'false') {
+    errEl.textContent = '⚠️ רק בעל הנכס או שוכר רשום זכאי להנחה בארנונה. לא ניתן להגיש בקשה עבור נכס שאינך רשום עליו.';
+    errEl.style.display = 'block';
+    errEl.style.color = 'var(--yellow)';
+    // Scroll to error
+    errEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    return false;
+  } else {
+    errEl.style.display = 'none';
+  }
+
+  // Check periods
+  const activePeriods = [...document.querySelectorAll('.period-row')];
+  if (activePeriods.length === 0) {
+    document.getElementById('err-periods').style.display = 'block';
+    ok = false;
+  }
+
+  // Check total days — warn if < 20 but don't block
+  const totalDays = periods.reduce((sum, p) => sum + (p.days || 0), 0);
+  if (totalDays < 1) {
+    document.getElementById('err-periods').textContent = 'יש למלא לפחות תקופת שירות אחת עם תאריכים תקינים';
+    document.getElementById('err-periods').style.display = 'block';
+    ok = false;
+  } else if (totalDays < 20) {
+    // Warning only — allow submit so user can see result and come back
+    document.getElementById('err-periods').textContent = `⚠️ ${totalDays} ימים — פחות מהמינימום הנדרש (20 ימים). ניתן להמשיך אך ייתכן שלא תמצא זכאות.`;
+    document.getElementById('err-periods').style.display = 'block';
+    document.getElementById('err-periods').style.color = 'var(--yellow)';
+    // Don't set ok = false — allow submit
+  }
+
+  const tax = parseFloat(document.getElementById('f-annual-tax').value)||0;
+  if (tax<=0) { showErr('annual-tax','יש להזין סכום ארנונה שנתי תקין'); ok=false; }
+
+  const type = document.getElementById('f-reserve-type').value;
+  const sqm  = parseFloat(document.getElementById('f-sqm')?.value)||0;
+  // BUG FIX: errEl already declared above with const — using existing reference
+  if (type==='COMMANDER' && sqm<=0) {
+    errEl.textContent='למפקד מילואים נדרש שטח הנכס (מ"ר)'; errEl.style.display='block'; ok=false;
+  } else { errEl.style.display='none'; }
+
+  return ok;
+}
+
+// ── Submit ─────────────────────────────────────────────────────────────────
+async function submitFacts() {
+  if (!validate()) return;
+  const overlay = document.getElementById('loading-overlay');
+  overlay.classList.add('show');
+  try {
+    const sessRes = await fetch('/api/session/start', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    if (!sessRes.ok) throw new Error('שגיאה ביצירת session');
+    const { session_id } = await sessRes.json();
+
+    const type     = document.getElementById('f-reserve-type').value;
+    const totalDays = periods.reduce((sum, p) => sum + (p.days || 0), 0);
+    const tax      = parseFloat(document.getElementById('f-annual-tax').value)||0;
+    const rate     = parseFloat(document.getElementById('f-discount-rate').value)||0;
+    const sqm      = parseFloat(document.getElementById('f-sqm')?.value)||0;
+    const holder   = document.getElementById('f-property-holder').value;
+    const munic    = document.getElementById('f-municipality').value;
+    const upfront  = document.getElementById('f-payment-upfront').value;
+    const installs = parseInt(document.getElementById('f-installment-count').value)||6;
+    const approval = document.getElementById('f-has-approval').value;
+
+    // Get first and last date from all periods
+    const validPeriods = periods.filter(p => p.start && p.end && p.days > 0);
+    const allStarts    = validPeriods.map(p => p.start).sort();
+    const allEnds      = validPeriods.map(p => p.end).sort();
+    const firstStart   = allStarts[0] || '';
+    const lastEnd      = allEnds[allEnds.length - 1] || '';
+
+    const facts = [
+      {fact_type:'RESERVE_TYPE',        value:JSON.stringify(type)},
+      {fact_type:'SERVICE_DAYS_3Y',     value:JSON.stringify(totalDays)},
+      {fact_type:'IS_PROPERTY_HOLDER',  value:holder},
+      {fact_type:'ANNUAL_TAX_ILS',      value:JSON.stringify(tax)},
+      {fact_type:'DISCOUNT_RATE_PCT',   value:JSON.stringify(rate)},
+      // ✅ FIX: 3 options — true/false/unknown (unknown treated as true to not block eligibility check)
+      {fact_type:'MUNICIPALITY_GRANTS', value: munic === 'false' ? 'false' : munic === 'unknown' ? 'true' : 'true'},
+      {fact_type:'PAYMENT_UPFRONT',     value:upfront},
+      {fact_type:'INSTALLMENT_COUNT',   value:JSON.stringify(installs)},
+    ];
+    if (sqm > 0)       facts.push({fact_type:'PROPERTY_SIZE_SQM',  value:JSON.stringify(sqm)});
+    if (firstStart)    facts.push({fact_type:'SERVICE_START_DATE',  value:JSON.stringify(firstStart)});
+    if (lastEnd)       facts.push({fact_type:'SERVICE_END_DATE',    value:JSON.stringify(lastEnd)});
+
+    // ✅ FIX: SERVICE_PERIOD facts — broken line restored
+    validPeriods.forEach((p, i) => {
+      if (i < 10) {
+        facts.push({
+          fact_type: 'SERVICE_PERIOD_' + (i + 1),
+          value: JSON.stringify({ start: p.start, end: p.end, days: p.days }),
+        });
+      }
+    });
+const factRes = await fetch('/api/facts', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({session_id,facts}) });
+    if (!factRes.ok) { const err=await factRes.json().catch(()=>({})); throw new Error(err.detail||'שגיאה בשמירת פרטים'); }
+
+    window.location.href = `/screen11?session_id=${session_id}`;
+  } catch(e) {
+    overlay.classList.remove('show');
+    const errEl = document.getElementById('submit-error');
+    errEl.textContent='❌ '+e.message; errEl.style.display='block';
+  }
+}
+</script>
+{% endblock %}
