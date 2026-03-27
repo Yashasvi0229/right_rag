@@ -393,10 +393,7 @@ function loadApiExplanation(type, tax, rate, sqm, upfront, installs) {
         const expBox = document.getElementById('explanation-box');
         expBox.textContent   = rights[0].explanation_he;
         expBox.style.display = 'block';
-        const chain = rights[0].evidence_chain || [];
-        if (chain.length > 0) {
-          document.getElementById('source-refs').textContent = chain.map(e => e.clause_id ? e.clause_id.slice(-8) : '').filter(Boolean).join(', ');
-        }
+        
       }
     } catch(e) { /* silent — local calc already shown */ }
   }, 600);
