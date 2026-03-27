@@ -521,8 +521,13 @@ function filterByDoc(docId, clickedTag) {
 
   document.querySelectorAll('.engine-card').forEach(card => {
     if (docId === 'ALL') {
-      // ALL selected — show everything, no dimming/hiding
+      // ALL selected — hide seed-only cards unless showAllMode is ON
       card.classList.remove('doc-hidden', 'doc-dimmed', 'doc-current');
+      const isSeed = card.dataset.seed === 'true';
+      const hasDocs = (card.dataset.docs || '').split(',').filter(Boolean).length > 0;
+      if (!showAllMode && isSeed && !hasDocs) {
+        card.classList.add('doc-hidden');
+      }
     } else {
       const docs = (card.dataset.docs || '').split(',').filter(Boolean);
       const isSeed = card.dataset.seed === 'true';
