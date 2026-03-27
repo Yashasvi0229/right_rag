@@ -242,10 +242,10 @@
               </div>
             </div>
             <div style="margin-top:8px">
-              <select class="form-select" id="doc-id-select">
+              <select class="form-select" id="doc-id-select" onchange="onSourceSelect(this)">
                 <option value="">— בחר מקור מאושר —</option>
                 {% for src in approved_sources %}
-                <option value="{{ src.doc_id }}">{{ src.doc_id }}{% if src.title %} — {{ src.title[:40] }}{% endif %}</option>
+                <option value="{{ src.doc_id }}" data-date="{{ src.publication_date }}">{{ src.doc_id }}{% if src.title %} — {{ src.title[:40] }}{% endif %}</option>
                 {% endfor %}
               </select>
             </div>
@@ -358,6 +358,19 @@
 <script>
 let selectedFile = null;
 let selectedType = 'חוק';
+
+function onSourceSelect(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  const date = opt.getAttribute('data-date') || '';
+  if (date) {
+    // Convert YYYY-MM-DD → DD/MM/YYYY for display
+    const parts = date.split('-');
+    if (parts.length === 3) {
+      document.getElementById('pub-date').value = parts[2] + '/' + parts[1] + '/' + parts[0];
+      validateDateInput(document.getElementById('pub-date'));
+    }
+  }
+}
 
 function setType(btn) {
   document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
