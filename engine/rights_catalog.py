@@ -212,7 +212,7 @@ def seed_rights_catalog():
                 doc["publisher"],
                 doc["publication_date"],
                 doc["file_hash"],
-                now,
+                doc["publication_date"] + "T00:00:00+00:00",  # fixed seed date, not today
                 doc["ingested_by"],
             ))
 
