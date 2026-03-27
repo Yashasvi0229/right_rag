@@ -519,6 +519,8 @@ async function uploadDocument() {
         </div>`).join('');
     } else if (res.status === 409) {
       showAlert('⚠️ ' + (data.detail || 'המסמך לא השתנה — העלה גרסה עדכנית'), 'warning');
+    } else if (res.status === 400 && (data.detail || '').includes('not on approved source list')) {
+      showAlert('❌ מסמך זה אינו ברשימת המקורות המאושרים. יש לבחור מזהה מסמך מהרשימה הנפתחת.', 'error');
     } else {
       showAlert('❌ ' + (data.detail || 'שגיאה'), 'error');
     }
