@@ -235,7 +235,7 @@
 
     <!-- ── RESERVE ── -->
     {% set reserve_rights = rights | selectattr('subcategory_tag','in',['Reserve_Soldiers','Reserve_Commander','Reserve_Large_Family']) | list %}
-    <div class="category-divider anim anim-2">🎖️ קטגוריה: מילואים ({{ reserve_rights | length }} זכויות)</div>
+    <div class="category-divider anim anim-2" id="divider-reserve">🎖️ קטגוריה: מילואים (<span id="count-reserve">0</span> זכויות)</div>
 
     {% for right in rights %}
     {% if right.subcategory_tag in ('Reserve_Soldiers', 'Reserve_Commander', 'Reserve_Large_Family') %}
@@ -342,7 +342,7 @@
 
     <!-- ── LOW INCOME / SENIOR ── -->
     {% set lowincome_rights = rights | selectattr('subcategory_tag','in',['Low_Income','Senior_Income_Support','Senior_Pension','Women_Retirement_Age','Special_Hardship']) | list %}
-    <div class="category-divider anim anim-3">👴 קטגוריה: מעוטי יכולת ואזרחים ותיקים ({{ lowincome_rights | length }} זכויות)</div>
+    <div class="category-divider anim anim-3" id="divider-lowincome">👴 קטגוריה: מעוטי יכולת ואזרחים ותיקים (<span id="count-lowincome">0</span> זכויות)</div>
 
     {% for right in rights %}
     {% if right.subcategory_tag in ('Low_Income', 'Senior_Income_Support', 'Senior_Pension', 'Women_Retirement_Age', 'Special_Hardship') %}
@@ -511,6 +511,7 @@ function applyView() {
     }
     divider.style.display = hasVisible ? '' : 'none';
   });
+  updateCounts();
 }
 
 // ── Filter by source doc (doc-only mode) ──────────────────────────────────
@@ -560,6 +561,25 @@ function filterByDoc(docId, clickedTag) {
     }
     divider.style.display = hasVisible ? '' : 'none';
   });
+  updateCounts();
+}
+
+function updateCounts() {
+  // Count visible cards per category and update divider spans
+  const reserveCards = document.querySelectorAll(
+    '#card-ARNONA-RESERVE-STANDARD-001, #card-ARNONA-RESERVE-COMMANDER-002, #card-ARNONA-RESERVE-FAMILY5-003'
+  );
+  const lowincomCards = document.querySelectorAll(
+    '#card-ARNONA-LOWINCOME-SENIOR100-004, #card-ARNONA-LOWINCOME-SENIOR25-005, #card-ARNONA-LOWINCOME-INCOME70-006, #card-ARNONA-LOWINCOME-WOMEN6267-007, #card-ARNONA-LOWINCOME-SPECIAL70-008'
+  );
+
+  const visibleReserve   = [...reserveCards].filter(c => !c.classList.contains('doc-hidden')).length;
+  const visibleLowincome = [...lowincomCards].filter(c => !c.classList.contains('doc-hidden')).length;
+
+  const cR = document.getElementById('count-reserve');
+  const cL = document.getElementById('count-lowincome');
+  if (cR) cR.textContent = visibleReserve;
+  if (cL) cL.textContent = visibleLowincome;
 }
 
 function toggleBody(header) {
