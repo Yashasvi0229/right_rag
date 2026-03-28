@@ -367,12 +367,23 @@ function onSourceSelect(sel) {
   const opt = sel.options[sel.selectedIndex];
   const date = opt.getAttribute('data-date') || '';
   if (date) {
-    // Convert YYYY-MM-DD → DD/MM/YYYY for display
     const parts = date.split('-');
     if (parts.length === 3) {
       document.getElementById('pub-date').value = parts[2] + '/' + parts[1] + '/' + parts[0];
       validateDateInput(document.getElementById('pub-date'));
     }
+  }
+  // Show selected source title in upload zone
+  const fullText = opt.textContent.trim();
+  const dashIdx  = fullText.indexOf(' — ');
+  const title    = dashIdx !== -1 ? fullText.slice(dashIdx + 3) : fullText;
+  if (title && title.trim() && sel.value) {
+    const t = title.trim();
+    document.getElementById('zone-title').textContent = t.length > 55 ? t.slice(0,55) + '...' : t;
+    document.getElementById('zone-title').style.fontSize = '13px';
+  } else if (!sel.value) {
+    document.getElementById('zone-title').textContent = 'גרור קובץ לכאן';
+    document.getElementById('zone-title').style.fontSize = '';
   }
 }
 
@@ -385,8 +396,7 @@ function setType(btn) {
 function onFileSelected(input) {
   if (input.files && input.files[0]) {
     selectedFile = input.files[0];
-    document.getElementById('zone-title').textContent = selectedFile.name;
-    document.getElementById('zone-sub').textContent   = (selectedFile.size/1024/1024).toFixed(2) + ' MB';
+    document.getElementById('zone-sub').textContent = selectedFile.name + ' · ' + (selectedFile.size/1024/1024).toFixed(2) + ' MB';
   }
 }
 
@@ -396,8 +406,7 @@ function onDrop(e) {
   const f = e.dataTransfer.files[0];
   if (f) {
     selectedFile = f;
-    document.getElementById('zone-title').textContent = f.name;
-    document.getElementById('zone-sub').textContent   = (f.size/1024/1024).toFixed(2) + ' MB';
+    document.getElementById('zone-sub').textContent = f.name + ' · ' + (f.size/1024/1024).toFixed(2) + ' MB';
   }
 }
 
