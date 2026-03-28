@@ -228,7 +228,7 @@
                 {% elif c.clause_type == 'DEFINITION' %}📖 הגדרה
                 {% else %}📋 הליך{% endif %}
               </span>
-              <span class="source-ref">{{ c.section_ref }} · SHA:{{ c.clause_id[-6:] }}</span>
+              <span class="source-ref">{{ c.section_ref }} · {{ c.submitted_at[:10] if c.submitted_at else "" }} · SHA:{{ c.clause_id[-6:] }}</span>
             </div>
           </div>
           <div class="clause-actions" id="actions-{{ c.clause_id }}"></div>
@@ -493,7 +493,7 @@ async function loadApprovedClauses() {
           <div class="clause-text">${escHtml(text)}</div>
           <div class="clause-meta">
             <span class="indicator ${typeClass}">${typeLabel}</span>
-            <span class="source-ref">${escHtml(c.section_ref||'')} · SHA:${(c.clause_id||'').slice(-6)}</span>
+            <span class="source-ref">${escHtml(c.section_ref||'')} · ${(c.created_at||'').slice(0,10)} · SHA:${(c.clause_id||'').slice(-6)}</span>
           </div>
         </div>
         <div class="clause-actions" id="actions-${c.clause_id}"></div>
