@@ -202,6 +202,44 @@
     <div class="fstep pending"><span class="fstep-num">3</span> תוצאה</div>
   </div>
 
+  <!-- Section 0: Municipality check — FIRST step per flowchart -->
+  <div class="section-card anim anim-1" id="section-municipality">
+    <div class="section-header">
+      <div class="section-icon">🏛</div>
+      <div>
+        <div class="section-title">בדיקת רשות מקומית</div>
+        <div class="section-sub">שלב ראשון — האם הרשות שלך מעניקה את ההנחה?</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="form-group">
+        <label class="form-label">האם הרשות המקומית אישרה את ההנחה לחיילי מילואים?</label>
+        <div class="toggle-row" style="margin-top:8px">
+          <div class="toggle-btn" id="munic-yes" onclick="setMunicipality('true')">✅ כן — אישרה</div>
+          <div class="toggle-btn" id="munic-unknown" onclick="setMunicipality('unknown')" style="border-color:var(--gold);background:rgba(201,168,76,0.1);color:var(--gold)">❓ לא יודע</div>
+          <div class="toggle-btn" id="munic-no" onclick="setMunicipality('false')">❌ לא — לא אישרה</div>
+        </div>
+        <input type="hidden" id="f-municipality" value="unknown" />
+        <div class="field-hint" style="margin-top:8px">הנחה זו היא הנחת רשות — לא כל עיריה מעניקה אותה.</div>
+      </div>
+      <!-- End flow if municipality said NO -->
+      <div id="munic-no-block" style="display:none; margin-top:16px; padding:16px; background:rgba(231,76,60,0.08); border:1px solid rgba(231,76,60,0.3); border-radius:var(--radius-sm);">
+        <div style="font-size:15px; font-weight:700; color:var(--red); margin-bottom:8px;">⛔ הרשות המקומית לא מעניקה הנחה זו</div>
+        <div style="font-size:13px; color:var(--muted); line-height:1.7;">
+          מכיוון שהרשות המקומית שלך לא אישרה את הנחת המילואים, לא ניתן לממש את הזכות כרגע.<br><br>
+          ניתן לפנות לרשות המקומית ולבקש שיאמצו את ההנחה, או לבדוק שוב אם המצב השתנה.
+        </div>
+        <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="setMunicipality('unknown')" style="font-size:13px; padding:10px 18px;">← חזור לבדיקה</button>
+          <a href="/screen8" class="btn btn-outline" style="font-size:13px; padding:10px 18px; color:var(--blue-acc); border-color:var(--blue-acc);">מידע על ערר ←</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sections 1-4 hidden until municipality answered -->
+  <div id="main-form-sections" style="display:none">
+
   <!-- Section 1: Service type -->
   <div class="section-card anim anim-1">
     <div class="section-header">
@@ -329,15 +367,7 @@
           <div class="field-hint">ההנחה תחושב על 100 מ"ר ראשונים בלבד</div>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">האם הרשות המקומית אישרה את ההנחה?</label>
-        <select class="form-select" id="f-municipality">
-          <option value="true">כן — הרשות המקומית אישרה</option>
-          <option value="false">לא — הרשות לא אישרה</option>
-          <option value="unknown">לא יודע</option>
-        </select>
-        <div class="field-hint">הנחה זו היא הנחת רשות — לא כל עיריה מעניקה אותה.</div>
-      </div>
+
     </div>
   </div>
 
@@ -687,6 +717,38 @@ function updateTotalDays() {
       status.textContent = `⚠️ חסרים ${20 - total} ימים למינימום`;
       status.style.color = 'var(--yellow)';
     }
+  }
+}
+
+// ── Municipality check — Step 1 ──────────────────────────────────────────
+function setMunicipality(val) {
+  document.getElementById('f-municipality').value = val;
+
+  // Reset all buttons
+  ['munic-yes','munic-unknown','munic-no'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.classList.remove('sel'); el.style.borderColor=''; el.style.background=''; el.style.color=''; }
+  });
+
+  // Highlight selected
+  const btnId = val === 'true' ? 'munic-yes' : val === 'false' ? 'munic-no' : 'munic-unknown';
+  const btn = document.getElementById(btnId);
+  if (btn) { btn.style.borderColor='var(--gold)'; btn.style.background='rgba(201,168,76,0.1)'; btn.style.color='var(--gold)'; }
+
+  const noBlock    = document.getElementById('munic-no-block');
+  const mainSecs   = document.getElementById('main-form-sections');
+  const submitSec  = document.querySelector('.submit-section');
+
+  if (val === 'false') {
+    // Municipality said NO — show end block, hide rest
+    if (noBlock)   noBlock.style.display   = 'block';
+    if (mainSecs)  mainSecs.style.display  = 'none';
+    if (submitSec) submitSec.style.display = 'none';
+  } else {
+    // Yes or Unknown — show main form
+    if (noBlock)   noBlock.style.display   = 'none';
+    if (mainSecs)  mainSecs.style.display  = 'block';
+    if (submitSec) submitSec.style.display = 'block';
   }
 }
 
