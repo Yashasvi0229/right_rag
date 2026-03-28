@@ -470,7 +470,7 @@ async function loadApprovedClauses() {
   if (emptyState) emptyState.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">⏳ טוען סעיפים מאושרים...</div>';
 
   try {
-    const res = await fetch('/api/clauses/approved');
+    const res = await fetch('/api/clauses');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const clauses = await res.json();
 
