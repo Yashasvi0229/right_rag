@@ -113,6 +113,17 @@
       <div class="step active"><span class="step-num">6</span> אישור</div>
     </div>
 
+    <!-- ★ NEW: Pending clauses with unified approval -->
+    <div class="card anim anim-1" id="pending-clauses-card" style="margin-bottom:20px">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <span>📋 סעיפים ממתינים לאישור</span>
+        <span id="pending-count-badge" class="badge badge-yellow">⏳ טוען...</span>
+      </div>
+      <div id="pending-clauses-list">
+        <div style="color:var(--muted);font-size:13px;padding:8px 0">⏳ טוען סעיפים...</div>
+      </div>
+    </div>
+
     <!-- Expert sig — engine ID loaded dynamically -->
     <div class="expert-sig anim anim-1">
       <div class="sig-avatar">⚖️</div>
@@ -199,8 +210,160 @@
 <script>
 let ENGINE_ID  = null;
 let engineData = null;
+let allRights  = [];
 
-document.addEventListener('DOMContentLoaded', loadEngineData);
+document.addEventListener('DOMContentLoaded', () => {
+  loadEngineData();
+  loadPendingClauses();
+});
+
+// ★ NEW: Load pending clauses with unified approval UI
+async function loadPendingClauses() {
+  try {
+    const [pendingRes, rightsRes] = await Promise.all([
+      fetch('/api/review/pending'),
+      fetch('/api/rights'),
+    ]);
+    const pending = await pendingRes.json();
+    allRights     = await rightsRes.json();
+
+    const badge = document.getElementById('pending-count-badge');
+    const list  = document.getElementById('pending-clauses-list');
+
+    if (!pending.length) {
+      badge.textContent = '✅ אין סעיפים ממתינים';
+      badge.className   = 'badge badge-green';
+      list.innerHTML    = '<div style="color:var(--muted);font-size:13px;padding:8px 0">אין סעיפים ממתינים לאישור</div>';
+      return;
+    }
+
+    badge.textContent = `${pending.length} ממתינים`;
+    badge.className   = 'badge badge-yellow';
+
+    list.innerHTML = '';
+    for (const clause of pending) {
+      const detected = detectDiscountInText(clause.text);
+      const card     = buildClauseCard(clause, detected);
+      list.appendChild(card);
+    }
+  } catch(e) {
+    document.getElementById('pending-clauses-list').innerHTML =
+      `<span style="color:var(--red)">שגיאה: ${escHtml(e.message)}</span>`;
+  }
+}
+
+// Detect % value in clause text (mirrors backend logic)
+function detectDiscountInText(text) {
+  if (!text) return null;
+  const matches = text.match(/(\d+(?:\.\d+)?)\s*%/g);
+  if (!matches) return null;
+  for (const m of matches) {
+    const val = parseFloat(m);
+    if (val >= 1 && val <= 100) return val;
+  }
+  return null;
+}
+
+function buildClauseCard(clause, detectedPct) {
+  const div = document.createElement('div');
+  div.id    = `clause-card-${clause.clause_id}`;
+  div.dataset.detectedPct = detectedPct !== null ? detectedPct : '';
+  div.style.cssText = 'background:var(--bg-navy);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:14px;margin-bottom:12px';
+
+  const rightOptions = allRights.map(r =>
+    `<option value="${escHtml(r.catalog_id)}">${escHtml(r.catalog_id)} — ${escHtml(r.name)} (${r.discount_value}%)</option>`
+  ).join('');
+
+  const suggestionHTML = detectedPct !== null ? `
+    <div id="suggestion-${clause.clause_id}"
+      style="margin-top:10px;padding:10px 14px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.4);border-radius:6px;font-size:13px;">
+      ⚡ <strong style="color:var(--gold)">זוהה ${detectedPct}% בטקסט</strong> — עדכן ערך הנחה בזכות?
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+        <select id="catalog-sel-${clause.clause_id}" class="form-select" style="flex:1;min-width:160px;font-size:12px">
+          <option value="">בחר זכות לעדכון...</option>
+          ${rightOptions}
+        </select>
+        <span style="color:var(--muted);font-size:12px">→ ${detectedPct}%</span>
+      </div>
+    </div>` : '';
+
+  div.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap">
+      <span class="badge badge-blue" style="font-size:11px;flex-shrink:0">${escHtml(clause.clause_type)}</span>
+      <span style="font-size:12px;color:var(--muted);flex-shrink:0">${escHtml(clause.section_ref||'לא צוין')}</span>
+      <span style="font-size:12px;color:var(--muted);flex-shrink:0">${escHtml(clause.source_doc_id||'')}</span>
+    </div>
+    <div style="margin-top:8px;font-size:13px;color:var(--white);direction:rtl;line-height:1.6;max-height:80px;overflow:hidden;text-overflow:ellipsis">
+      ${escHtml((clause.text||'').slice(0,300))}${(clause.text||'').length>300?'…':''}
+    </div>
+    ${suggestionHTML}
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn btn-gold" style="font-size:12px;padding:8px 16px"
+        onclick="unifiedApprove('${clause.clause_id}', ${detectedPct !== null})">
+        ✅ ${detectedPct !== null ? 'אשר טקסט + עדכן ערך' : 'אשר סעיף'}
+      </button>
+      <button class="btn btn-outline" style="font-size:12px;padding:8px 14px;color:var(--red);border-color:var(--red)"
+        onclick="rejectClause('${clause.clause_id}')">
+        ❌ דחה
+      </button>
+    </div>
+  `;
+  return div;
+}
+
+async function unifiedApprove(clauseId, hasSuggestion) {
+  const body = {
+    clause_id:   clauseId,
+    reviewed_by: 'expert',
+    review_note: document.getElementById('expert-note')?.value?.trim() || null,
+  };
+
+  // ★ NEW: If suggestion exists and catalog selected → unified approval
+  if (hasSuggestion) {
+    const sel = document.getElementById(`catalog-sel-${clauseId}`);
+    if (sel && sel.value) {
+      // Read detected value from data attribute stored at card build time
+      const card    = document.getElementById(`clause-card-${clauseId}`);
+      const detected = card ? parseFloat(card.dataset.detectedPct) : null;
+      body.suggested_catalog_id     = sel.value;
+      body.suggested_discount_value = isNaN(detected) ? null : detected;
+    }
+  }
+
+  try {
+    const res  = await fetch('/api/review/approve', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (res.ok) {
+      const card = document.getElementById(`clause-card-${clauseId}`);
+      if (card) {
+        card.style.opacity = '0.4';
+        card.innerHTML += `<div style="color:var(--green);font-size:13px;margin-top:6px">✅ אושר${data.discount_update?.updated ? ` + הנחה עודכנה ל-${data.discount_update.new_value}%` : ''}</div>`;
+      }
+      // Refresh badge count
+      setTimeout(loadPendingClauses, 1500);
+    } else {
+      alert('שגיאה: ' + (data.detail || 'לא ניתן לאשר'));
+    }
+  } catch(e) { alert('שגיאת רשת: ' + e.message); }
+}
+
+async function rejectClause(clauseId) {
+  const reason = prompt('סיבת הדחייה:');
+  if (!reason) return;
+  try {
+    const res = await fetch('/api/review/reject', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({clause_id: clauseId, reviewed_by: 'expert', reason})
+    });
+    if (res.ok) {
+      const card = document.getElementById(`clause-card-${clauseId}`);
+      if (card) { card.style.opacity='0.4'; card.innerHTML += `<div style="color:var(--red);font-size:13px;margin-top:6px">❌ נדחה</div>`; }
+      setTimeout(loadPendingClauses, 1500);
+    }
+  } catch(e) { alert('שגיאת רשת: ' + e.message); }
+}
 
 async function loadEngineData() {
   try {
