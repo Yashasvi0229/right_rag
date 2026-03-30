@@ -44,6 +44,7 @@ from ingestion.pipeline import (
     ingest_document, list_documents, get_approved_sources,
     get_pending_review, approve_clause, reject_clause,
     get_clause_store, validate_clause_integrity, get_traceability_chain,
+    detect_discount_in_text,
     SourceNotApprovedError, DocumentUnchangedError,
 )
 from engine.rights_catalog import (
@@ -63,12 +64,13 @@ router = APIRouter()
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class ApproveRequest(BaseModel):
-    clause_id:     str
-    reviewed_by:   str
-    review_note:   Optional[str] = None
-    override_type: Optional[str] = None
-    section_ref:   Optional[str] = None   # ✅ FIX: reviewer can update weak section_ref
-    section_ref:   Optional[str] = None   # ✅ FIX: reviewer can update weak section_ref
+    clause_id:                str
+    reviewed_by:              str
+    review_note:              Optional[str]   = None
+    override_type:            Optional[str]   = None
+    section_ref:              Optional[str]   = None   # reviewer can update weak section_ref
+    suggested_discount_value: Optional[float] = None   # ★ NEW: unified approval
+    suggested_catalog_id:     Optional[str]   = None   # ★ NEW: which right to update
 
 class RejectRequest(BaseModel):
     clause_id:   str
@@ -213,11 +215,34 @@ def api_approve_clause(req: ApproveRequest):
             reviewed_by=req.reviewed_by,
             review_note=req.review_note,
             override_type=req.override_type,
-            section_ref=req.section_ref,   # ✅ FIX: pass updated section_ref
+            section_ref=req.section_ref,
+            suggested_discount_value=req.suggested_discount_value,  # ★ NEW
+            suggested_catalog_id=req.suggested_catalog_id,          # ★ NEW
         )
         return _safe_json(result)
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+@router.get("/review/detect-discount/{clause_id}")
+def api_detect_discount(clause_id: str):
+    """★ NEW: Detect % value in a pending clause text for unified approval UI."""
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT text, source_doc_id FROM review_queue WHERE clause_id=?",
+            (clause_id,)
+        ).fetchone()
+        if not row:
+            raise HTTPException(404, f"Clause not found: {clause_id}")
+        detected = detect_discount_in_text(row["text"])
+        return {
+            "clause_id": clause_id,
+            "detected_discount_pct": detected,
+            "has_suggestion": detected is not None,
+        }
+    finally:
+        conn.close()
 
 
 @router.post("/review/reject")
