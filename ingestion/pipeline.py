@@ -449,12 +449,30 @@ def get_pending_review() -> list[dict]:
         conn.close()
 
 
+def detect_discount_in_text(text: str) -> Optional[float]:
+    """
+    Scan clause text for a percentage value.
+    Returns the first % value found, or None.
+    Examples: "הנחה בשיעור של עד 10%" → 10.0
+              "50% מסכום הארנונה" → 50.0
+    """
+    matches = re.findall(r'(\d+(?:\.\d+)?)\s*%', text)
+    if matches:
+        val = float(matches[0])
+        # Only return sensible discount values (1–100%)
+        if 1.0 <= val <= 100.0:
+            return val
+    return None
+
+
 def approve_clause(
     clause_id: str,
     reviewed_by: str,
     review_note: Optional[str] = None,
     override_type: Optional[str] = None,
     section_ref: Optional[str] = None,   # ✅ FIX: allow reviewer to fix weak section_ref
+    suggested_discount_value: Optional[float] = None,   # ★ NEW: unified approval
+    suggested_catalog_id: Optional[str] = None,         # ★ NEW: which right to update
 ) -> dict:
     """
     Human reviewer approves a clause → enters clause store.
@@ -523,13 +541,50 @@ def approve_clause(
         # Auto-link to rights catalog
         _auto_link_clause_to_rights(conn, clause_id, item["source_doc_id"], final_type, now)
 
+        # ★ NEW: Unified approval — update discount_value in rights catalog if confirmed
+        discount_update_result = None
+        if suggested_discount_value is not None and suggested_catalog_id:
+            try:
+                # Fetch existing right to preserve all other fields
+                existing_right = conn.execute(
+                    "SELECT * FROM rights WHERE catalog_id=?",
+                    (suggested_catalog_id,)
+                ).fetchone()
+                if existing_right:
+                    old_value = existing_right["discount_value"]
+                    conn.execute(
+                        "UPDATE rights SET discount_value=?, updated_at=? WHERE catalog_id=?",
+                        (suggested_discount_value, now, suggested_catalog_id)
+                    )
+                    discount_update_result = {
+                        "catalog_id": suggested_catalog_id,
+                        "old_value": old_value,
+                        "new_value": suggested_discount_value,
+                        "updated": True,
+                    }
+                    _audit(conn, "DISCOUNT_VALUE_UPDATED", {
+                        "reviewed_by": reviewed_by,
+                        "catalog_id": suggested_catalog_id,
+                        "old_value": old_value,
+                        "new_value": suggested_discount_value,
+                        "triggered_by_clause": clause_id,
+                        "unified_approval": True,
+                    }, clause_ids=[clause_id])
+            except Exception as e:
+                # Discount update failure must never block clause approval
+                discount_update_result = {"error": str(e), "updated": False}
+
         _audit(conn, "CLAUSE_APPROVED",
                {"reviewed_by": reviewed_by, "clause_type": final_type,
-                "review_note": review_note},
+                "review_note": review_note,
+                "discount_updated": discount_update_result is not None},
                clause_ids=[clause_id])
 
         conn.commit()
-        return {"clause_id": clause_id, "status": "APPROVED", "clause_type": final_type}
+        result = {"clause_id": clause_id, "status": "APPROVED", "clause_type": final_type}
+        if discount_update_result:
+            result["discount_update"] = discount_update_result
+        return result
 
     finally:
         conn.close()
