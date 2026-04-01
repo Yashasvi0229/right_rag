@@ -133,11 +133,11 @@
         <div style="margin-bottom:18px;">
           <label class="white-label">סוג המשרת:</label>
           <select class="white-select" id="soldier_type" onchange="onTypeChange()">
-            <option value="SOLDIER">חייל מילואים — הנחה עד 5% (תקנה 3ו)</option>
-            <option value="COMMANDER">מפקד מילואים — הנחה עד 25% על 100 מ"ר (תקנה 3ז)</option>
+            <option value="SOLDIER">חייל מילואים — הנחה עד <span id="soldier-pct-label">5</span>% (תקנה 3ו)</option>
+            <option value="COMMANDER">מפקד מילואים — הנחה עד <span id="commander-pct-label">25</span>% על 100 מ"ר (תקנה 3ז)</option>
           </select>
-          <div class="info-note" id="note-soldier"><strong>חייל מילואים (תקנה 3ו):</strong> ההנחה חלה על כל שטח הנכס. שיעור עד 5%.</div>
-          <div class="info-note" id="note-commander" style="display:none;"><strong>מפקד מילואים (תקנה 3ז):</strong> ההנחה חלה על 100 מ"ר ראשונים בלבד. שיעור עד 25%.</div>
+          <div class="info-note" id="note-soldier"><strong>חייל מילואים (תקנה 3ו):</strong> ההנחה חלה על כל שטח הנכס. שיעור עד <span id="note-soldier-pct">5</span>%.</div>
+          <div class="info-note" id="note-commander" style="display:none;"><strong>מפקד מילואים (תקנה 3ז):</strong> ההנחה חלה על 100 מ"ר ראשונים בלבד. שיעור עד <span id="note-commander-pct">25</span>%.</div>
         </div>
 
         <div class="two-col" style="margin-bottom:18px;">
@@ -147,7 +147,7 @@
           </div>
           <div>
             <label class="white-label">שיעור הנחה שאושר (%):</label>
-            <input class="white-input" type="number" id="discount_rate" placeholder="עד 5% / 25%" min="0" max="100" step="0.5" value="5" oninput="calcInstant()" />
+            <input class="white-input" type="number" id="discount_rate" placeholder="שיעור הנחה %" min="0" max="100" step="0.5" value="5" oninput="calcInstant()" />
           </div>
         </div>
 
@@ -285,12 +285,43 @@ function selectType(t, el) {
   document.getElementById('claim-box').style.display  = 'none';
 }
 
+// ★ Load catalog defaults on page load
+document.addEventListener('DOMContentLoaded', loadCatalogDefaults);
+
+// ★ NEW: Load discount values from rights catalog on page load
+let SOLDIER_PCT   = 5;
+let COMMANDER_PCT = 25;
+
+async function loadCatalogDefaults() {
+  try {
+    const res  = await fetch('/api/rights-defaults');
+    if (!res.ok) return;
+    const data = await res.json();
+    SOLDIER_PCT   = data.soldier_pct   || 5;
+    COMMANDER_PCT = data.commander_pct || 25;
+
+    // Update labels in dropdown and notes
+    document.querySelectorAll('#soldier-pct-label').forEach(el => el.textContent = SOLDIER_PCT);
+    document.querySelectorAll('#commander-pct-label').forEach(el => el.textContent = COMMANDER_PCT);
+    document.querySelectorAll('#note-soldier-pct').forEach(el => el.textContent = SOLDIER_PCT);
+    document.querySelectorAll('#note-commander-pct').forEach(el => el.textContent = COMMANDER_PCT);
+
+    // Set initial value based on current type
+    const type = document.getElementById('soldier_type').value;
+    document.getElementById('discount_rate').value = type === 'COMMANDER' ? COMMANDER_PCT : SOLDIER_PCT;
+    calcInstant();
+  } catch(e) {
+    // Silent fallback — keep hardcoded defaults
+  }
+}
+
 function onTypeChange() {
   const type = document.getElementById('soldier_type').value;
   document.getElementById('note-soldier').style.display   = type === 'SOLDIER'   ? '' : 'none';
   document.getElementById('note-commander').style.display = type === 'COMMANDER' ? '' : 'none';
   document.getElementById('area-group').style.display     = type === 'COMMANDER' ? '' : 'none';
-  document.getElementById('discount_rate').value = type === 'COMMANDER' ? '25' : '5';
+  // ★ Use catalog values, not hardcoded
+  document.getElementById('discount_rate').value = type === 'COMMANDER' ? COMMANDER_PCT : SOLDIER_PCT;
   calcInstant();
 }
 
