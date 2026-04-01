@@ -320,6 +320,33 @@ def api_upsert_right(req: RightUpsertRequest):
         raise HTTPException(400, str(e))
 
 
+@router.get("/rights-defaults")
+def api_rights_defaults():
+    """
+    ★ NEW: Return current discount values from rights catalog.
+    Used by calculator (screen7) and fact collector (screen10) to
+    auto-fill discount rate fields — so they always reflect the
+    latest approved values, not hardcoded defaults.
+    NOTE: Must be defined BEFORE /rights/{catalog_id} to avoid route conflict.
+    """
+    conn = get_db()
+    try:
+        soldier = conn.execute(
+            "SELECT discount_value FROM rights WHERE catalog_id=? AND status='ACTIVE'",
+            ("ARNONA-RESERVE-STANDARD-001",)
+        ).fetchone()
+        commander = conn.execute(
+            "SELECT discount_value FROM rights WHERE catalog_id=? AND status='ACTIVE'",
+            ("ARNONA-RESERVE-COMMANDER-002",)
+        ).fetchone()
+        return {
+            "soldier_pct":   soldier["discount_value"]   if soldier   else 5.0,
+            "commander_pct": commander["discount_value"] if commander else 25.0,
+        }
+    finally:
+        conn.close()
+
+
 @router.get("/rights/{catalog_id}")
 def api_get_right(catalog_id: str):
     result = get_rights_with_clauses(catalog_id)
