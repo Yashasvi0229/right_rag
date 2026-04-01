@@ -254,12 +254,12 @@
         <div class="type-opt selected" data-type="SOLDIER" onclick="selectReserveType(this)">
           <span class="opt-icon">🎖️</span>
           <div class="opt-label">חייל מילואים</div>
-          <div class="opt-sub">תקנה 3ו — עד 5%</div>
+          <div class="opt-sub" id="soldier-opt-sub">תקנה 3ו — עד 5%</div>
         </div>
         <div class="type-opt" data-type="COMMANDER" onclick="selectReserveType(this)">
           <span class="opt-icon">🎗️</span>
           <div class="opt-label">מפקד מילואים</div>
-          <div class="opt-sub">תקנה 3ז — עד 25% על 100 מ"ר</div>
+          <div class="opt-sub" id="commander-opt-sub">תקנה 3ז — עד 25% על 100 מ"ר</div>
         </div>
       </div>
       <input type="hidden" id="f-reserve-type" value="SOLDIER" />
@@ -352,9 +352,9 @@
         <div class="form-group">
           <div class="field-row">
             <label class="form-label" style="margin-bottom:0">שיעור הנחה שאישרה הרשות (%)</label>
-            <span class="help-icon" title="לחייל עד 5%, למפקד עד 25%.">?</span>
+            <span class="help-icon" id="discount-help-icon" title="לחייל עד 5%, למפקד עד 25%.">?</span>
           </div>
-          <input class="form-input" type="number" id="f-discount-rate" placeholder="5" min="0" max="100" step="0.5" value="5" />
+          <input class="form-input" type="number" id="f-discount-rate" placeholder="שיעור הנחה %" min="0" max="100" step="0.5" value="5" />
         </div>
       </div>
       <div id="sqm-group" style="display:none">
@@ -765,13 +765,43 @@ function onPropertyHolderChange(val) {
   }
 }
 
+// ★ NEW: Catalog defaults — loaded on page start
+let SOLDIER_PCT   = 5;
+let COMMANDER_PCT = 25;
+
+async function loadCatalogDefaults() {
+  try {
+    const res  = await fetch('/api/rights-defaults');
+    if (!res.ok) return;
+    const data = await res.json();
+    SOLDIER_PCT   = data.soldier_pct   || 5;
+    COMMANDER_PCT = data.commander_pct || 25;
+
+    // Update opt-sub labels
+    const soldierSub   = document.getElementById('soldier-opt-sub');
+    const commanderSub = document.getElementById('commander-opt-sub');
+    const helpIcon     = document.getElementById('discount-help-icon');
+
+    if (soldierSub)   soldierSub.textContent   = `תקנה 3ו — עד ${SOLDIER_PCT}%`;
+    if (commanderSub) commanderSub.textContent = `תקנה 3ז — עד ${COMMANDER_PCT}% על 100 מ"ר`;
+    if (helpIcon)     helpIcon.title            = `לחייל עד ${SOLDIER_PCT}%, למפקד עד ${COMMANDER_PCT}%.`;
+
+    // Set initial discount rate based on current selected type
+    const type = document.getElementById('f-reserve-type').value;
+    document.getElementById('f-discount-rate').value = type === 'COMMANDER' ? COMMANDER_PCT : SOLDIER_PCT;
+  } catch(e) {
+    // Silent fallback — keep hardcoded defaults
+  }
+}
+
 function selectReserveType(el) {
   document.querySelectorAll('.type-opt').forEach(e => e.classList.remove('selected'));
   el.classList.add('selected');
   const type = el.dataset.type;
   document.getElementById('f-reserve-type').value = type;
   document.getElementById('sqm-group').style.display = type === 'COMMANDER' ? '' : 'none';
-  document.getElementById('f-discount-rate').value   = type === 'COMMANDER' ? '25' : '5';
+  // ★ Use catalog values, not hardcoded
+  document.getElementById('f-discount-rate').value = type === 'COMMANDER' ? COMMANDER_PCT : SOLDIER_PCT;
 }
 
 function setPayment(mode) {
@@ -789,6 +819,7 @@ function setInstallments(n) {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  loadCatalogDefaults();
   const type = new URLSearchParams(window.location.search).get('type');
   if (type === 'commander') {
     const el = document.querySelector('[data-type="COMMANDER"]');
