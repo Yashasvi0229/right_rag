@@ -497,7 +497,10 @@ function getIsoDate() {
 function showAlert(msg, type) {
   const box = document.getElementById('alert-box');
   box.className = 'alert alert-' + type;
-  box.textContent = msg; box.style.display = 'block';
+  box.textContent = msg;
+  box.style.display = 'block';
+  // ★ FIX: Scroll alert into view so user always sees it
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   if (type === 'success') setTimeout(() => box.style.display='none', 6000);
 }
 
@@ -529,7 +532,18 @@ async function uploadDocument() {
     const res  = await fetch('/api/ingest', { method: 'POST', body: form });
     const data = await res.json();
     if (res.ok) {
-      showAlert('✅ ' + data.clause_count + ' סעיפים חולצו! סטטוס: ' + data.status, 'success');
+      // ★ FIX: Show success + clear next-step guidance
+      const box = document.getElementById('alert-box');
+      box.className = 'alert alert-success';
+      box.innerHTML = `
+        ✅ ${data.clause_count} סעיפים חולצו בהצלחה!<br>
+        <div style="margin-top:10px; padding:10px 14px; background:rgba(201,168,76,0.1);
+          border:1px solid rgba(201,168,76,0.4); border-radius:6px; font-size:13px; color:var(--gold);">
+          ⚡ <strong>השלב הבא:</strong> עבור ל<a href="/screen6" style="color:var(--gold);text-decoration:underline;font-weight:700;">שלב 6 — אישור מומחה</a>
+          כדי לאשר את הסעיפים שחולצו. רק לאחר האישור יתעדכנו הערכים במחשבון ובמנוע.
+        </div>`;
+      box.style.display = 'block';
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       const docs = await (await fetch('/api/documents')).json();
       document.getElementById('doc-count').textContent = docs.length;
       document.getElementById('documents-list').innerHTML = docs.map(d => `
