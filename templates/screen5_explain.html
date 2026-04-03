@@ -156,9 +156,9 @@
       <div class="demo-grid">
         <div class="form-group">
           <label class="form-label">סוג משרת</label>
-          <select class="form-select" id="demo-type">
-            <option value="SOLDIER">חייל מילואים (5%)</option>
-            <option value="COMMANDER">מפקד מילואים (25%)</option>
+          <select class="form-select" id="demo-type" onchange="onDemoTypeChange()">
+            <option value="SOLDIER">חייל מילואים (<span id="s5-soldier-pct">5</span>%)</option>
+            <option value="COMMANDER">מפקד מילואים (<span id="s5-commander-pct">25</span>%)</option>
           </select>
         </div>
         <div class="form-group">
@@ -327,12 +327,12 @@ function buildCalcTrace(r) {
   const instNet  = r.installment_net_ils || after;
   const inst     = installs > 1 ? `\nper_installment  = ${instNet.toFixed(2)} ₪  # ${installs} תשלומים` : '';
 
-  if (id.includes('COMMANDER')) return `<span class="comment"># מפקד מילואים — תקנה 3ז</span>
+  if (id.includes('COMMANDER')) return `<span class="comment"># מפקד מילואים — תקנה 3ז (תיקון 42: תקרה 120 מ"ר)</span>
 annual_tax       = ${tax.toFixed(2)} ₪
-taxable_sqm      = MIN(property_sqm, 100)
+taxable_sqm      = MIN(property_sqm, 120)
 tariff_per_sqm   = annual_tax / property_sqm
-tax_on_100sqm    = taxable_sqm × tariff_per_sqm
-discount         = tax_on_100sqm × ${rate/100}
+tax_on_120sqm    = taxable_sqm × tariff_per_sqm
+discount         = tax_on_120sqm × ${rate/100}
 <span class="result">discount         = ${discount.toFixed(2)} ₪</span>
 <span class="result">amount_due       = ${after.toFixed(2)} ₪</span>${inst}`;
 
@@ -371,6 +371,37 @@ function renderFallbackCalc(calc, type, tax, rate, sqm, installs) {
 function fmtNum(n) { return Number(n||0).toLocaleString('he-IL',{maximumFractionDigits:0}); }
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-document.addEventListener('DOMContentLoaded', ()=>runDemo());
+// ★ NEW: Load discount values from rights catalog
+let S5_SOLDIER_PCT   = 5;
+let S5_COMMANDER_PCT = 25;
+
+async function loadCatalogDefaults() {
+  try {
+    const res  = await fetch('/api/rights-defaults');
+    if (!res.ok) return;
+    const data = await res.json();
+    S5_SOLDIER_PCT   = data.soldier_pct   || 5;
+    S5_COMMANDER_PCT = data.commander_pct || 25;
+
+    // Update dropdown labels
+    const sel = document.getElementById('demo-type');
+    if (sel) {
+      sel.options[0].text = `חייל מילואים (${S5_SOLDIER_PCT}%)`;
+      sel.options[1].text = `מפקד מילואים (${S5_COMMANDER_PCT}%)`;
+    }
+    // Set initial rate
+    document.getElementById('demo-rate').value = S5_SOLDIER_PCT;
+  } catch(e) { /* silent fallback */ }
+}
+
+function onDemoTypeChange() {
+  const type = document.getElementById('demo-type').value;
+  document.getElementById('demo-rate').value = type === 'COMMANDER' ? S5_COMMANDER_PCT : S5_SOLDIER_PCT;
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadCatalogDefaults();
+  runDemo();
+});
 </script>
 {% endblock %}
