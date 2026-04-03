@@ -194,6 +194,12 @@
               onclick="rejectEngine()" disabled>
               ⛔ דחה — לא מאשר
             </button>
+            <!-- ★ FIX: Inline error shown directly below reject button -->
+            <div id="reject-error" style="display:none; padding:10px 14px;
+              background:rgba(231,76,60,0.1); border:1px solid rgba(231,76,60,0.4);
+              border-radius:8px; font-size:13px; color:var(--red); text-align:center;">
+              ⚠️ יש להוסיף הערת דחייה בשדה ה"הערות" למעלה לפני הדחייה
+            </div>
           </div>
 
           <div style="margin-top:16px; padding:12px; background:rgba(201,168,76,0.06);
@@ -393,7 +399,11 @@ async function loadEngineData() {
       document.getElementById('btn-reject').disabled  = false;
     } else if (engineData.status === 'ACTIVE') {
       badgeEl.textContent = '✅ פעיל כבר'; badgeEl.className = 'badge badge-green';
-      document.getElementById('btn-publish').textContent = '✅ כבר פורסם';
+      // ★ FIX: Show status label instead of button — not clickable
+      const btnPublish = document.getElementById('btn-publish');
+      btnPublish.disabled = true;
+      btnPublish.textContent = '✅ כבר פורסם';
+      btnPublish.style.cssText = 'width:100%;justify-content:center;font-size:14px;background:rgba(46,204,113,0.1);border:1px solid var(--green);color:var(--green);cursor:default;pointer-events:none;border-radius:8px;padding:12px;text-align:center;font-family:Heebo,sans-serif;';
     }
 
     const [rightsRes, validRes] = await Promise.all([fetch('/api/rights'), fetch('/api/validate')]);
@@ -460,8 +470,27 @@ async function publishEngine() {
 
 async function rejectEngine() {
   if (!ENGINE_ID) return alert('לא נטען מזהה מנוע');
-  const note = document.getElementById('expert-note').value.trim();
-  if (!note) { alert('נא להוסיף הערת דחייה.'); document.getElementById('expert-note').focus(); return; }
+  const note    = document.getElementById('expert-note').value.trim();
+  const errDiv  = document.getElementById('reject-error');
+  const noteBox = document.getElementById('expert-note');
+
+  // ★ FIX: Show inline error next to button, highlight note box
+  if (!note) {
+    errDiv.style.display = 'block';
+    noteBox.style.borderColor = 'var(--red)';
+    noteBox.focus();
+    // Auto-hide after 4 seconds
+    setTimeout(() => {
+      errDiv.style.display = 'none';
+      noteBox.style.borderColor = '';
+    }, 4000);
+    return;
+  }
+
+  // Hide error if note exists
+  errDiv.style.display = 'none';
+  noteBox.style.borderColor = '';
+
   if (!confirm(`לדחות את גרסה ${ENGINE_ID}?`)) return;
   const btn = document.getElementById('btn-reject');
   btn.disabled=true; btn.textContent='⏳ דוחה...';
