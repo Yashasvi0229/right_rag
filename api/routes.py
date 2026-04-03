@@ -655,11 +655,11 @@ def api_calculate(session_id: str):
       discount = min(discount, annual_tax)
       result   = annual_tax - discount
 
-    Formula (Commander — תקנה 3ז):
-      taxable_sqm    = min(property_sqm, 100)
+    Formula (Commander — תקנה 3ז, Amendment 42):
+      taxable_sqm    = min(property_sqm, 120)
       tariff_per_sqm = annual_tax / property_sqm
-      tax_on_100sqm  = taxable_sqm * tariff_per_sqm
-      discount       = tax_on_100sqm * (discount_rate_pct / 100)
+      tax_on_120sqm  = taxable_sqm * tariff_per_sqm
+      discount       = tax_on_120sqm * (discount_rate_pct / 100)
       result         = annual_tax - discount
     """
     # Load facts
@@ -698,11 +698,11 @@ def api_calculate(session_id: str):
         discount = annual_tax * (discount_rate_pct / 100)
         discount = min(discount, annual_tax)          # cap at full tax
 
-    # ── Commander (תקנה 3ז) ──────────────────────────────────────────────────
+    # ── Commander (תקנה 3ז) — Amendment 42: capped at 120 sqm ─────────────────
     elif reserve_type == "COMMANDER":
         if property_sqm <= 0:
             raise HTTPException(400, "PROPERTY_SIZE_SQM is required for commander calculation")
-        taxable_sqm    = min(property_sqm, 100.0)
+        taxable_sqm    = min(property_sqm, 120.0)   # ★ FIX: 120 sqm per Amendment 42 (was 100)
         tariff_per_sqm = annual_tax / property_sqm
         tax_on_100sqm  = taxable_sqm * tariff_per_sqm
         discount       = tax_on_100sqm * (discount_rate_pct / 100)
