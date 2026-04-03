@@ -259,33 +259,9 @@
           </div>
           <div style="padding:14px 16px;">
 
-            <!-- QA #10: Correct formulas — no service days -->
-            <div class="sim-row">
-              <div><div class="sim-label">חייל (3ו) · 75מ"ר · 5%</div>6,000 ₪</div>
-              <div><div class="sim-label">הנחה</div><span style="color:var(--green);font-weight:700">300 ₪</span></div>
-              <div><div class="sim-label">לתשלום</div>5,700 ₪</div>
-              <span class="badge badge-green" style="white-space:nowrap">✔ תקין</span>
-            </div>
-
-            <div class="sim-row">
-              <div><div class="sim-label">מפקד (3ז) · 100מ"ר · 25%</div>8,000 ₪</div>
-              <div><div class="sim-label">הנחה</div><span style="color:var(--green);font-weight:700">2,000 ₪</span></div>
-              <div><div class="sim-label">לתשלום</div>6,000 ₪</div>
-              <span class="badge badge-green" style="white-space:nowrap">✔ תקין</span>
-            </div>
-
-            <div class="sim-row">
-              <div><div class="sim-label">מפקד · 150מ"ר · תקרה!</div>12,000 ₪</div>
-              <div><div class="sim-label">הנחה (100מ"ר)</div><span style="color:var(--yellow);font-weight:700">2,000 ₪</span></div>
-              <div><div class="sim-label">לתשלום</div>10,000 ₪</div>
-              <span class="badge badge-yellow" style="white-space:nowrap">✔ תקרה</span>
-            </div>
-
-            <div class="sim-row">
-              <div><div class="sim-label">רשות לא אישרה · 0%</div>8,000 ₪</div>
-              <div><div class="sim-label">הנחה</div><span style="color:var(--muted);font-weight:700">0 ₪</span></div>
-              <div><div class="sim-label">לתשלום</div>8,000 ₪</div>
-              <span class="badge badge-gold" style="white-space:nowrap">ללא שינוי</span>
+            <!-- ★ FIX: Dynamic simulations loaded from live rights catalog -->
+            <div id="sim-rows-container">
+              <div style="color:var(--muted);font-size:13px;padding:8px 0">⏳ טוען סימולציות...</div>
             </div>
           </div>
         </div>
@@ -415,7 +391,62 @@ async function runM2BChecks() {
   } catch(e) { setCheck('session', 'fail', 'שגיאת רשת: ' + e.message); }
 }
 
-document.addEventListener('DOMContentLoaded', runM2BChecks);
+document.addEventListener('DOMContentLoaded', () => {
+  runM2BChecks();
+  loadSimulations();
+});
+
+// ★ NEW: Load simulations dynamically from rights catalog
+async function loadSimulations() {
+  const container = document.getElementById('sim-rows-container');
+  try {
+    const res  = await fetch('/api/rights-defaults');
+    const data = await res.json();
+    const sp   = data.soldier_pct   || 5;    // soldier %
+    const cp   = data.commander_pct || 25;   // commander %
+    const cap  = 120;                        // Amendment 42: 120 sqm cap
+
+    // Simulation 1: Soldier — 6000₪, 75 sqm
+    const s1tax = 6000, s1disc = Math.round(s1tax * sp / 100);
+    // Simulation 2: Commander — 8000₪, 100 sqm (≤ cap)
+    const s2tax = 8000, s2disc = Math.round(s2tax * cp / 100);
+    // Simulation 3: Commander — 12000₪, 150 sqm (> cap → prorated)
+    const s3tax = 12000, s3sqm = 150;
+    const s3taxable = Math.min(s3sqm, cap);
+    const s3tariff  = s3tax / s3sqm;
+    const s3disc    = Math.round(s3taxable * s3tariff * cp / 100);
+    // Simulation 4: No municipality approval → 0
+    const s4tax = 8000;
+
+    container.innerHTML = `
+      <div class="sim-row">
+        <div><div class="sim-label">חייל (3ו) · 75מ"ר · ${sp}%</div>${s1tax.toLocaleString('he-IL')} ₪</div>
+        <div><div class="sim-label">הנחה</div><span style="color:var(--green);font-weight:700">${s1disc.toLocaleString('he-IL')} ₪</span></div>
+        <div><div class="sim-label">לתשלום</div>${(s1tax - s1disc).toLocaleString('he-IL')} ₪</div>
+        <span class="badge badge-green" style="white-space:nowrap">✔ תקין</span>
+      </div>
+      <div class="sim-row">
+        <div><div class="sim-label">מפקד (3ז) · 100מ"ר · ${cp}%</div>${s2tax.toLocaleString('he-IL')} ₪</div>
+        <div><div class="sim-label">הנחה</div><span style="color:var(--green);font-weight:700">${s2disc.toLocaleString('he-IL')} ₪</span></div>
+        <div><div class="sim-label">לתשלום</div>${(s2tax - s2disc).toLocaleString('he-IL')} ₪</div>
+        <span class="badge badge-green" style="white-space:nowrap">✔ תקין</span>
+      </div>
+      <div class="sim-row">
+        <div><div class="sim-label">מפקד · ${s3sqm}מ"ר · תקרה ${cap}מ"ר!</div>${s3tax.toLocaleString('he-IL')} ₪</div>
+        <div><div class="sim-label">הנחה (${cap}מ"ר)</div><span style="color:var(--yellow);font-weight:700">${s3disc.toLocaleString('he-IL')} ₪</span></div>
+        <div><div class="sim-label">לתשלום</div>${(s3tax - s3disc).toLocaleString('he-IL')} ₪</div>
+        <span class="badge badge-yellow" style="white-space:nowrap">✔ תקרה</span>
+      </div>
+      <div class="sim-row">
+        <div><div class="sim-label">רשות לא אישרה · 0%</div>${s4tax.toLocaleString('he-IL')} ₪</div>
+        <div><div class="sim-label">הנחה</div><span style="color:var(--muted);font-weight:700">0 ₪</span></div>
+        <div><div class="sim-label">לתשלום</div>${s4tax.toLocaleString('he-IL')} ₪</div>
+        <span class="badge badge-gold" style="white-space:nowrap">ללא שינוי</span>
+      </div>`;
+  } catch(e) {
+    container.innerHTML = '<div style="color:var(--red);font-size:13px">שגיאה בטעינת סימולציות</div>';
+  }
+}
 
 // Toggle warning details
 function toggleWarn(row) {
