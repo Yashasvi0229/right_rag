@@ -69,6 +69,12 @@ APPROVED_SOURCES = {
         "category": "reserve_soldiers",
         "publication_date": "2024-10-15",
     },
+    "GOV-IL-ARNONA-AMENDMENT-43-2026": {
+        "title": "תקנות הסדרים במשק המדינה (הנחה מארנונה), תיקון מס' 43, התשפ\"ו-2026",
+        "publisher": "משרד הפנים",
+        "category": "reserve_soldiers",
+        "publication_date": "2026-04-04",
+    },
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
