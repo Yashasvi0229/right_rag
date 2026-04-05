@@ -305,7 +305,7 @@
                 <div class="source-icon">📜</div>
                 <div class="source-info">
                   <div class="source-name">{{ doc.title }}</div>
-                  <div class="source-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ doc.publisher }} · {{ doc.ingested_at[:10] }} · SHA: {{ doc.file_hash[:6] }}...</div>
+                  <div class="source-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ doc.publisher }} · {{ doc.ingested_at[:10] }} {{ doc.ingested_at[11:16] }} · SHA: {{ doc.file_hash[:6] }}...</div>
                 </div>
                 {% if doc.ingested_by == 'system-seed' %}
                   <span class="badge" style="background:rgba(255,255,255,0.07);color:var(--muted);border:1px solid var(--border2);">📦 נתוני בסיס</span>
@@ -316,7 +316,7 @@
                 {% endif %}
                 <div class="source-actions">
                   <button class="btn btn-outline" style="padding:6px 10px;font-size:12px"
-                    onclick="showDocModal('{{ doc.doc_id }}','{{ doc.title }}','{{ doc.publisher }}','{{ doc.publication_date }}','{{ doc.file_hash }}','{{ doc.status }}','{{ doc.ingested_at[:10] }}','{{ doc.ingested_by }}')">👁</button>
+                    onclick="showDocModal('{{ doc.doc_id }}','{{ doc.title }}','{{ doc.publisher }}','{{ doc.publication_date }}','{{ doc.file_hash }}','{{ doc.status }}','{{ doc.ingested_at[:16]|replace("T"," ") }}','{{ doc.ingested_by }}')">👁</button>
                 </div>
               </div>
               {% endfor %}
@@ -552,13 +552,13 @@ async function uploadDocument() {
           <div class="source-info">
             <div class="source-name">${d.title}</div>
             <div class="source-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${d.publisher} · ${(d.ingested_at||'').slice(0,10)} · SHA: ${(d.file_hash||'').slice(0,6)}...
+              ${d.publisher} · ${(d.ingested_at||'').slice(0,10)} ${(d.ingested_at||'').slice(11,16)} · SHA: ${(d.file_hash||'').slice(0,6)}...
               <span style="color:var(--gold);font-weight:600;"> · ✨ הועלה כעת</span>
             </div>
           </div>
           ${d.ingested_by==='system-seed' ? '<span class="badge" style="background:rgba(255,255,255,0.07);color:var(--muted);border:1px solid var(--border2);">📦 נתוני בסיס</span>' : '<span class="badge '+(d.status==='ACTIVE'?'badge-green':'badge-yellow')+'">'+( d.status==='ACTIVE'?'✔ מנותח':'⏳ '+d.status)+'</span>'}
           <div class="source-actions"><button class="btn btn-outline" style="padding:6px 10px;font-size:12px"
-            onclick="showDocModal('${d.doc_id}','${d.title}','${d.publisher}','${d.publication_date}','${d.file_hash}','${d.status}','${(d.ingested_at||'').slice(0,10)}','${d.ingested_by||''}')">👁</button></div>
+            onclick="showDocModal('${d.doc_id}','${d.title}','${d.publisher}','${d.publication_date}','${d.file_hash}','${d.status}','${(d.ingested_at||'').slice(0,16).replace('T',' ')}','${d.ingested_by||''}')">👁</button></div>
         </div>`).join('');
     } else if (res.status === 409) {
       showAlert('⚠️ ' + (data.detail || 'המסמך לא השתנה — העלה גרסה עדכנית'), 'warning');
