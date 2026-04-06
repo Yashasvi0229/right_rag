@@ -283,8 +283,11 @@
             </div>
           </div>
 
-          <button class="btn btn-gold" style="width:100%" id="upload-btn"
-                  onclick="uploadDocument()">⬆ העלה מסמך</button>
+          <button class="btn btn-gold" style="width:100%;opacity:0.7" id="upload-btn"
+                  onclick="uploadDocument()">⬆ העלה מסמך ידנית</button>
+          <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">
+            ⚡ ההעלאה תתחיל אוטומטית כשייבחרו קובץ ומקור מאושר
+          </div>
         </div>
       </div>
 
@@ -385,6 +388,8 @@ function onSourceSelect(sel) {
     document.getElementById('zone-title').textContent = 'גרור קובץ לכאן';
     document.getElementById('zone-title').style.fontSize = '';
   }
+  // ★ AUTO-UPLOAD: if file already selected → upload now
+  _tryAutoUpload();
 }
 
 function setType(btn) {
@@ -397,6 +402,8 @@ function onFileSelected(input) {
   if (input.files && input.files[0]) {
     selectedFile = input.files[0];
     document.getElementById('zone-sub').textContent = selectedFile.name + ' · ' + (selectedFile.size/1024/1024).toFixed(2) + ' MB';
+    // ★ AUTO-UPLOAD: if source already selected → upload now
+    _tryAutoUpload();
   }
 }
 
@@ -407,6 +414,17 @@ function onDrop(e) {
   if (f) {
     selectedFile = f;
     document.getElementById('zone-sub').textContent = f.name + ' · ' + (f.size/1024/1024).toFixed(2) + ' MB';
+    // ★ AUTO-UPLOAD: if source already selected → upload now
+    _tryAutoUpload();
+  }
+}
+
+// ★ NEW: Auto-upload when both file AND source are ready
+function _tryAutoUpload() {
+  const docId = document.getElementById('doc-id-select').value;
+  if (selectedFile && docId) {
+    // Small delay so UI updates visually first
+    setTimeout(() => uploadDocument(), 400);
   }
 }
 
