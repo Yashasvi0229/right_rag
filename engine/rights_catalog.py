@@ -115,6 +115,35 @@ SEED_RIGHTS = [
         "source": "תקנה 2(ב) + תקנה 3 — תיקון מס' 43, התשפ\"ו-2026 (50%+10% תוספת מגדר)",
     },
 
+    # ═══ AMENDMENT 46 — תיקון 46, התשפ"ו-2026 ════════════════════════════════
+
+    {
+        "catalog_id": "RESERVE-TUITION-100DAYS-46",
+        "name": "שנת לימודים אקדמית חינם — 100 ימי מילואים רצופים מ-7.10.2023 (תקנה 6)",
+        "category_tag": "Education",
+        "subcategory_tag": "Reserve_Tuition",
+        "discount_value": 100.0,
+        "discount_unit": "PERCENT",
+        "friction_score": 4,
+        "effective_from": "2026-04-06",
+        "effective_to": None,
+        "status": "ACTIVE",
+        "source": "תקנה 6 — תיקון מס' 46, התשפ\"ו-2026",
+    },
+    {
+        "catalog_id": "RESERVE-PREGNANCY-BED-REST-46",
+        "name": "הכרה בימי שמירת הריון כימי מילואים לכל הזכויות (תקנה 7)",
+        "category_tag": "Municipal_Tax",
+        "subcategory_tag": "Reserve_Pregnancy",
+        "discount_value": 0.0,
+        "discount_unit": "FLAT",
+        "friction_score": 6,
+        "effective_from": "2026-04-06",
+        "effective_to": None,
+        "status": "ACTIVE",
+        "source": "תקנה 7 — תיקון מס' 46, התשפ\"ו-2026",
+    },
+
     # ═══ LOW INCOME — PDF 2 ══════════════════════════════════════════════════
 
     {
@@ -245,6 +274,14 @@ SEED_SOURCE_DOCS = [
         "publisher": "משרד הפנים",
         "publication_date": "2026-04-04",
         "file_hash": "seed-arnona-amendment-43-2026-v1",
+        "ingested_by": "system-seed",
+    },
+    {
+        "doc_id": "GOV-IL-ARNONA-AMENDMENT-46-2026",
+        "title": "תקנות הסדרים במשק המדינה (הנחה מארנונה), תיקון מס' 46, התשפ\"ו-2026",
+        "publisher": "משרד הפנים",
+        "publication_date": "2026-04-06",
+        "file_hash": "seed-arnona-amendment-46-2026-v1",
         "ingested_by": "system-seed",
     },
 ]
