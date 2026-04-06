@@ -101,6 +101,26 @@ FACT_SCHEMA: Dict[str, dict] = {
         "allowed": [1, 6, 12],
         "description": "מספר התשלומים (1 / 6 / 12)",
     },
+    # ★ NEW: Amendment 43 — gender bonus (+10% for women)
+    "GENDER": {
+        "type": "enum",
+        "allowed": ["MALE", "FEMALE"],
+        "description": "מגדר המשרת — MALE / FEMALE (לתוספת 10% לנשים לפי תיקון 43)",
+    },
+    # ★ NEW: Amendment 43 — age for 100% discount rule (תקנה 4)
+    "AGE": {
+        "type": "int",
+        "min": 18,
+        "max": 120,
+        "description": "גיל המשרת — לבדיקת זכאות 100% לגיל מתחת ל-30 (תקנה 4)",
+    },
+    # ★ NEW: Amendment 43 — effective date for pro-rata 272/365
+    "SERVICE_YEAR": {
+        "type": "int",
+        "min": 2020,
+        "max": 2030,
+        "description": "שנת המס לחישוב — 2026 מפעיל חישוב יחסי 272/365 (תיקון 43)",
+    },
 }
 
 
