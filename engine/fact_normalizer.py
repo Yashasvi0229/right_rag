@@ -114,12 +114,24 @@ FACT_SCHEMA: Dict[str, dict] = {
         "max": 120,
         "description": "גיל המשרת — לבדיקת זכאות 100% לגיל מתחת ל-30 (תקנה 4)",
     },
-    # ★ NEW: Amendment 43 — effective date for pro-rata 272/365
+    # ★ NEW: Amendment 46 — Takkana 6: 100 consecutive days for tuition
+    "CONSECUTIVE_DAYS": {
+        "type": "int",
+        "min": 0,
+        "max": 1500,
+        "description": "ימי שירות מילואים רצופים (מ-7.10.2023) — 100+ ימים זכאות לשנת לימוד חינם (תקנה 6)",
+    },
+    # ★ NEW: Amendment 46 — Takkana 7: pregnancy bed rest
+    "IS_PREGNANCY_BED_REST": {
+        "type": "bool",
+        "description": "האם קיבלה הוראת רופא לשמירת הריון החופפת ימי מילואים? (תקנה 7)",
+    },
+    # ★ NEW: Amendment 46 — effective date for pro-rata 269/365
     "SERVICE_YEAR": {
         "type": "int",
         "min": 2020,
         "max": 2030,
-        "description": "שנת המס לחישוב — 2026 מפעיל חישוב יחסי 272/365 (תיקון 43)",
+        "description": "שנת המס לחישוב — 2026 מפעיל חישוב יחסי 269/365 (תיקון 46, מ-6.4.2026)",
     },
 }
 
