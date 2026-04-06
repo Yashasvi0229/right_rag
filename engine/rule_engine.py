@@ -106,10 +106,31 @@ def _get_eligibility_checks(catalog_id: str) -> List[tuple]:
     # ── Reserve soldier rights ────────────────────────────────────────────────
     if "RESERVE" in catalog_id:
         if "COMMANDER" in catalog_id:
-            checks.append((
-                lambda f: f.get("RESERVE_TYPE") == "COMMANDER",
-                "מפקד מילואים פעיל (תקנה 3ז)"
-            ))
+            # Amendment 43 commander — gender specific
+            if "FEMALE" in catalog_id:
+                checks.append((
+                    lambda f: f.get("RESERVE_TYPE") == "COMMANDER",
+                    "מפקד מילואים פעיל (תקנה 2ב)"
+                ))
+                checks.append((
+                    lambda f: f.get("GENDER") == "FEMALE",
+                    "מפקדת מילואים — נקבה (תוספת 10% מגדר, תיקון 43)"
+                ))
+            elif "MALE" in catalog_id:
+                checks.append((
+                    lambda f: f.get("RESERVE_TYPE") == "COMMANDER",
+                    "מפקד מילואים פעיל (תקנה 2ב)"
+                ))
+                checks.append((
+                    lambda f: f.get("GENDER") in ("MALE", None),
+                    "מפקד מילואים — זכר (תיקון 43)"
+                ))
+            else:
+                # Legacy commander
+                checks.append((
+                    lambda f: f.get("RESERVE_TYPE") == "COMMANDER",
+                    "מפקד מילואים פעיל (תקנה 3ז)"
+                ))
         elif "FAMILY5" in catalog_id:
             checks.append((
                 lambda f: f.get("RESERVE_TYPE") in ("SOLDIER", "COMMANDER"),
@@ -119,14 +140,34 @@ def _get_eligibility_checks(catalog_id: str) -> List[tuple]:
                 lambda f: int(f.get("FAMILY_SIZE", 0)) >= 5,
                 "משפחה בת 5 נפשות ומעלה"
             ))
+        elif "SOLDIER" in catalog_id and "FEMALE" in catalog_id:
+            # Amendment 43 female soldier
+            checks.append((
+                lambda f: f.get("RESERVE_TYPE") in ("SOLDIER", "COMMANDER"),
+                "חיילת מילואים פעילה (תקנה 2א)"
+            ))
+            checks.append((
+                lambda f: f.get("GENDER") == "FEMALE",
+                "חיילת מילואים — נקבה (תוספת 10% מגדר, תיקון 43)"
+            ))
+        elif "SOLDIER" in catalog_id and "MALE" in catalog_id:
+            # Amendment 43 male soldier
+            checks.append((
+                lambda f: f.get("RESERVE_TYPE") in ("SOLDIER", "COMMANDER"),
+                "חייל מילואים פעיל (תקנה 2א)"
+            ))
+            checks.append((
+                lambda f: f.get("GENDER") in ("MALE", None),
+                "חייל מילואים — זכר (תיקון 43)"
+            ))
         else:
-            # Standard soldier
+            # Legacy standard soldier
             checks.append((
                 lambda f: f.get("RESERVE_TYPE") in ("SOLDIER", "COMMANDER"),
                 "חייל מילואים פעיל (תקנה 3ו)"
             ))
 
-        # Min 20 days in 3 years
+        # Min 20 days in 3 years — all reserve rights
         checks.append((
             lambda f: int(f.get("SERVICE_DAYS_3Y", 0)) >= 20,
             "לפחות 20 ימי שמ\"פ ב-3 שנים אחרונות"
@@ -253,6 +294,9 @@ def _calculate_discount(facts: Dict[str, Any], right: dict) -> dict:
     property_sqm      = float(facts.get("PROPERTY_SIZE_SQM", 0))
     payment_upfront   = facts.get("PAYMENT_UPFRONT", True)
     installment_count = int(facts.get("INSTALLMENT_COUNT", 1))
+    gender            = facts.get("GENDER", None)
+    age               = facts.get("AGE", None)
+    service_year      = facts.get("SERVICE_YEAR", None)
 
     if annual_tax <= 0:
         return {
@@ -262,13 +306,17 @@ def _calculate_discount(facts: Dict[str, Any], right: dict) -> dict:
             "formula_used":              "N/A — annual_tax is 0",
         }
 
-    # ── Commander (תקנה 3ז): 100 sqm cap ─────────────────────────────────────
+    # ── Amendment 43: Age < 30 → 100% discount (תקנה 4) ─────────────────────
+    if age is not None and int(age) < 30 and "RESERVE" in catalog_id:
+        discount_rate_pct = 100.0
+
+    # ── Commander (תקנה 2ב / 3ז): 120 sqm cap ────────────────────────────────
     if "COMMANDER" in catalog_id and property_sqm > 0:
-        taxable_sqm    = min(property_sqm, 100.0)
+        taxable_sqm    = min(property_sqm, 120.0)
         tariff_per_sqm = annual_tax / property_sqm
-        tax_on_100sqm  = taxable_sqm * tariff_per_sqm
-        discount       = tax_on_100sqm * (discount_rate_pct / 100)
-        formula        = (f"MIN({property_sqm},100)={taxable_sqm}sqm × "
+        tax_on_sqm     = taxable_sqm * tariff_per_sqm
+        discount       = tax_on_sqm * (discount_rate_pct / 100)
+        formula        = (f"MIN({property_sqm},120)={taxable_sqm}sqm × "
                           f"{tariff_per_sqm:.2f}₪/sqm × {discount_rate_pct}%")
 
     # ── All other rights (Soldier, Low Income, Senior, etc.) ─────────────────
@@ -278,7 +326,19 @@ def _calculate_discount(facts: Dict[str, Any], right: dict) -> dict:
 
     # Cap: discount cannot exceed the total tax
     discount = min(discount, annual_tax)
-    amount_after_discount = annual_tax - discount
+
+    # ── Amendment 43: Pro-rata 272/365 for year 2026 ──────────────────────────
+    pro_rata_applied = False
+    if service_year == 2026 and "43" in catalog_id:
+        PRO_RATA_2026 = 272 / 365  # = 0.7452 — days remaining from 4/4/2026
+        discount      = round(discount * PRO_RATA_2026, 2)
+        annual_tax_prorated = round(annual_tax * PRO_RATA_2026, 2)
+        formula      += f" × 272/365 (יחסי 2026)"
+        pro_rata_applied = True
+    else:
+        annual_tax_prorated = annual_tax
+
+    amount_after_discount = annual_tax_prorated - discount
 
     # Installment breakdown
     if payment_upfront or installment_count <= 1:
@@ -300,6 +360,8 @@ def _calculate_discount(facts: Dict[str, Any], right: dict) -> dict:
         "installment_discount_ils":  round(installment_discount, 2),
         "installment_net_ils":       round(installment_net, 2),
         "formula_used":              formula,
+        "pro_rata_applied":          pro_rata_applied,
+        "pro_rata_ratio":            round(272/365, 4) if pro_rata_applied else None,
     }
 
 
