@@ -60,6 +60,61 @@ SEED_RIGHTS = [
         "source": "עיריית נתניה — חייל עם 5 נפשות ומעלה",
     },
 
+    # ═══ AMENDMENT 43 — תיקון 43, התשפ"ו-2026 ════════════════════════════════
+
+    {
+        "catalog_id": "ARNONA-RESERVE-SOLDIER-MALE-43",
+        "name": "הנחה בארנונה לחייל מילואים פעיל (זכר) — 20% — תיקון 43",
+        "category_tag": "Municipal_Tax",
+        "subcategory_tag": "Reserve_Soldiers_43",
+        "discount_value": 20.0,
+        "discount_unit": "PERCENT",
+        "friction_score": 5,
+        "effective_from": "2026-04-04",
+        "effective_to": None,
+        "status": "ACTIVE",
+        "source": "תקנה 2(א) — תיקון מס' 43, התשפ\"ו-2026",
+    },
+    {
+        "catalog_id": "ARNONA-RESERVE-SOLDIER-FEMALE-43",
+        "name": "הנחה בארנונה לחיילת מילואים פעילה (נקבה) — 30% — תיקון 43",
+        "category_tag": "Municipal_Tax",
+        "subcategory_tag": "Reserve_Soldiers_43",
+        "discount_value": 30.0,
+        "discount_unit": "PERCENT",
+        "friction_score": 5,
+        "effective_from": "2026-04-04",
+        "effective_to": None,
+        "status": "ACTIVE",
+        "source": "תקנה 2(א) + תקנה 3 — תיקון מס' 43, התשפ\"ו-2026 (20%+10% תוספת מגדר)",
+    },
+    {
+        "catalog_id": "ARNONA-RESERVE-COMMANDER-MALE-43",
+        "name": "הנחה בארנונה למפקד מילואים פעיל (זכר) — 50% עד 120 מ\"ר — תיקון 43",
+        "category_tag": "Municipal_Tax",
+        "subcategory_tag": "Reserve_Commander_43",
+        "discount_value": 50.0,
+        "discount_unit": "PERCENT",
+        "friction_score": 7,
+        "effective_from": "2026-04-04",
+        "effective_to": None,
+        "status": "ACTIVE",
+        "source": "תקנה 2(ב) — תיקון מס' 43, התשפ\"ו-2026",
+    },
+    {
+        "catalog_id": "ARNONA-RESERVE-COMMANDER-FEMALE-43",
+        "name": "הנחה בארנונה למפקדת מילואים פעילה (נקבה) — 60% עד 120 מ\"ר — תיקון 43",
+        "category_tag": "Municipal_Tax",
+        "subcategory_tag": "Reserve_Commander_43",
+        "discount_value": 60.0,
+        "discount_unit": "PERCENT",
+        "friction_score": 7,
+        "effective_from": "2026-04-04",
+        "effective_to": None,
+        "status": "ACTIVE",
+        "source": "תקנה 2(ב) + תקנה 3 — תיקון מס' 43, התשפ\"ו-2026 (50%+10% תוספת מגדר)",
+    },
+
     # ═══ LOW INCOME — PDF 2 ══════════════════════════════════════════════════
 
     {
@@ -182,6 +237,14 @@ SEED_SOURCE_DOCS = [
         "publisher": "שר הפנים משה ארבל",
         "publication_date": "2024-10-15",
         "file_hash": "seed-hora-at-sha-a-2024-v1",
+        "ingested_by": "system-seed",
+    },
+    {
+        "doc_id": "GOV-IL-ARNONA-AMENDMENT-43-2026",
+        "title": "תקנות הסדרים במשק המדינה (הנחה מארנונה), תיקון מס' 43, התשפ\"ו-2026",
+        "publisher": "משרד הפנים",
+        "publication_date": "2026-04-04",
+        "file_hash": "seed-arnona-amendment-43-2026-v1",
         "ingested_by": "system-seed",
     },
 ]
