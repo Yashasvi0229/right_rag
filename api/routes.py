@@ -466,6 +466,8 @@ VALID_FACT_TYPES = {
     "IS_PROPERTY_HOLDER", "PROPERTY_SIZE_SQM", "ANNUAL_TAX_ILS", "DISCOUNT_RATE_PCT",
     "MUNICIPALITY_GRANTS", "FAMILY_SIZE", "ANNUAL_INCOME_ILS", "IS_SENIOR",
     "PAYMENT_UPFRONT", "INSTALLMENT_COUNT",
+    # ★ NEW: Amendment 43 fact types
+    "GENDER", "AGE", "SERVICE_YEAR",
     # Service period audit trail facts (up to 10 periods)
     "SERVICE_PERIOD_1", "SERVICE_PERIOD_2", "SERVICE_PERIOD_3",
     "SERVICE_PERIOD_4", "SERVICE_PERIOD_5", "SERVICE_PERIOD_6",
@@ -689,55 +691,77 @@ def api_calculate(session_id: str):
     property_sqm       = float(facts.get("PROPERTY_SIZE_SQM", 0))
     payment_upfront    = facts.get("PAYMENT_UPFRONT", False)
     installment_count  = int(facts.get("INSTALLMENT_COUNT", 1))
+    gender             = facts.get("GENDER", None)
+    age                = facts.get("AGE", None)
+    service_year       = facts.get("SERVICE_YEAR", None)
 
     if annual_tax <= 0:
         raise HTTPException(400, "ANNUAL_TAX_ILS fact is required and must be > 0")
 
-    # ── Soldier (תקנה 3ו) ────────────────────────────────────────────────────
+    # ── Amendment 43: Age < 30 → 100% discount (תקנה 4) ─────────────────────
+    if age is not None and int(age) < 30:
+        discount_rate_pct = 100.0
+
+    # ── Soldier (תקנה 3ו / תיקון 43) ────────────────────────────────────────
     if reserve_type == "SOLDIER":
-        discount = annual_tax * (discount_rate_pct / 100)
-        discount = min(discount, annual_tax)          # cap at full tax
-
-    # ── Commander (תקנה 3ז) — Amendment 42: capped at 120 sqm ─────────────────
-    elif reserve_type == "COMMANDER":
-        if property_sqm <= 0:
-            raise HTTPException(400, "PROPERTY_SIZE_SQM is required for commander calculation")
-        taxable_sqm    = min(property_sqm, 120.0)   # ★ FIX: 120 sqm per Amendment 42 (was 100)
-        tariff_per_sqm = annual_tax / property_sqm
-        tax_on_100sqm  = taxable_sqm * tariff_per_sqm
-        discount       = tax_on_100sqm * (discount_rate_pct / 100)
-        discount       = min(discount, annual_tax)
-
-    else:
-        # Generic fallback for other right types
         discount = annual_tax * (discount_rate_pct / 100)
         discount = min(discount, annual_tax)
 
-    amount_after_discount = annual_tax - discount
+    # ── Commander (תקנה 3ז / תיקון 43) — capped at 120 sqm ──────────────────
+    elif reserve_type == "COMMANDER":
+        if property_sqm <= 0:
+            raise HTTPException(400, "PROPERTY_SIZE_SQM is required for commander calculation")
+        taxable_sqm    = min(property_sqm, 120.0)
+        tariff_per_sqm = annual_tax / property_sqm
+        tax_on_sqm     = taxable_sqm * tariff_per_sqm
+        discount       = tax_on_sqm * (discount_rate_pct / 100)
+        discount       = min(discount, annual_tax)
+
+    else:
+        discount = annual_tax * (discount_rate_pct / 100)
+        discount = min(discount, annual_tax)
+
+    # ── Amendment 43: Pro-rata 272/365 for year 2026 ─────────────────────────
+    PRO_RATA_2026 = 272 / 365
+    pro_rata_applied = False
+    if service_year == 2026:
+        discount         = round(discount * PRO_RATA_2026, 2)
+        annual_tax_for_calc = round(annual_tax * PRO_RATA_2026, 2)
+        pro_rata_applied = True
+    else:
+        annual_tax_for_calc = annual_tax
+
+    amount_after_discount = annual_tax_for_calc - discount
 
     # Installment breakdown
     if payment_upfront or installment_count <= 1:
         installment_count       = 1
-        installment_gross       = annual_tax
+        installment_gross       = annual_tax_for_calc
         installment_discount    = discount
         installment_net         = amount_after_discount
     else:
-        installment_gross       = round(annual_tax / installment_count, 2)
+        installment_gross       = round(annual_tax_for_calc / installment_count, 2)
         installment_discount    = round(discount / installment_count, 2)
         installment_net         = round(amount_after_discount / installment_count, 2)
 
     return {
-        "session_id":              session_id,
-        "reserve_type":            reserve_type,
-        "annual_tax_ils":          round(annual_tax, 2),
-        "discount_rate_pct":       round(discount_rate_pct, 2),
-        "discount_ils":            round(discount, 2),
+        "session_id":                session_id,
+        "reserve_type":              reserve_type,
+        "gender":                    gender,
+        "age":                       age,
+        "annual_tax_ils":            round(annual_tax, 2),
+        "annual_tax_prorated_ils":   round(annual_tax_for_calc, 2),
+        "discount_rate_pct":         round(discount_rate_pct, 2),
+        "discount_ils":              round(discount, 2),
         "amount_after_discount_ils": round(amount_after_discount, 2),
-        "payment_upfront":         payment_upfront,
-        "installment_count":       installment_count,
-        "installment_gross_ils":   round(installment_gross, 2),
-        "installment_discount_ils":round(installment_discount, 2),
-        "installment_net_ils":     round(installment_net, 2),
+        "pro_rata_applied":          pro_rata_applied,
+        "pro_rata_ratio":            round(PRO_RATA_2026, 4) if pro_rata_applied else None,
+        "pro_rata_days":             "272/365" if pro_rata_applied else None,
+        "payment_upfront":           payment_upfront,
+        "installment_count":         installment_count,
+        "installment_gross_ils":     round(installment_gross, 2),
+        "installment_discount_ils":  round(installment_discount, 2),
+        "installment_net_ils":       round(installment_net, 2),
     }
 
 
