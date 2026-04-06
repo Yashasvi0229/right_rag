@@ -91,6 +91,28 @@ def _get_eligibility_checks(catalog_id: str) -> List[tuple]:
     """
     checks = []
 
+    # ── Amendment 46: Takkana 6 — 100 consecutive days → tuition ─────────────
+    # Return early — no property or municipality requirement for tuition right
+    if "TUITION-100DAYS" in catalog_id:
+        checks.append((
+            lambda f: int(f.get("CONSECUTIVE_DAYS", 0)) >= 100,
+            "100 ימי מילואים רצופים מ-7.10.2023 (תקנה 6)"
+        ))
+        return checks
+
+    # ── Amendment 46: Takkana 7 — pregnancy bed rest ──────────────────────────
+    # Return early — counted as reserve service, no property requirement
+    if "PREGNANCY-BED-REST" in catalog_id:
+        checks.append((
+            lambda f: f.get("IS_PREGNANCY_BED_REST") is True,
+            "שמירת הריון החופפת ימי מילואים (תקנה 7)"
+        ))
+        checks.append((
+            lambda f: f.get("GENDER") == "FEMALE",
+            "תקנה 7 חלה על נשים בלבד"
+        ))
+        return checks
+
     # ── Common: property holder ───────────────────────────────────────────────
     checks.append((
         lambda f: f.get("IS_PROPERTY_HOLDER") is True,
@@ -187,11 +209,12 @@ def _get_eligibility_checks(catalog_id: str) -> List[tuple]:
         ))
 
     if "WOMEN6267" in catalog_id:
-        # Women 62-67 specific — we check IS_SENIOR as proxy
         checks.append((
             lambda f: f.get("IS_SENIOR") is True,
             "אישה בגיל 62-67"
         ))
+
+    return checks
 
     return checks
 
@@ -306,9 +329,16 @@ def _calculate_discount(facts: Dict[str, Any], right: dict) -> dict:
             "formula_used":              "N/A — annual_tax is 0",
         }
 
-    # ── Amendment 43: Age < 30 → 100% discount (תקנה 4) ─────────────────────
-    if age is not None and int(age) < 30 and "RESERVE" in catalog_id:
-        discount_rate_pct = 100.0
+    # ── Amendment 46: Age threshold → 100% discount ─────────────────────────
+    # Male: age > 40 → 100% (תקנה 5)
+    # Female: age > 30 → 100% (תקנה 4)
+    if age is not None and "RESERVE" in catalog_id:
+        age_int = int(age)
+        gender_val = facts.get("GENDER", "MALE")
+        if gender_val == "FEMALE" and age_int > 30:
+            discount_rate_pct = 100.0
+        elif gender_val != "FEMALE" and age_int > 40:
+            discount_rate_pct = 100.0
 
     # ── Commander (תקנה 2ב / 3ז): 120 sqm cap ────────────────────────────────
     if "COMMANDER" in catalog_id and property_sqm > 0:
@@ -327,14 +357,14 @@ def _calculate_discount(facts: Dict[str, Any], right: dict) -> dict:
     # Cap: discount cannot exceed the total tax
     discount = min(discount, annual_tax)
 
-    # ── Amendment 43: Pro-rata 272/365 for year 2026 ──────────────────────────
+    # ── Amendment 46: Pro-rata 269/365 for year 2026 (effective 6 April 2026) ─
     pro_rata_applied = False
-    if service_year == 2026 and "43" in catalog_id:
-        PRO_RATA_2026 = 272 / 365  # = 0.7452 — days remaining from 4/4/2026
-        discount      = round(discount * PRO_RATA_2026, 2)
+    if service_year == 2026 and ("43" in catalog_id or "46" in catalog_id or "RESERVE" in catalog_id):
+        PRO_RATA_2026       = 269 / 365  # days remaining from 6/4/2026
+        discount            = round(discount * PRO_RATA_2026, 2)
         annual_tax_prorated = round(annual_tax * PRO_RATA_2026, 2)
-        formula      += f" × 272/365 (יחסי 2026)"
-        pro_rata_applied = True
+        formula            += f" × 269/365 (יחסי 2026)"
+        pro_rata_applied    = True
     else:
         annual_tax_prorated = annual_tax
 
@@ -361,7 +391,7 @@ def _calculate_discount(facts: Dict[str, Any], right: dict) -> dict:
         "installment_net_ils":       round(installment_net, 2),
         "formula_used":              formula,
         "pro_rata_applied":          pro_rata_applied,
-        "pro_rata_ratio":            round(272/365, 4) if pro_rata_applied else None,
+        "pro_rata_ratio":            round(269/365, 4) if pro_rata_applied else None,
     }
 
 
