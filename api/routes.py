@@ -466,8 +466,10 @@ VALID_FACT_TYPES = {
     "IS_PROPERTY_HOLDER", "PROPERTY_SIZE_SQM", "ANNUAL_TAX_ILS", "DISCOUNT_RATE_PCT",
     "MUNICIPALITY_GRANTS", "FAMILY_SIZE", "ANNUAL_INCOME_ILS", "IS_SENIOR",
     "PAYMENT_UPFRONT", "INSTALLMENT_COUNT",
-    # ★ NEW: Amendment 43 fact types
+    # ★ NEW: Amendment 43/46 fact types
     "GENDER", "AGE", "SERVICE_YEAR",
+    # ★ NEW: Amendment 46 fact types
+    "CONSECUTIVE_DAYS", "IS_PREGNANCY_BED_REST",
     # Service period audit trail facts (up to 10 periods)
     "SERVICE_PERIOD_1", "SERVICE_PERIOD_2", "SERVICE_PERIOD_3",
     "SERVICE_PERIOD_4", "SERVICE_PERIOD_5", "SERVICE_PERIOD_6",
@@ -698,9 +700,14 @@ def api_calculate(session_id: str):
     if annual_tax <= 0:
         raise HTTPException(400, "ANNUAL_TAX_ILS fact is required and must be > 0")
 
-    # ── Amendment 43: Age < 30 → 100% discount (תקנה 4) ─────────────────────
-    if age is not None and int(age) < 30:
-        discount_rate_pct = 100.0
+    # ── Amendment 46: Age threshold → 100% discount ─────────────────────────
+    # Male: age > 40 → 100% (תקנה 5) | Female: age > 30 → 100% (תקנה 4)
+    if age is not None:
+        age_int = int(age)
+        if gender == "FEMALE" and age_int > 30:
+            discount_rate_pct = 100.0
+        elif gender != "FEMALE" and age_int > 40:
+            discount_rate_pct = 100.0
 
     # ── Soldier (תקנה 3ו / תיקון 43) ────────────────────────────────────────
     if reserve_type == "SOLDIER":
@@ -721,13 +728,13 @@ def api_calculate(session_id: str):
         discount = annual_tax * (discount_rate_pct / 100)
         discount = min(discount, annual_tax)
 
-    # ── Amendment 43: Pro-rata 272/365 for year 2026 ─────────────────────────
-    PRO_RATA_2026 = 272 / 365
+    # ── Amendment 46: Pro-rata 269/365 for year 2026 (effective 6 April 2026) ─
+    PRO_RATA_2026 = 269 / 365
     pro_rata_applied = False
     if service_year == 2026:
-        discount         = round(discount * PRO_RATA_2026, 2)
+        discount            = round(discount * PRO_RATA_2026, 2)
         annual_tax_for_calc = round(annual_tax * PRO_RATA_2026, 2)
-        pro_rata_applied = True
+        pro_rata_applied    = True
     else:
         annual_tax_for_calc = annual_tax
 
@@ -756,7 +763,7 @@ def api_calculate(session_id: str):
         "amount_after_discount_ils": round(amount_after_discount, 2),
         "pro_rata_applied":          pro_rata_applied,
         "pro_rata_ratio":            round(PRO_RATA_2026, 4) if pro_rata_applied else None,
-        "pro_rata_days":             "272/365" if pro_rata_applied else None,
+        "pro_rata_days":             "269/365" if pro_rata_applied else None,
         "payment_upfront":           payment_upfront,
         "installment_count":         installment_count,
         "installment_gross_ils":     round(installment_gross, 2),
