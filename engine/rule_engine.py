@@ -216,8 +216,6 @@ def _get_eligibility_checks(catalog_id: str) -> List[tuple]:
 
     return checks
 
-    return checks
-
 
 def _get_exclusion_checks(catalog_id: str) -> List[tuple]:
     """
