@@ -263,7 +263,37 @@
         </div>
       </div>
       <input type="hidden" id="f-reserve-type" value="SOLDIER" />
-      <div class="form-group" style="margin-top:14px">
+
+      <!-- ★ Amendment 46: Gender + Age -->
+      <div class="two-col" style="margin-top:14px">
+        <div class="form-group">
+          <label class="form-label">מגדר (תיקון 46)</label>
+          <div class="toggle-row" style="margin-top:6px">
+            <div class="toggle-btn sel" id="btn-male" onclick="setGender('MALE')">👨 זכר</div>
+            <div class="toggle-btn" id="btn-female" onclick="setGender('FEMALE')">👩 נקבה</div>
+          </div>
+          <input type="hidden" id="f-gender" value="MALE" />
+          <div class="field-hint" id="gender-hint">זכר מעל גיל 40 → הנחה 100%</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">גיל (תיקון 46)</label>
+          <input class="form-input" type="number" id="f-age" placeholder="גיל בשנים" min="18" max="120" oninput="onAgeChange()" />
+          <div class="field-hint" id="age-threshold-hint" style="color:var(--muted)"></div>
+        </div>
+      </div>
+
+      <!-- ★ Amendment 46: Service year -->
+      <div class="form-group" style="margin-top:4px">
+        <label class="form-label">שנת השירות (לחישוב יחסי)</label>
+        <select class="form-select" id="f-service-year">
+          <option value="2026" selected>2026 — חישוב יחסי 269/365 (תיקון 46)</option>
+          <option value="2025">2025</option>
+          <option value="2024">2024</option>
+          <option value="2023">2023</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-top:4px">
         <label class="form-label">האם יש תעודת שירות מילואים פעיל תקפה?</label>
         <select class="form-select" id="f-has-approval">
           <option value="true">כן — יש תעודה תקפה</option>
@@ -752,6 +782,29 @@ function setMunicipality(val) {
   }
 }
 
+// ── Gender (Amendment 46) ────────────────────────────────────────────────
+function setGender(val) {
+  document.getElementById('f-gender').value = val;
+  document.getElementById('btn-male').classList.toggle('sel', val === 'MALE');
+  document.getElementById('btn-female').classList.toggle('sel', val === 'FEMALE');
+  const hint = document.getElementById('gender-hint');
+  if (hint) hint.textContent = val === 'FEMALE' ? 'נקבה מעל גיל 30 → הנחה 100%' : 'זכר מעל גיל 40 → הנחה 100%';
+  onAgeChange();
+}
+
+function onAgeChange() {
+  const age    = parseInt(document.getElementById('f-age').value) || 0;
+  const gender = document.getElementById('f-gender').value;
+  const hint   = document.getElementById('age-threshold-hint');
+  if (!hint || age < 18) { if (hint) hint.textContent = ''; return; }
+  const threshold = gender === 'FEMALE' ? 30 : 40;
+  const is100     = age > threshold;
+  hint.textContent = is100
+    ? `✅ גיל ${age} — זכאי להנחה 100% (מעל ${threshold})`
+    : `גיל ${age} — הנחה רגילה (${gender === 'FEMALE' ? '30%' : '20%'})`;
+  hint.style.color = is100 ? 'var(--green)' : 'var(--muted)';
+}
+
 // ── Type / Payment / Installments ─────────────────────────────────────────
 // ✅ FIX: Live warning when property holder = false
 function onPropertyHolderChange(val) {
@@ -914,6 +967,10 @@ async function submitFacts() {
     const upfront  = document.getElementById('f-payment-upfront').value;
     const installs = parseInt(document.getElementById('f-installment-count').value)||6;
     const approval = document.getElementById('f-has-approval').value;
+    // ★ Amendment 46
+    const gender      = document.getElementById('f-gender').value || 'MALE';
+    const age         = parseInt(document.getElementById('f-age').value) || null;
+    const serviceYear = parseInt(document.getElementById('f-service-year').value) || 2026;
 
     // Get first and last date from all periods
     const validPeriods = periods.filter(p => p.start && p.end && p.days > 0);
@@ -928,12 +985,15 @@ async function submitFacts() {
       {fact_type:'IS_PROPERTY_HOLDER',  value:holder},
       {fact_type:'ANNUAL_TAX_ILS',      value:JSON.stringify(tax)},
       {fact_type:'DISCOUNT_RATE_PCT',   value:JSON.stringify(rate)},
-      // ✅ FIX: 3 options — true/false/unknown (unknown treated as true to not block eligibility check)
-      {fact_type:'MUNICIPALITY_GRANTS', value: munic === 'false' ? 'false' : munic === 'unknown' ? 'true' : 'true'},
+      {fact_type:'MUNICIPALITY_GRANTS', value: munic === 'false' ? 'false' : 'true'},
       {fact_type:'PAYMENT_UPFRONT',     value:upfront},
       {fact_type:'INSTALLMENT_COUNT',   value:JSON.stringify(installs)},
+      // ★ Amendment 46
+      {fact_type:'GENDER',              value:JSON.stringify(gender)},
+      {fact_type:'SERVICE_YEAR',        value:JSON.stringify(serviceYear)},
     ];
-    if (sqm > 0)       facts.push({fact_type:'PROPERTY_SIZE_SQM',  value:JSON.stringify(sqm)});
+    if (age)       facts.push({fact_type:'AGE',              value:JSON.stringify(age)});
+    if (sqm > 0)   facts.push({fact_type:'PROPERTY_SIZE_SQM', value:JSON.stringify(sqm)});
     if (firstStart)    facts.push({fact_type:'SERVICE_START_DATE',  value:JSON.stringify(firstStart)});
     if (lastEnd)       facts.push({fact_type:'SERVICE_END_DATE',    value:JSON.stringify(lastEnd)});
 
