@@ -165,6 +165,30 @@
           </select>
         </div>
 
+        <!-- ★ Amendment 46: Gender + Age + Year -->
+        <div class="two-col" style="margin-bottom:18px;">
+          <div>
+            <label class="white-label">מגדר (תיקון 46):</label>
+            <select class="white-select" id="gender_46" onchange="onGenderChange()">
+              <option value="MALE">זכר — הנחה 20% (100% מעל גיל 40)</option>
+              <option value="FEMALE">נקבה — הנחה 30% (100% מעל גיל 30)</option>
+            </select>
+          </div>
+          <div>
+            <label class="white-label">גיל:</label>
+            <input class="white-input" type="number" id="age_46" placeholder="גיל בשנים" min="18" max="120" oninput="calcInstant()" />
+          </div>
+        </div>
+        <div style="margin-bottom:18px;">
+          <label class="white-label">שנת שירות:</label>
+          <select class="white-select" id="year_46" onchange="calcInstant()">
+            <option value="2026" selected>2026 — חישוב יחסי 269/365 (תיקון 46)</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+          </select>
+          <div id="age-note-46" style="margin-top:8px;font-size:12px;color:#1e4a8a;background:#e8f0fe;padding:8px 12px;border-radius:6px;display:none;"></div>
+        </div>
+
         <div class="two-col" style="margin-bottom:18px;">
           <div>
             <label class="white-label">אופן תשלום:</label>
@@ -339,15 +363,55 @@ function calcAndScroll() {
   }, 100);
 }
 
+function onGenderChange() {
+  calcInstant();
+  const gender = document.getElementById('gender_46').value;
+  const hint   = document.getElementById('age-note-46');
+  const age    = parseInt(document.getElementById('age_46').value) || 0;
+  const threshold = gender === 'FEMALE' ? 30 : 40;
+  if (age > threshold) {
+    hint.textContent = `✅ גיל ${age} — הנחה 100% לפי תיקון 46`;
+    hint.style.display = 'block';
+  } else if (age > 0) {
+    hint.textContent = `גיל ${age} — הנחה רגילה (${gender === 'FEMALE' ? '30%' : '20%'})`;
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
 /* QA #10: Correct formulas — no service days */
 function calcInstant() {
   const tax      = parseFloat(document.getElementById('annual_tax').value) || 0;
-  const rate     = parseFloat(document.getElementById('discount_rate').value) || 0;
+  let   rate     = parseFloat(document.getElementById('discount_rate').value) || 0;
   const type     = document.getElementById('soldier_type').value;
   const approved = document.getElementById('has_approval').value === 'yes';
   const upfront  = document.getElementById('payment_type').value === 'upfront';
   const installs = upfront ? 1 : parseInt(document.getElementById('installment_count').value) || 6;
   const sqm      = parseFloat(document.getElementById('property_area')?.value) || 0;
+  // ★ Amendment 46
+  const gender   = document.getElementById('gender_46')?.value || 'MALE';
+  const age      = parseInt(document.getElementById('age_46')?.value) || 0;
+  const year     = parseInt(document.getElementById('year_46')?.value) || 2026;
+
+  // Age threshold note
+  const hint = document.getElementById('age-note-46');
+  if (hint && age > 0) {
+    const threshold = gender === 'FEMALE' ? 30 : 40;
+    if (age > threshold) {
+      hint.textContent = `✅ גיל ${age} — הנחה 100% לפי תיקון 46`;
+      hint.style.display = 'block';
+    } else {
+      hint.textContent = `גיל ${age} — הנחה רגילה (${gender === 'FEMALE' ? '30%' : '20%'})`;
+      hint.style.display = 'block';
+    }
+  } else if (hint) hint.style.display = 'none';
+
+  // Amendment 46: age threshold → 100%
+  if (age > 0) {
+    const threshold = gender === 'FEMALE' ? 30 : 40;
+    if (age > threshold) rate = 100;
+  }
 
   if (tax <= 0 || !approved) return;
 
@@ -358,14 +422,22 @@ function calcInstant() {
       document.getElementById('result-discount').textContent = 'הכנס שטח';
       document.getElementById('result-box').style.display   = 'block'; return;
     }
-    const taxableSqm = Math.min(sqm, 100);
+    const taxableSqm = Math.min(sqm, 120);
     const tariff     = tax / sqm;
     discount         = Math.min(taxableSqm * tariff * (rate / 100), tax);
-    formulaText      = `MIN(${sqm},100)=${taxableSqm}מ"ר × ${tariff.toFixed(2)}₪/מ"ר × ${rate}% = ${discount.toFixed(0)} ₪`;
-    sourceRefs       = 'תקנה 3ז — תקנות תשפ"ג-2022';
+    formulaText      = `MIN(${sqm},120)=${taxableSqm}מ"ר × ${tariff.toFixed(2)}₪/מ"ר × ${rate}% = ${discount.toFixed(0)} ₪`;
+    sourceRefs       = 'תקנה 3ז — תקנות תשפ"ג-2022 | תיקון 46';
   } else {
     discount    = Math.min(tax * (rate / 100), tax);
     formulaText = `${tax.toLocaleString('he-IL')} × ${rate}% = ${discount.toFixed(0)} ₪`;
+  }
+
+  // ★ Amendment 46: Pro-rata 269/365 for year 2026
+  if (year === 2026) {
+    const PRO_RATA = 269 / 365;
+    discount    = Math.round(discount * PRO_RATA * 100) / 100;
+    formulaText += ` × 269/365 (יחסי 2026)`;
+    sourceRefs  += ' | פרו-ראטה 6.4.2026';
   }
 
   const payable     = tax - discount;
@@ -404,6 +476,9 @@ function loadApiExplanation(type, tax, rate, sqm, upfront, installs) {
       const sessRes = await fetch('/api/session/start', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
       if (!sessRes.ok) return;
       const { session_id } = await sessRes.json();
+      const gender = document.getElementById('gender_46')?.value || 'MALE';
+      const age    = parseInt(document.getElementById('age_46')?.value) || null;
+      const year   = parseInt(document.getElementById('year_46')?.value) || 2026;
       const facts = [
         {fact_type:'RESERVE_TYPE',       value:JSON.stringify(type)},
         {fact_type:'ANNUAL_TAX_ILS',     value:JSON.stringify(tax)},
@@ -413,7 +488,10 @@ function loadApiExplanation(type, tax, rate, sqm, upfront, installs) {
         {fact_type:'SERVICE_DAYS_3Y',    value:'60'},
         {fact_type:'PAYMENT_UPFRONT',    value:upfront?'true':'false'},
         {fact_type:'INSTALLMENT_COUNT',  value:JSON.stringify(installs)},
+        {fact_type:'GENDER',             value:JSON.stringify(gender)},
+        {fact_type:'SERVICE_YEAR',       value:JSON.stringify(year)},
       ];
+      if (age) facts.push({fact_type:'AGE', value:JSON.stringify(age)});
       if (type === 'COMMANDER' && sqm > 0) facts.push({fact_type:'PROPERTY_SIZE_SQM', value:JSON.stringify(sqm)});
       await fetch('/api/facts', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({session_id,facts}) });
       const evalRes = await fetch(`/api/evaluate/${session_id}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
