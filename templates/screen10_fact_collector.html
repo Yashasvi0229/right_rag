@@ -496,8 +496,6 @@ function formatDateInput(input, pid, field) {
 }
 
 // Convert dd/mm/yyyy → Date object (local, no UTC shift)
-// BUG FIX: new Date(year, mon-1, day) silently overflows — e.g. 31/02/2024
-// becomes March 3. Must verify day+month match AFTER construction.
 function parseLocalDate(str) {
   if (!str || str.length < 10) return null;
   const parts = str.split('/');
@@ -507,29 +505,25 @@ function parseLocalDate(str) {
   const monStr  = parts[1];
   const yearStr = parts[2];
 
-  // Year must be exactly 4 digits and in valid range
   if (yearStr.length !== 4) return null;
 
   const day  = parseInt(dayStr, 10);
   const mon  = parseInt(monStr, 10);
   const year = parseInt(yearStr, 10);
 
-  // Basic range check
   if (isNaN(day) || isNaN(mon) || isNaN(year)) return null;
   if (year < 1900 || year > 2100)               return null;
   if (mon  < 1    || mon  > 12)                 return null;
   if (day  < 1    || day  > 31)                 return null;
 
-  // Build date and verify no JS overflow (e.g. 31/02 → March)
   const d = new Date(year, mon - 1, day);
   if (isNaN(d))           return null;
-  if (d.getDate()  !== day)  return null;   // overflow check
-  if (d.getMonth() !== mon - 1) return null; // overflow check
+  if (d.getDate()  !== day)  return null;
+  if (d.getMonth() !== mon - 1) return null;
 
   return d;
 }
 
-// Returns human-readable error for what's wrong with a dd/mm/yyyy string
 function getDateError(str) {
   if (!str || str.length < 10) return 'יש להזין תאריך בפורמט dd/mm/yyyy';
 
@@ -550,20 +544,15 @@ function getDateError(str) {
   if (isNaN(mon)  || mon  < 1   || mon  > 12)    return 'חודש לא תקין — יש להזין בין 01 ל-12';
   if (isNaN(day)  || day  < 1   || day  > 31)    return 'יום לא תקין — יש להזין בין 01 ל-31';
 
-  // Check overflow (e.g. 31/02)
   const d = new Date(year, mon - 1, day);
   if (d.getDate() !== day || d.getMonth() !== mon - 1) {
-    const maxDay = new Date(year, mon, 0).getDate(); // last day of that month
+    const maxDay = new Date(year, mon, 0).getDate();
     return `יום לא תקין — לחודש ${mon}/${year} יש רק ${maxDay} ימים`;
   }
 
-  return null; // no error
+  return null;
 }
 
-// Format date as yyyy-mm-dd for API
-// BUG FIX: toISOString() shifts to UTC — in Israel (UTC+2/+3) midnight local
-// becomes previous day in UTC → wrong date sent to API.
-// Fix: build yyyy-mm-dd string directly from local date parts.
 function toIsoString(str) {
   const d = parseLocalDate(str);
   if (!d) return '';
@@ -584,8 +573,6 @@ function calcDays(start, end) {
   if (!start || !end) return 0;
   const s = new Date(start), e = new Date(end);
   if (isNaN(s) || isNaN(e) || e < s) return 0;
-  // FIX: +1 to include both start and end date (IDF/Bituach Leumi standard)
-  // Example: 01/01/2026 → 20/01/2026 = 20 days (not 19)
   return Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
 }
 
@@ -627,7 +614,6 @@ function addPeriod() {
 document.getElementById('periods-container').appendChild(div);
   updateTotalDays();
 
-  // ✅ FIX: Scroll new period into view smoothly
   setTimeout(() => {
     div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     const startInput = document.getElementById(pid + '-start');
@@ -652,10 +638,7 @@ function onPeriodChange(pid) {
   startEl?.classList.remove('has-error');
   endEl?.classList.remove('has-error');
 
-  // Only validate when both fields have 10 chars (dd/mm/yyyy)
   if (startStr.length < 10 || endStr.length < 10) {
-    // BUG FIX: If field has SOME input but incomplete (e.g. 40/26/999 = 9 chars)
-    // show a clear error on blur instead of silently ignoring
     if (startStr.length > 0 && startStr.length < 10) {
       startEl?.classList.add('has-error');
       if (daysEl) { daysEl.textContent = '⚠️ תאריך לא שלם — יש להזין dd/mm/yyyy (10 תווים)'; daysEl.className = 'period-days error'; }
@@ -684,8 +667,6 @@ function onPeriodChange(pid) {
     if (daysEl) { daysEl.textContent = '⚠️ ' + msg; daysEl.className = 'period-days error'; }
     updatePeriod(pid, '', '', 0); return;
   }
-  // ✅ FIX: Allow same-day service (e < s only blocks, e === s = 1 day is valid)
-  // Israel reserve service can be 1 day or even half-day (counted as 1 day)
   if (e < s) {
     endEl?.classList.add('has-error');
     if (daysEl) { daysEl.textContent = '⚠️ תאריך סיום חייב להיות שווה או אחרי תאריך התחלה'; daysEl.className = 'period-days error'; }
@@ -702,7 +683,6 @@ function onPeriodChange(pid) {
     updatePeriod(pid, '', '', 0); return;
   }
 
-  // All good!
   const isoStart = toIsoString(startStr);
   const isoEnd   = toIsoString(endStr);
   const days     = calcDays(isoStart, isoEnd);
@@ -719,7 +699,6 @@ function updatePeriod(pid, start, end, days) {
 function updateTotalDays() {
   const total   = periods.reduce((sum, p) => sum + (p.days || 0), 0);
 
-  // ✅ FIX: Show scroll-to-top button when more than 1 period exists
   const scrollBar = document.getElementById('scroll-to-top-bar');
   const rowCount  = document.querySelectorAll('.period-row').length;
   if (scrollBar) scrollBar.style.display = rowCount > 1 ? 'block' : 'none';
@@ -754,13 +733,11 @@ function updateTotalDays() {
 function setMunicipality(val) {
   document.getElementById('f-municipality').value = val;
 
-  // Reset all buttons
   ['munic-yes','munic-unknown','munic-no'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.classList.remove('sel'); el.style.borderColor=''; el.style.background=''; el.style.color=''; }
   });
 
-  // Highlight selected
   const btnId = val === 'true' ? 'munic-yes' : val === 'false' ? 'munic-no' : 'munic-unknown';
   const btn = document.getElementById(btnId);
   if (btn) { btn.style.borderColor='var(--gold)'; btn.style.background='rgba(201,168,76,0.1)'; btn.style.color='var(--gold)'; }
@@ -770,12 +747,10 @@ function setMunicipality(val) {
   const submitSec  = document.querySelector('.submit-section');
 
   if (val === 'false') {
-    // Municipality said NO — show end block, hide rest
     if (noBlock)   noBlock.style.display   = 'block';
     if (mainSecs)  mainSecs.style.display  = 'none';
     if (submitSec) submitSec.style.display = 'none';
   } else {
-    // Yes or Unknown — show main form
     if (noBlock)   noBlock.style.display   = 'none';
     if (mainSecs)  mainSecs.style.display  = 'block';
     if (submitSec) submitSec.style.display = 'block';
@@ -806,7 +781,6 @@ function onAgeChange() {
 }
 
 // ── Type / Payment / Installments ─────────────────────────────────────────
-// ✅ FIX: Live warning when property holder = false
 function onPropertyHolderChange(val) {
   const errEl = document.getElementById('err-property-holder');
   const submitBtn = document.getElementById('submit-error');
@@ -830,7 +804,6 @@ async function loadCatalogDefaults() {
     SOLDIER_PCT   = data.soldier_pct   || 5;
     COMMANDER_PCT = data.commander_pct || 25;
 
-    // Update opt-sub labels
     const soldierSub   = document.getElementById('soldier-opt-sub');
     const commanderSub = document.getElementById('commander-opt-sub');
     const helpIcon     = document.getElementById('discount-help-icon');
@@ -839,7 +812,6 @@ async function loadCatalogDefaults() {
     if (commanderSub) commanderSub.textContent = `תקנה 3ז — עד ${COMMANDER_PCT}% על 100 מ"ר`;
     if (helpIcon)     helpIcon.title            = `לחייל עד ${SOLDIER_PCT}%, למפקד עד ${COMMANDER_PCT}%.`;
 
-    // Set initial discount rate based on current selected type
     const type = document.getElementById('f-reserve-type').value;
     document.getElementById('f-discount-rate').value = type === 'COMMANDER' ? COMMANDER_PCT : SOLDIER_PCT;
   } catch(e) {
@@ -853,7 +825,6 @@ function selectReserveType(el) {
   const type = el.dataset.type;
   document.getElementById('f-reserve-type').value = type;
   document.getElementById('sqm-group').style.display = type === 'COMMANDER' ? '' : 'none';
-  // ★ Use catalog values, not hardcoded
   document.getElementById('f-discount-rate').value = type === 'COMMANDER' ? COMMANDER_PCT : SOLDIER_PCT;
 }
 
@@ -878,7 +849,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.querySelector('[data-type="COMMANDER"]');
     if (el) selectReserveType(el);
   }
-  // Add first period by default
   addPeriod();
 });
 
@@ -894,20 +864,22 @@ function clearErr(id) {
   if (i) i.classList.remove('has-error');
 }
 
+// ★ FIX: validate() now scrolls to first error field
 function validate() {
   let ok = true;
+  let firstError = null; // track first error to scroll to it
   clearErr('annual-tax');
-  document.getElementById('err-periods').style.display = 'none';
+  const periodsErrEl = document.getElementById('err-periods');
+  periodsErrEl.style.display = 'none';
 
-  // ✅ FIX: Block submit if user is not registered as property holder
+  // Block submit if user is not registered as property holder
   const holderVal = document.getElementById('f-property-holder').value;
   const errEl = document.getElementById('submit-error');
   if (holderVal === 'false') {
     errEl.textContent = '⚠️ רק בעל הנכס או שוכר רשום זכאי להנחה בארנונה. לא ניתן להגיש בקשה עבור נכס שאינך רשום עליו.';
     errEl.style.display = 'block';
     errEl.style.color = 'var(--yellow)';
-    // Scroll to error
-    errEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return false;
   } else {
     errEl.style.display = 'none';
@@ -915,34 +887,44 @@ function validate() {
 
   // Check periods
   const activePeriods = [...document.querySelectorAll('.period-row')];
-  if (activePeriods.length === 0) {
-    document.getElementById('err-periods').style.display = 'block';
-    ok = false;
-  }
-
-  // Check total days — warn if < 20 but don't block
   const totalDays = periods.reduce((sum, p) => sum + (p.days || 0), 0);
-  if (totalDays < 1) {
-    document.getElementById('err-periods').textContent = 'יש למלא לפחות תקופת שירות אחת עם תאריכים תקינים';
-    document.getElementById('err-periods').style.display = 'block';
+
+  if (activePeriods.length === 0 || totalDays < 1) {
+    periodsErrEl.textContent = 'יש למלא לפחות תקופת שירות אחת עם תאריכים תקינים';
+    periodsErrEl.style.display = 'block';
+    periodsErrEl.style.color = 'var(--red)';
+    if (!firstError) firstError = periodsErrEl;
     ok = false;
   } else if (totalDays < 20) {
-    // Warning only — allow submit so user can see result and come back
-    document.getElementById('err-periods').textContent = `⚠️ ${totalDays} ימים — פחות מהמינימום הנדרש (20 ימים). ניתן להמשיך אך ייתכן שלא תמצא זכאות.`;
-    document.getElementById('err-periods').style.display = 'block';
-    document.getElementById('err-periods').style.color = 'var(--yellow)';
-    // Don't set ok = false — allow submit
+    // Warning only — allow submit
+    periodsErrEl.textContent = `⚠️ ${totalDays} ימים — פחות מהמינימום הנדרש (20 ימים). ניתן להמשיך אך ייתכן שלא תמצא זכאות.`;
+    periodsErrEl.style.display = 'block';
+    periodsErrEl.style.color = 'var(--yellow)';
   }
 
   const tax = parseFloat(document.getElementById('f-annual-tax').value)||0;
-  if (tax<=0) { showErr('annual-tax','יש להזין סכום ארנונה שנתי תקין'); ok=false; }
+  if (tax <= 0) {
+    showErr('annual-tax', 'יש להזין סכום ארנונה שנתי תקין');
+    if (!firstError) firstError = document.getElementById('err-annual-tax');
+    ok = false;
+  }
 
   const type = document.getElementById('f-reserve-type').value;
   const sqm  = parseFloat(document.getElementById('f-sqm')?.value)||0;
-  // BUG FIX: errEl already declared above with const — using existing reference
-  if (type==='COMMANDER' && sqm<=0) {
-    errEl.textContent='למפקד מילואים נדרש שטח הנכס (מ"ר)'; errEl.style.display='block'; ok=false;
-  } else { errEl.style.display='none'; }
+  if (type === 'COMMANDER' && sqm <= 0) {
+    errEl.textContent = 'למפקד מילואים נדרש שטח הנכס (מ"ר)';
+    errEl.style.display = 'block';
+    errEl.style.color = 'var(--red)';
+    if (!firstError) firstError = errEl;
+    ok = false;
+  } else if (type !== 'COMMANDER') {
+    errEl.style.display = 'none';
+  }
+
+  // ★ Scroll to first error
+  if (!ok && firstError) {
+    setTimeout(() => firstError.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+  }
 
   return ok;
 }
@@ -1015,6 +997,8 @@ async function submitFacts() {
     overlay.classList.remove('show');
     const errEl = document.getElementById('submit-error');
     errEl.textContent='❌ '+e.message; errEl.style.display='block';
+    // ★ Scroll to error
+    setTimeout(() => errEl.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
   }
 }
 </script>
