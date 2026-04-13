@@ -3,26 +3,11 @@
 {% block title %}תוצאת בדיקת זכאות{% endblock %}
 {% block extra_head %}
 <style>
-  .result-page {
-    max-width: 760px; margin: 0 auto; padding: 40px 20px 80px;
-  }
-
-  .form-steps {
-    display: flex; align-items: center; justify-content: center;
-    gap: 0; margin-bottom: 32px;
-    overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
-  }
+  .result-page { max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; }
+  .form-steps { display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 32px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .form-steps::-webkit-scrollbar { display: none; }
-  .fstep {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 12px; border-radius: 6px;
-    font-size: 13px; font-weight: 600; white-space: nowrap;
-  }
-  .fstep-num {
-    width: 26px; height: 26px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 700; flex-shrink: 0;
-  }
+  .fstep { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .fstep-num { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
   .fstep.done    { color: var(--green); }
   .fstep.done .fstep-num    { background: rgba(46,204,113,0.2); color: var(--green); }
   .fstep.active  { color: var(--gold); }
@@ -30,118 +15,49 @@
   .fstep.pending { color: var(--muted); }
   .fstep.pending .fstep-num { background: var(--bg-card2); color: var(--muted); }
   .fstep-sep { color: var(--muted); margin: 0 2px; }
-
-  /* Verdict banner */
-  .verdict-banner {
-    border-radius: var(--radius); padding: 24px 24px;
-    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-    margin-bottom: 24px;
-  }
+  .verdict-banner { border-radius: var(--radius); padding: 24px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
   .verdict-banner.eligible   { background: rgba(46,204,113,0.1); border: 2px solid rgba(46,204,113,0.4); }
   .verdict-banner.ineligible { background: rgba(231,76,60,0.08);  border: 2px solid rgba(231,76,60,0.3); }
   .verdict-icon  { font-size: 44px; flex-shrink: 0; }
   .verdict-text  { flex: 1; min-width: 0; }
   .verdict-title { font-family: 'Frank Ruhl Libre', serif; font-size: 24px; font-weight: 900; }
   .verdict-sub   { font-size: 13px; color: var(--muted); margin-top: 4px; }
-
-  /* Amount display */
-  .amount-display {
-    background: var(--bg-card2); border-radius: var(--radius-sm);
-    padding: 16px 20px; text-align: center; flex-shrink: 0;
-  }
-  .amount-num {
-    font-family: 'Frank Ruhl Libre', serif;
-    font-size: 44px; font-weight: 900; color: var(--gold); line-height: 1;
-  }
+  .amount-display { background: var(--bg-card2); border-radius: var(--radius-sm); padding: 16px 20px; text-align: center; flex-shrink: 0; }
+  .amount-num { font-family: 'Frank Ruhl Libre', serif; font-size: 44px; font-weight: 900; color: var(--gold); line-height: 1; }
   .amount-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
-
-  /* Breakdown grid */
-  .breakdown-grid {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;
-  }
-  .breakdown-item {
-    background: var(--bg-card); border: 1px solid var(--border2);
-    border-radius: var(--radius-sm); padding: 14px; text-align: center;
-  }
+  .breakdown-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+  .breakdown-item { background: var(--bg-card); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 14px; text-align: center; }
   .breakdown-num   { font-size: 20px; font-weight: 700; }
   .breakdown-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
-
-  .explain-card {
-    background: var(--bg-card); border: 1px solid var(--border2);
-    border-radius: var(--radius); overflow: hidden; margin-bottom: 20px;
-  }
-  .explain-header {
-    padding: 14px 18px; background: var(--bg-card2);
-    border-bottom: 1px solid var(--border2);
-    font-size: 13px; font-weight: 600; color: var(--gold);
-    display: flex; align-items: center; gap: 8px;
-  }
+  .explain-card { background: var(--bg-card); border: 1px solid var(--border2); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+  .explain-header { padding: 14px 18px; background: var(--bg-card2); border-bottom: 1px solid var(--border2); font-size: 13px; font-weight: 600; color: var(--gold); display: flex; align-items: center; gap: 8px; }
   .explain-body { padding: 18px 20px; }
-
-  .plain-text {
-    background: var(--bg-navy); border-right: 4px solid var(--gold);
-    border-radius: 6px; padding: 14px 16px;
-    font-size: 14px; line-height: 1.8; color: var(--white); white-space: pre-line;
-  }
-
-  .evidence-item {
-    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    padding: 10px 12px; background: var(--bg-navy);
-    border: 1px solid var(--border2); border-radius: var(--radius-sm);
-    margin-bottom: 8px; font-size: 13px;
-  }
+  .plain-text { background: var(--bg-navy); border-right: 4px solid var(--gold); border-radius: 6px; padding: 14px 16px; font-size: 14px; line-height: 1.8; color: var(--white); white-space: pre-line; }
+  .evidence-item { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; background: var(--bg-navy); border: 1px solid var(--border2); border-radius: var(--radius-sm); margin-bottom: 8px; font-size: 13px; }
   .ev-ref  { flex: 1; min-width: 80px; font-size: 12px; }
-  .ev-role {
-    font-size: 11px; padding: 2px 8px; border-radius: 10px;
-    border: 1px solid var(--border2); color: var(--muted); background: var(--bg-card2); white-space: nowrap;
-  }
-
-  .reason-item {
-    padding: 10px 14px; margin-bottom: 8px;
-    background: rgba(231,76,60,0.06); border: 1px solid rgba(231,76,60,0.2);
-    border-radius: var(--radius-sm); font-size: 13px; color: var(--muted);
-  }
-
+  .ev-role { font-size: 11px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border2); color: var(--muted); background: var(--bg-card2); white-space: nowrap; }
+  .reason-item { padding: 10px 14px; margin-bottom: 8px; background: rgba(231,76,60,0.06); border: 1px solid rgba(231,76,60,0.2); border-radius: var(--radius-sm); font-size: 13px; color: var(--muted); }
   .cta-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
-
   .loading-state { text-align: center; padding: 60px 20px; }
-  .spinner {
-    width: 48px; height: 48px; margin: 0 auto 16px;
-    border: 4px solid var(--border); border-top-color: var(--gold);
-    border-radius: 50%; animation: spin 0.8s linear infinite;
-  }
+  .spinner { width: 48px; height: 48px; margin: 0 auto 16px; border: 4px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-
   .session-id-badge { font-family: monospace; font-size: 11px; color: var(--muted); background: var(--bg-navy); padding: 4px 10px; border-radius: 4px; }
-
-  /* ── RESPONSIVE ───────────────────────── */
   @media (max-width: 768px) {
     .result-page { padding: 24px 14px 60px; }
-
-    /* Verdict banner — amount below on mobile */
     .verdict-banner { padding: 18px 16px; gap: 12px; }
     .verdict-icon   { font-size: 36px; }
     .verdict-title  { font-size: 20px; }
     .amount-display { width: 100%; padding: 12px 16px; }
     .amount-num     { font-size: 36px; }
-
-    /* Breakdown: 4 → 2 col */
     .breakdown-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
     .breakdown-num  { font-size: 18px; }
-
-    /* Explain body */
     .explain-body { padding: 14px 16px; }
     .plain-text   { font-size: 13px; }
-
-    /* CTA */
     .cta-row .btn { flex: 1; justify-content: center; text-align: center; }
   }
-
   @media (max-width: 480px) {
     .verdict-title { font-size: 18px; }
     .amount-num    { font-size: 30px; }
-
-    /* Breakdown: 2 col stays */
     .breakdown-num   { font-size: 16px; }
     .breakdown-label { font-size: 10px; }
   }
@@ -185,7 +101,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function loadResult() {
-  // ✅ FIX: Add 30s timeout — prevents infinite spinner (e.g. when annual_tax=1)
   const controller = new AbortController();
   const timeoutId  = setTimeout(() => controller.abort(), 30000);
 
@@ -219,11 +134,17 @@ async function loadFallback() {
 }
 
 function renderResult(result) {
-  const area    = document.getElementById('result-area');
-  const rights  = result.eligible_rights || [];
+  const area   = document.getElementById('result-area');
+  const rights = result.eligible_rights || [];
 
   if (!result.is_eligible || rights.length === 0) {
-    const reasons = (result.ineligible_summary||[]).flatMap(r=>(r.failed_conditions||[]).concat(r.triggered_exclusions||[]));
+    // ★ FIX: API returns per_right_results not ineligible_summary
+    const perRight   = result.per_right_results || [];
+    const allReasons = perRight.flatMap(r =>
+      (r.failed_conditions || []).concat(r.triggered_exclusions || [])
+    );
+    const reasons = [...new Set(allReasons)]; // deduplicate
+
     area.innerHTML = `
       <div class="verdict-banner ineligible anim">
         <div class="verdict-icon">❌</div>
@@ -235,7 +156,10 @@ function renderResult(result) {
       <div class="explain-card anim">
         <div class="explain-header">❌ תנאים שלא מולאו</div>
         <div class="explain-body">
-          ${reasons.length>0 ? reasons.map(r=>`<div class="reason-item"><strong>•</strong> ${escHtml(r)}</div>`).join('') : '<div style="color:var(--muted);font-size:13px">לא ניתן לקבל פרטים נוספים</div>'}
+          ${reasons.length > 0
+            ? reasons.map(r => `<div class="reason-item"><strong>•</strong> ${escHtml(r)}</div>`).join('')
+            : '<div style="color:var(--muted);font-size:13px">לא ניתן לקבל פרטים נוספים — בדוק שהמנוע פורסם מ<a href="/screen6" style="color:var(--gold)">שלב 6</a></div>'
+          }
         </div>
       </div>
       <div class="cta-row anim">
