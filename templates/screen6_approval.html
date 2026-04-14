@@ -455,6 +455,10 @@ async function loadEngineData() {
       badgeEl.textContent = '⏳ ממתין לאישור'; badgeEl.className = 'badge badge-yellow';
       document.getElementById('btn-publish').disabled = false;
       document.getElementById('btn-reject').disabled  = false;
+    } else if (engineData.status === 'FAIL') {
+      badgeEl.textContent = '❌ נכשל בוולידציה'; badgeEl.className = 'badge badge-red';
+      document.getElementById('btn-publish').disabled = true;
+      document.getElementById('btn-reject').disabled  = false;  // allow reject on FAIL
     } else if (engineData.status === 'ACTIVE') {
       badgeEl.textContent = '✅ פעיל כבר'; badgeEl.className = 'badge badge-green';
       // ★ FIX: Show status label instead of button — not clickable
