@@ -3,14 +3,17 @@ Rights Angel — Ingestion Pipeline (L1 + L2)
 Architecture Brief v1.2 §6.1 Steps 1-3
 
 L1: Document Loader + SHA-256 Hash Registry
-    - Approved source list enforcement (§6.2)
+    - APPROVED_SOURCES acts as a metadata registry, not a hard gate
+    - Any doc_id is accepted if caller supplies title + publisher
     - Hash check → unchanged = exit, changed = proceed
     - PDF/DOCX/TXT text extraction
 
 L2: OpenAI GPT-4o Atomic Clause Extractor
     - temperature=0 (deterministic, critical for legal accuracy)
+    - Domain-agnostic prompt covering any Israeli statutory/administrative law
     - Extracted clauses → human review queue (NOT clause store directly)
     - Human must approve before clause enters store (§2.1 gate)
+    - Structured failure reasons surfaced via audit_log for admin UI
 """
 import hashlib
 import json
@@ -28,9 +31,8 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 from database.schema import get_db
 
 # ─────────────────────────────────────────────────────────────────────────────
-# APPROVED SOURCE LIST — per §6.2
-# Adding a source requires documented decision, not just a config change.
-# These two are populated from the client's actual PDFs.
+# APPROVED_SOURCES — metadata registry for known legal documents.
+# NOT a hard gate. New sources may be ingested by supplying title + publisher.
 # ─────────────────────────────────────────────────────────────────────────────
 APPROVED_SOURCES = {
     "GOV-IL-RESERVE-ARNONA-2026": {
@@ -78,10 +80,11 @@ APPROVED_SOURCES = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# OpenAI Prompt — crafted specifically for Israeli arnona law
+# Domain-agnostic extraction prompt.
+# Handles any Israeli statutory/administrative law, not only arnona.
 # temperature=0 for determinism (architecture brief §3.3)
 # ─────────────────────────────────────────────────────────────────────────────
-EXTRACTION_SYSTEM_PROMPT = """You are a legal analyst specializing in Israeli administrative law (משפט מנהלי ישראלי), specifically property tax (ארנונה) regulations and discount rights.
+EXTRACTION_SYSTEM_PROMPT = """You are a legal analyst specializing in Israeli administrative and statutory law across any domain: property tax (arnona), welfare, employment, family law, criminal procedure, education, social security, tenancy, consumer protection, and others.
 
 Your task: extract ATOMIC LEGAL CLAUSES from Israeli legal documents.
 
@@ -90,12 +93,15 @@ ATOMIC CLAUSE = one single, indivisible legal unit. A condition, exclusion, defi
 CLAUSE TYPES:
 - ELIGIBILITY: grants a right or states a qualifying condition ("זכאי", "רשאי", "entitled to", conditions that must be met)
 - EXCLUSION: removes or denies a right ("אינו זכאי", "לא יינתן", "except", "provided that not")
-- DEFINITION: defines a legal term ("חייל מילואים פעיל" means..., "הכנסה" for purposes of this regulation means...)
+- DEFINITION: defines a legal term ("...משמעו", "...כהגדרתו", "for purposes of this regulation means...")
 - PROCEDURE: steps to apply, appeal deadlines, required documents ("יגיש", "submit", "within X days", "required documents")
 
 CRITICAL RULES — NO EXCEPTIONS:
 1. VERBATIM HEBREW TEXT ONLY — copy exact text from document, NEVER paraphrase, summarize, or translate
-2. section_ref MUST be the EXACT reference found in the document text (e.g. "תקנה 3ו(א)", "תקנה 3ז", "סעיף 2(א)(8)")
+2. section_ref MUST be the EXACT reference found in the document text. Examples across legal domains:
+   - "תקנה 3ו(א)", "תקנה 3ז", "סעיף 2(א)(8)"
+   - "סעיף 5(ב) לחוק החוזים", "תקנה 12 לתקנות התעבורה"
+   - "סעיף 24 לחוק הביטוח הלאומי", "סעיף 8 לחוק הורים יחידים"
    - If no section ref found in the text, use "לא צוין" — NEVER invent or hallucinate a reference
 3. Each clause must be independently meaningful
 4. Minimum clause length: 50 characters
@@ -105,7 +111,7 @@ CRITICAL RULES — NO EXCEPTIONS:
 8. Each clause must contain at least one complete legal predicate (subject + verb + object)
 
 RETURN FORMAT:
-{"clauses": [{"section_ref": "תקנה 3ו(א)", "text": "verbatim Hebrew text here", "clause_type": "ELIGIBILITY"}]}"""
+{"clauses": [{"section_ref": "סעיף 5(ב)", "text": "verbatim Hebrew text here", "clause_type": "ELIGIBILITY"}]}"""
 
 EXTRACTION_USER_PROMPT = """Document ID: {doc_id}
 Title: {title}
@@ -191,57 +197,69 @@ def _chunk_text(text: str, max_chars: int = 5000) -> list[str]:
     return chunks or [text[:max_chars]]
 
 
-def _call_openai(text: str, doc_id: str, meta: dict) -> list[dict]:
+def _call_openai(text: str, doc_id: str, meta: dict) -> tuple[list[dict], Optional[dict]]:
     """
     Single OpenAI call for one text chunk.
-    Returns list of {section_ref, text, clause_type}
+    Returns (clauses, error_info).
+    error_info is None on success, or a dict with 'reason' and 'detail' on failure.
     """
-    from openai import OpenAI
-
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key or api_key.startswith("sk-your"):
-        raise ValueError(
-            "OPENAI_API_KEY not set. Open .env file and add your key."
+        return [], {
+            "reason": "OPENAI_API_KEY_MISSING",
+            "detail": "OPENAI_API_KEY not set. Open .env file and add your key.",
+        }
+
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
+        model = os.getenv("OPENAI_MODEL", "gpt-4o")
+
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
+                {"role": "user", "content": EXTRACTION_USER_PROMPT.format(
+                    doc_id=doc_id,
+                    title=meta.get("title", ""),
+                    publisher=meta.get("publisher", ""),
+                    text=text,
+                )},
+            ],
+            temperature=0,
+            response_format={"type": "json_object"},
+            max_tokens=4000,
         )
+    except Exception as e:
+        return [], {
+            "reason": "OPENAI_API_ERROR",
+            "error_type": type(e).__name__,
+            "detail": str(e)[:500],
+        }
 
-    client = OpenAI(api_key=api_key)
-    model = os.getenv("OPENAI_MODEL", "gpt-4o")
-
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
-            {"role": "user", "content": EXTRACTION_USER_PROMPT.format(
-                doc_id=doc_id,
-                title=meta["title"],
-                publisher=meta["publisher"],
-                text=text,
-            )},
-        ],
-        temperature=0,  # deterministic — required by architecture brief §3.3
-        response_format={"type": "json_object"},
-        max_tokens=4000,
-    )
-
-    raw = response.choices[0].message.content
+    raw = response.choices[0].message.content or ""
     try:
         parsed = json.loads(raw)
-        # Handle {"clauses": [...]} or direct [...] response
         if isinstance(parsed, list):
-            return parsed
+            return parsed, None
         for v in parsed.values():
             if isinstance(v, list):
-                return v
-        return []
+                return v, None
+        return [], {
+            "reason": "OPENAI_RETURNED_EMPTY",
+            "detail": "Response contained no clause list",
+        }
     except (json.JSONDecodeError, AttributeError):
-        # Fallback: try to find JSON array in response
         match = re.search(r'\[.*\]', raw, re.DOTALL)
         if match:
             try:
-                return json.loads(match.group())
+                return json.loads(match.group()), None
             except json.JSONDecodeError:
                 pass
-        return []
+        return [], {
+            "reason": "OPENAI_PARSE_ERROR",
+            "detail": raw[:200],
+        }
 
 
 def _generate_clause_id(doc_id: str, section_ref: str, index: int) -> str:
@@ -295,30 +313,40 @@ def ingest_document(
     ingested_by: str,
     publication_date: Optional[str] = None,
     url: Optional[str] = None,
+    title: Optional[str] = None,
+    publisher: Optional[str] = None,
+    category: Optional[str] = None,
 ) -> dict:
     """
     L1 + L2: Full ingestion pipeline for a legal document.
 
-    Steps:
-    1. Verify doc_id is on approved source list (§6.2)
-    2. Compute SHA-256 hash of file
-    3. Compare hash — unchanged → DocumentUnchangedError
-    4. Extract text (PDF/DOCX/TXT)
-    5. Send to OpenAI GPT-4o for clause extraction (temperature=0)
-    6. Place clauses in review_queue — NOT in clause store
-    7. Write to audit_log
-
-    Returns: {doc_id, title, file_hash, clause_count, status}
+    APPROVED_SOURCES is a metadata registry, not a hard gate.
+    - If doc_id is registered → registry metadata is used; caller values override.
+    - If doc_id is new → caller MUST supply title + publisher.
+    Never fails silently. On zero clauses or extraction failure, returns a
+    structured result with failure_reason and writes it to audit_log.
     """
-    # ── Step 1: Approved source list check ───────────────────────────────────
-    if doc_id not in APPROVED_SOURCES:
-        valid = list(APPROVED_SOURCES.keys())
-        raise SourceNotApprovedError(
-            f"doc_id '{doc_id}' not on approved source list.\n"
-            f"Valid doc_ids: {valid}"
-        )
+    if doc_id in APPROVED_SOURCES:
+        registry_meta = APPROVED_SOURCES[doc_id]
+        meta = {
+            "title": (title or registry_meta["title"]),
+            "publisher": (publisher or registry_meta["publisher"]),
+            "category": (category or registry_meta.get("category", "general")),
+            "publication_date": registry_meta.get("publication_date", ""),
+        }
+    else:
+        if not title or not str(title).strip() or not publisher or not str(publisher).strip():
+            raise SourceNotApprovedError(
+                f"doc_id '{doc_id}' is not in the metadata registry. "
+                f"For new sources, both 'title' and 'publisher' must be provided."
+            )
+        meta = {
+            "title": str(title).strip(),
+            "publisher": str(publisher).strip(),
+            "category": (category or "general").strip() or "general",
+            "publication_date": publication_date or "",
+        }
 
-    meta = APPROVED_SOURCES[doc_id]
     pub_date = validate_date(publication_date or meta.get("publication_date", ""))
     file_hash = sha256_of(file_bytes)
     now = datetime.now(timezone.utc).isoformat()
@@ -330,7 +358,7 @@ def ingest_document(
             (doc_id,)
         ).fetchone()
 
-        # ── Step 3: Hash check ────────────────────────────────────────────────
+        # ── Hash check ───────────────────────────────────────────────────────
         if existing and existing["file_hash"] == file_hash:
             _audit(conn, "INGEST_UNCHANGED", {
                 "doc_id": doc_id, "file_hash": file_hash,
@@ -342,10 +370,29 @@ def ingest_document(
                 "No update recorded per §6.1 Step 2."
             )
 
-        # ── Step 4: Text extraction ───────────────────────────────────────────
-        extracted_text = extract_text_from_bytes(file_bytes, filename)
+        # ── Text extraction ──────────────────────────────────────────────────
+        try:
+            extracted_text = extract_text_from_bytes(file_bytes, filename)
+        except (ValueError, RuntimeError) as e:
+            _audit(conn, "INGEST_ZERO_CLAUSES", {
+                "doc_id": doc_id, "filename": filename,
+                "reason": "TEXT_EXTRACTION_FAILED",
+                "detail": str(e)[:500],
+            })
+            conn.commit()
+            return {
+                "doc_id": doc_id,
+                "title": meta["title"],
+                "publisher": meta["publisher"],
+                "file_hash": file_hash,
+                "clause_count": 0,
+                "status": "NO_CLAUSES_EXTRACTED",
+                "failure_reason": "TEXT_EXTRACTION_FAILED",
+                "failure_detail": str(e)[:500],
+                "message": f"Text extraction failed: {e}",
+            }
 
-        # ── Mark old record superseded if this is an update ───────────────────
+        # ── Upsert source_documents row ──────────────────────────────────────
         if existing:
             conn.execute("""
                 UPDATE source_documents 
@@ -364,25 +411,74 @@ def ingest_document(
             ))
             conn.commit()
 
-        # ── Step 5: OpenAI clause extraction ──────────────────────────────────
+        # ── Pre-check: reject too-short input before spending API tokens ─────
+        if len(extracted_text.strip()) < 200:
+            _audit(conn, "INGEST_ZERO_CLAUSES", {
+                "doc_id": doc_id, "filename": filename,
+                "reason": "TEXT_TOO_SHORT",
+                "detail": f"Extracted text is only {len(extracted_text.strip())} chars (min 200)",
+                "text_length": len(extracted_text.strip()),
+            })
+            conn.commit()
+            return {
+                "doc_id": doc_id,
+                "title": meta["title"],
+                "publisher": meta["publisher"],
+                "file_hash": file_hash,
+                "clause_count": 0,
+                "status": "NO_CLAUSES_EXTRACTED",
+                "failure_reason": "TEXT_TOO_SHORT",
+                "failure_detail": f"Extracted text is only {len(extracted_text.strip())} chars",
+                "message": "Document contains too little text to extract clauses.",
+            }
+
+        # ── OpenAI clause extraction ─────────────────────────────────────────
         chunks = _chunk_text(extracted_text, max_chars=5000)
         all_clauses = []
+        extraction_errors = []
         for chunk in chunks:
-            extracted = _call_openai(chunk, doc_id, meta)
+            extracted, err = _call_openai(chunk, doc_id, meta)
+            if err:
+                extraction_errors.append(err)
             all_clauses.extend(extracted)
 
-        # ── Step 6: Place in review_queue ─────────────────────────────────────
+        if not all_clauses and extraction_errors:
+            first_err = extraction_errors[0]
+            _audit(conn, "INGEST_ZERO_CLAUSES", {
+                "doc_id": doc_id, "filename": filename,
+                "reason": first_err.get("reason", "OPENAI_UNKNOWN_ERROR"),
+                "detail": first_err.get("detail", ""),
+                "error_type": first_err.get("error_type"),
+                "chunks_attempted": len(chunks),
+                "chunks_failed": len(extraction_errors),
+            })
+            conn.commit()
+            return {
+                "doc_id": doc_id,
+                "title": meta["title"],
+                "publisher": meta["publisher"],
+                "file_hash": file_hash,
+                "clause_count": 0,
+                "status": "NO_CLAUSES_EXTRACTED",
+                "failure_reason": first_err.get("reason", "OPENAI_UNKNOWN_ERROR"),
+                "failure_detail": first_err.get("detail", ""),
+                "message": f"Clause extraction failed: {first_err.get('reason')}",
+            }
+
+        # ── Place in review_queue ────────────────────────────────────────────
         queued_ids = []
+        skipped_short = 0
         for i, c in enumerate(all_clauses, 1):
             section_ref = str(c.get("section_ref", "לא צוין"))[:128]
             text = str(c.get("text", "")).strip()
             clause_type = c.get("clause_type", "ELIGIBILITY")
 
             if len(text) < 50:
-                continue  # Skip empty/trivial/incomplete clauses (min 50 chars)
+                skipped_short += 1
+                continue
 
             if clause_type not in ("ELIGIBILITY", "EXCLUSION", "DEFINITION", "PROCEDURE"):
-                clause_type = "ELIGIBILITY"  # Safe default; reviewer can override
+                clause_type = "ELIGIBILITY"
 
             clause_id = _generate_clause_id(doc_id, section_ref, i)
 
@@ -395,17 +491,45 @@ def ingest_document(
 
             queued_ids.append(clause_id)
 
-        # ── Step 7: Audit log ─────────────────────────────────────────────────
+        if not queued_ids:
+            reason = "ALL_CLAUSES_TOO_SHORT" if skipped_short > 0 else "OPENAI_RETURNED_EMPTY"
+            _audit(conn, "INGEST_ZERO_CLAUSES", {
+                "doc_id": doc_id, "filename": filename,
+                "reason": reason,
+                "detail": f"OpenAI returned {len(all_clauses)} raw clauses, {skipped_short} skipped as too short (<50 chars)",
+                "raw_clause_count": len(all_clauses),
+                "skipped_short": skipped_short,
+                "extraction_errors": extraction_errors,
+            })
+            conn.commit()
+            return {
+                "doc_id": doc_id,
+                "title": meta["title"],
+                "publisher": meta["publisher"],
+                "file_hash": file_hash,
+                "clause_count": 0,
+                "status": "NO_CLAUSES_EXTRACTED",
+                "failure_reason": reason,
+                "failure_detail": f"OpenAI returned {len(all_clauses)} raw clauses, {skipped_short} skipped as too short",
+                "raw_clause_count": len(all_clauses),
+                "skipped_short": skipped_short,
+                "message": "No usable clauses extracted from document.",
+            }
+
         _audit(conn, "INGEST_SUCCESS", {
             "doc_id": doc_id, "file_hash": file_hash,
             "filename": filename, "ingested_by": ingested_by,
             "clauses_queued": len(queued_ids),
             "is_update": existing is not None,
+            "category": meta.get("category"),
+            "raw_clause_count": len(all_clauses),
+            "skipped_short": skipped_short,
+            "partial_extraction_errors": len(extraction_errors),
         }, clause_ids=queued_ids)
 
         conn.commit()
 
-        return {
+        result = {
             "doc_id": doc_id,
             "title": meta["title"],
             "publisher": meta["publisher"],
@@ -414,6 +538,10 @@ def ingest_document(
             "status": "UPDATED" if existing else "NEW",
             "message": f"{len(queued_ids)} clauses extracted and placed in human review queue.",
         }
+        if extraction_errors:
+            result["partial_extraction_errors"] = extraction_errors
+            result["message"] += f" ({len(extraction_errors)} chunk(s) failed)"
+        return result
 
     finally:
         conn.close()
@@ -427,6 +555,89 @@ def list_documents() -> list[dict]:
             "SELECT * FROM source_documents ORDER BY ingested_at DESC"
         ).fetchall()
         return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def list_documents_with_status() -> list[dict]:
+    """
+    List all source documents with their most recent ingestion outcome attached.
+    Used by admin UI (screen1) to show zero-clause reasons per document.
+    Adds fields: latest_ingestion_event, latest_ingestion_reason,
+    latest_ingestion_detail, latest_clauses_queued.
+    """
+    docs = list_documents()
+    if not docs:
+        return docs
+    conn = get_db()
+    try:
+        for doc in docs:
+            row = conn.execute("""
+                SELECT event_type, details
+                FROM audit_log
+                WHERE event_type IN ('INGEST_SUCCESS', 'INGEST_ZERO_CLAUSES', 'INGEST_UNCHANGED')
+                  AND json_extract(details, '$.doc_id') = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+            """, (doc["doc_id"],)).fetchone()
+            if not row:
+                doc["latest_ingestion_event"] = None
+                doc["latest_ingestion_reason"] = None
+                doc["latest_ingestion_detail"] = None
+                doc["latest_clauses_queued"] = None
+                continue
+            try:
+                details = json.loads(row["details"])
+            except (json.JSONDecodeError, TypeError):
+                details = {}
+            doc["latest_ingestion_event"] = row["event_type"]
+            doc["latest_ingestion_reason"] = details.get("reason")
+            doc["latest_ingestion_detail"] = details.get("detail")
+            doc["latest_clauses_queued"] = details.get("clauses_queued", 0)
+        return docs
+    finally:
+        conn.close()
+
+
+def get_ingestion_status(doc_id: str) -> Optional[dict]:
+    """
+    Return the most recent ingestion outcome for a specific doc_id.
+    Used by admin UI to display why an upload produced zero clauses.
+    Returns None if no ingestion events were logged for the document.
+    """
+    conn = get_db()
+    try:
+        row = conn.execute("""
+            SELECT event_type, details, created_at
+            FROM audit_log
+            WHERE event_type IN ('INGEST_SUCCESS', 'INGEST_ZERO_CLAUSES', 'INGEST_UNCHANGED')
+              AND json_extract(details, '$.doc_id') = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+        """, (doc_id,)).fetchone()
+
+        if not row:
+            return None
+
+        try:
+            details = json.loads(row["details"])
+        except (json.JSONDecodeError, TypeError):
+            details = {}
+
+        return {
+            "doc_id": doc_id,
+            "event_type": row["event_type"],
+            "created_at": row["created_at"],
+            "success": row["event_type"] == "INGEST_SUCCESS",
+            "reason": details.get("reason"),
+            "detail": details.get("detail"),
+            "clauses_queued": details.get("clauses_queued", 0),
+            "raw_clause_count": details.get("raw_clause_count"),
+            "skipped_short": details.get("skipped_short"),
+            "chunks_attempted": details.get("chunks_attempted"),
+            "chunks_failed": details.get("chunks_failed"),
+            "error_type": details.get("error_type"),
+        }
     finally:
         conn.close()
 
@@ -667,23 +878,38 @@ def unapprove_clause(clause_id: str, reviewed_by: str, reason: str) -> dict:
 
 
 def _auto_link_clause_to_rights(conn, clause_id: str, source_doc_id: str, clause_type: str, now: str):
-    """Auto-link approved clause to relevant rights based on doc category."""
+    """
+    Auto-link an approved clause to relevant rights based on the source doc domain.
+    - RESERVE in doc_id → all Reserve* rights
+    - LOWINCOME in doc_id → Low_Income + Senior rights
+    - ARNONA / HORA-AT-SHA in doc_id → all Municipal_Tax rights
+    - Otherwise → skip auto-link and log to audit (reviewer must link manually)
+    """
     role_map = {"ELIGIBILITY": "CONDITIONS", "EXCLUSION": "EXCLUDES",
                 "DEFINITION": "CONDITIONS", "PROCEDURE": "PROCEDURE"}
     mapping_role = role_map.get(clause_type, "CONDITIONS")
 
-    if "RESERVE" in source_doc_id:
+    src_upper = source_doc_id.upper()
+
+    if "RESERVE" in src_upper:
         rights = conn.execute(
             "SELECT catalog_id FROM rights WHERE subcategory_tag LIKE 'Reserve%' AND status='ACTIVE'"
         ).fetchall()
-    elif "LOWINCOME" in source_doc_id:
+    elif "LOWINCOME" in src_upper:
         rights = conn.execute(
             "SELECT catalog_id FROM rights WHERE (subcategory_tag LIKE '%Income%' OR subcategory_tag LIKE 'Senior%') AND status='ACTIVE'"
         ).fetchall()
-    else:
+    elif "ARNONA" in src_upper or "HORA-AT-SHA" in src_upper:
         rights = conn.execute(
-            "SELECT catalog_id FROM rights WHERE status='ACTIVE'"
+            "SELECT catalog_id FROM rights WHERE category_tag='Municipal_Tax' AND status='ACTIVE'"
         ).fetchall()
+    else:
+        _audit(conn, "AUTO_LINK_SKIPPED_UNKNOWN_DOMAIN", {
+            "clause_id": clause_id,
+            "source_doc_id": source_doc_id,
+            "reason": "Source doc does not match a known legal domain in the catalog; auto-link skipped. Reviewer must link manually if a matching right exists.",
+        }, clause_ids=[clause_id])
+        return
 
     for right in rights:
         try:
@@ -729,11 +955,84 @@ def get_clause_store(
         conn.close()
 
 
+def detect_contradictions() -> list[dict]:
+    """
+    Domain-agnostic contradiction / ambiguity detection over the active clause store.
+    Two deterministic heuristics:
+      1. CONTRADICTION_SAME_SECTION_DIFFERENT_TYPE — same (doc, section_ref) has both
+         ELIGIBILITY and EXCLUSION clauses. Might be complementary but needs review.
+      2. CONTRADICTION_DIFFERENT_DISCOUNT — same (doc, section_ref) has multiple
+         ELIGIBILITY clauses that mention different discount percentages.
+    Returns a list of contradiction records with clause_ids for admin UI.
+    """
+    conn = get_db()
+    contradictions = []
+    try:
+        rows = conn.execute("""
+            SELECT clause_id, source_doc_id, section_ref, clause_type, text
+            FROM clauses WHERE is_current=1
+            ORDER BY source_doc_id, section_ref
+        """).fetchall()
+
+        by_section: dict = {}
+        for r in rows:
+            key = (r["source_doc_id"], r["section_ref"])
+            by_section.setdefault(key, []).append(dict(r))
+
+        for (doc_id, sec_ref), clauses in by_section.items():
+            if len(clauses) < 2:
+                continue
+
+            types_present = {c["clause_type"] for c in clauses}
+            if "ELIGIBILITY" in types_present and "EXCLUSION" in types_present:
+                elig_ids = [c["clause_id"] for c in clauses if c["clause_type"] == "ELIGIBILITY"]
+                excl_ids = [c["clause_id"] for c in clauses if c["clause_type"] == "EXCLUSION"]
+                contradictions.append({
+                    "code": "CONTRADICTION_SAME_SECTION_DIFFERENT_TYPE",
+                    "severity": "WARNING",
+                    "source_doc_id": doc_id,
+                    "section_ref": sec_ref,
+                    "clause_ids": elig_ids + excl_ids,
+                    "msg": (
+                        f"Section '{sec_ref}' has both ELIGIBILITY ({len(elig_ids)}) "
+                        f"and EXCLUSION ({len(excl_ids)}) clauses — verify these are "
+                        f"complementary, not contradictory."
+                    ),
+                })
+
+            elig_clauses = [c for c in clauses if c["clause_type"] == "ELIGIBILITY"]
+            if len(elig_clauses) >= 2:
+                discounts_seen: dict = {}
+                for c in elig_clauses:
+                    d = detect_discount_in_text(c["text"])
+                    if d is not None:
+                        discounts_seen.setdefault(d, []).append(c["clause_id"])
+                if len(discounts_seen) >= 2:
+                    all_ids = [cid for ids in discounts_seen.values() for cid in ids]
+                    contradictions.append({
+                        "code": "CONTRADICTION_DIFFERENT_DISCOUNT",
+                        "severity": "WARNING",
+                        "source_doc_id": doc_id,
+                        "section_ref": sec_ref,
+                        "clause_ids": all_ids,
+                        "discounts_found": sorted(discounts_seen.keys()),
+                        "msg": (
+                            f"Section '{sec_ref}' contains multiple ELIGIBILITY clauses "
+                            f"with different discount values: {sorted(discounts_seen.keys())} — "
+                            f"potential contradiction, needs human review."
+                        ),
+                    })
+        return contradictions
+    finally:
+        conn.close()
+
+
 def validate_clause_integrity() -> dict:
     """
     Milestone 1: Clause integrity validation + basic traceability.
     Architecture Brief §12.1-§12.4.
-    Checks: orphaned clauses, missing fields, invalid types, broken FK links.
+    Checks: orphaned clauses, missing fields, invalid types, broken FK links,
+            and cross-clause contradictions/ambiguities.
     """
     conn = get_db()
     errors = []
@@ -821,6 +1120,19 @@ def validate_clause_integrity() -> dict:
                     "msg": f"Right '{right_id}' has no linked clauses yet"
                 })
 
+        # Check 7: contradictions / ambiguities (M1 acceptance criterion)
+        contradictions = detect_contradictions()
+        for c in contradictions:
+            warnings.append({
+                "code": c["code"],
+                "severity": c["severity"],
+                "clause_id": (c.get("clause_ids") or [None])[0],
+                "clause_ids": c.get("clause_ids", []),
+                "source_doc_id": c.get("source_doc_id"),
+                "section_ref": c.get("section_ref"),
+                "msg": c["msg"],
+            })
+
         # Traceability summary
         traceable = sum(1 for c in clauses if c["source_doc_id"] in active_docs)
 
@@ -838,6 +1150,8 @@ def validate_clause_integrity() -> dict:
             "warnings": len(warnings),
             "errors": errors,
             "warnings_list": warnings,
+            "contradictions": contradictions,
+            "contradictions_count": len(contradictions),
             "traceability": {
                 "traceable_clauses": traceable,
                 "total_clauses": len(clauses),
@@ -851,6 +1165,7 @@ def validate_clause_integrity() -> dict:
             "passed": report["passed"],
             "critical_errors": len(errors),
             "warnings": len(warnings),
+            "contradictions": len(contradictions),
         })
         conn.commit()
         return report
