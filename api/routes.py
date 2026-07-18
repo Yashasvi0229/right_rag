@@ -5,6 +5,8 @@ Milestone 1 + Milestone 2B endpoints
 Milestone 1 endpoints:
   POST /api/ingest                      — Upload + ingest a legal document
   GET  /api/documents                   — List all source documents
+  GET  /api/documents/status            — List documents with latest ingestion status
+  GET  /api/documents/{doc_id}/status   — Latest ingestion outcome for one document
   GET  /api/sources                     — List approved source IDs
   GET  /api/review/pending              — Clauses awaiting human review
   POST /api/review/approve              — Approve a clause
@@ -41,7 +43,8 @@ import json
 from datetime import datetime
 
 from ingestion.pipeline import (
-    ingest_document, list_documents, get_approved_sources,
+    ingest_document, list_documents, list_documents_with_status,
+    get_approved_sources, get_ingestion_status,
     get_pending_review, approve_clause, reject_clause,
     get_clause_store, validate_clause_integrity, get_traceability_chain,
     detect_discount_in_text,
@@ -142,8 +145,18 @@ async def api_ingest(
     publication_date: Optional[str]   = Form(None),
     doc_type:         Optional[str]   = Form(None),
     url:              Optional[str]   = Form(None),
+    title:            Optional[str]   = Form(None),
+    publisher:        Optional[str]   = Form(None),
+    category:         Optional[str]   = Form(None),
 ):
-    """L1+L2: Ingest a legal document."""
+    """L1+L2: Ingest a legal document.
+
+    For known doc_ids in APPROVED_SOURCES the title/publisher/category are
+    optional (registry values are used). For a new/unknown doc_id the caller
+    MUST supply title and publisher — otherwise SourceNotApprovedError is raised.
+    Ingestion never fails silently: on any error the response contains a
+    structured failure_reason and the same reason is written to audit_log.
+    """
     # QA #1 backend guard — validate 4-digit year
     if publication_date:
         try:
@@ -172,6 +185,9 @@ async def api_ingest(
             ingested_by=ingested_by,
             publication_date=publication_date,
             url=url,
+            title=title,
+            publisher=publisher,
+            category=category,
         )
         # BUG FIX [object Object]: ensure result is fully JSON-serializable
         return JSONResponse(content=_safe_json(result), status_code=200)
@@ -190,6 +206,25 @@ async def api_ingest(
 def api_list_documents():
     # BUG FIX [object Object]: convert Row objects → plain dicts
     return [_row_to_dict(d) for d in list_documents()]
+
+
+@router.get("/documents/status")
+def api_list_documents_with_status():
+    """List documents with the latest ingestion event and reason attached.
+
+    Used by admin UI (screen1) to display why an upload produced zero clauses
+    (e.g. OPENAI_RETURNED_EMPTY, TEXT_TOO_SHORT, OPENAI_API_ERROR).
+    """
+    return [_row_to_dict(d) for d in list_documents_with_status()]
+
+
+@router.get("/documents/{doc_id}/status")
+def api_document_status(doc_id: str):
+    """Return the latest ingestion outcome for a specific document."""
+    result = get_ingestion_status(doc_id)
+    if result is None:
+        raise HTTPException(404, f"No ingestion events recorded for '{doc_id}'")
+    return _safe_json(result)
 
 
 @router.get("/sources")
@@ -635,7 +670,10 @@ def api_evaluate(session_id: str, req: EvaluateRequest = EvaluateRequest()):
             event_type="EVALUATE",
             session_id=session_id,
             engine_id=engine_id,
-            details=json.dumps({"eligible_count": len(result.get("eligible_rights", []))})
+            details=json.dumps({
+                "eligible_count": len(result.get("eligible_rights", [])),
+                "resolution_status": result.get("resolution_status"),
+            })
         )
 
         return result
