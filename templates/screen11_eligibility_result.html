@@ -18,6 +18,8 @@
   .verdict-banner { border-radius: var(--radius); padding: 24px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
   .verdict-banner.eligible   { background: rgba(46,204,113,0.1); border: 2px solid rgba(46,204,113,0.4); }
   .verdict-banner.ineligible { background: rgba(231,76,60,0.08);  border: 2px solid rgba(231,76,60,0.3); }
+  .verdict-banner.warning    { background: rgba(241,196,15,0.10); border: 2px solid rgba(241,196,15,0.4); }
+  .verdict-banner.info       { background: rgba(90,155,240,0.10); border: 2px solid rgba(90,155,240,0.4); }
   .verdict-icon  { font-size: 44px; flex-shrink: 0; }
   .verdict-text  { flex: 1; min-width: 0; }
   .verdict-title { font-family: 'Frank Ruhl Libre', serif; font-size: 24px; font-weight: 900; }
@@ -37,6 +39,9 @@
   .ev-ref  { flex: 1; min-width: 80px; font-size: 12px; }
   .ev-role { font-size: 11px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border2); color: var(--muted); background: var(--bg-card2); white-space: nowrap; }
   .reason-item { padding: 10px 14px; margin-bottom: 8px; background: rgba(231,76,60,0.06); border: 1px solid rgba(231,76,60,0.2); border-radius: var(--radius-sm); font-size: 13px; color: var(--muted); }
+  .warn-item   { padding: 10px 14px; margin-bottom: 8px; background: rgba(241,196,15,0.06); border: 1px solid rgba(241,196,15,0.2); border-radius: var(--radius-sm); font-size: 13px; color: var(--white); }
+  .domain-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .domain-chip  { padding: 6px 12px; background: var(--bg-navy); border: 1px solid var(--border2); border-radius: 20px; font-size: 12px; color: var(--white); }
   .cta-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
   .loading-state { text-align: center; padding: 60px 20px; }
   .spinner { width: 48px; height: 48px; margin: 0 auto 16px; border: 4px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; }
@@ -92,6 +97,40 @@
 <script>
 const SESSION_ID = "{{ session_id }}";
 
+const FACT_LABELS_HE = {
+  RESERVE_TYPE:          'סוג שירות מילואים',
+  SERVICE_DAYS_3Y:       'ימי שירות בשלוש שנים אחרונות',
+  SERVICE_START_DATE:    'תאריך תחילת שירות',
+  SERVICE_END_DATE:      'תאריך סיום שירות',
+  IS_PROPERTY_HOLDER:    'האם מחזיק בנכס',
+  PROPERTY_SIZE_SQM:     'גודל הנכס במ"ר',
+  ANNUAL_TAX_ILS:        'ארנונה שנתית',
+  DISCOUNT_RATE_PCT:     'שיעור ההנחה של הרשות',
+  MUNICIPALITY_GRANTS:   'האם הרשות המקומית מעניקה הנחה',
+  FAMILY_SIZE:           'גודל משפחה',
+  ANNUAL_INCOME_ILS:     'הכנסה שנתית',
+  IS_SENIOR:             'האם בגיל פרישה',
+  PAYMENT_UPFRONT:       'האם תשלום מראש',
+  INSTALLMENT_COUNT:     'מספר תשלומים',
+  GENDER:                'מגדר',
+  AGE:                   'גיל',
+  SERVICE_YEAR:          'שנת השירות',
+  CONSECUTIVE_DAYS:      'ימי מילואים רצופים',
+  IS_PREGNANCY_BED_REST: 'שמירת הריון'
+};
+
+const DOMAIN_LABELS_HE = {
+  RESERVE:   'מילואים',
+  SENIOR:    'גיל פרישה',
+  LOWINCOME: 'מעוטי יכולת',
+  TUITION:   'שכר לימוד למילואים',
+  PREGNANCY: 'שמירת הריון למילואים',
+  UNKNOWN:   'לא זוהה'
+};
+
+function factLabel(k)   { return FACT_LABELS_HE[k]   || k; }
+function domainLabel(d) { return DOMAIN_LABELS_HE[d] || d; }
+
 document.addEventListener('DOMContentLoaded', () => {
   if (!SESSION_ID) {
     showError('לא נמצא מזהה session. חזור ל<a href="/screen10">בדיקת זכאות</a>.');
@@ -134,43 +173,37 @@ async function loadFallback() {
 }
 
 function renderResult(result) {
-  const area   = document.getElementById('result-area');
+  const area = document.getElementById('result-area');
+  const status = result.resolution_status
+    || (result.is_eligible ? 'ELIGIBLE' : 'INELIGIBLE');
+
+  switch (status) {
+    case 'ELIGIBLE':
+      renderEligible(area, result);
+      break;
+    case 'INSUFFICIENT_EVIDENCE':
+      renderInsufficient(area, result);
+      break;
+    case 'DOMAIN_NOT_INGESTED':
+      renderDomainNotIngested(area, result);
+      break;
+    case 'INELIGIBLE':
+    default:
+      renderIneligible(area, result);
+      break;
+  }
+}
+
+function renderEligible(area, result) {
   const rights = result.eligible_rights || [];
-
-  if (!result.is_eligible || rights.length === 0) {
-    // ★ FIX: API returns per_right_results not ineligible_summary
-    const perRight   = result.per_right_results || [];
-    const allReasons = perRight.flatMap(r =>
-      (r.failed_conditions || []).concat(r.triggered_exclusions || [])
-    );
-    const reasons = [...new Set(allReasons)]; // deduplicate
-
-    area.innerHTML = `
-      <div class="verdict-banner ineligible anim">
-        <div class="verdict-icon">❌</div>
-        <div class="verdict-text">
-          <div class="verdict-title" style="color:var(--red)">לא נמצאה זכאות להנחה</div>
-          <div class="verdict-sub">על פי הנתונים שהוזנו, לא עמדת בתנאי הזכאות</div>
-        </div>
-      </div>
-      <div class="explain-card anim">
-        <div class="explain-header">❌ תנאים שלא מולאו</div>
-        <div class="explain-body">
-          ${reasons.length > 0
-            ? reasons.map(r => `<div class="reason-item"><strong>•</strong> ${escHtml(r)}</div>`).join('')
-            : '<div style="color:var(--muted);font-size:13px">לא ניתן לקבל פרטים נוספים — בדוק שהמנוע פורסם מ<a href="/screen6" style="color:var(--gold)">שלב 6</a></div>'
-          }
-        </div>
-      </div>
-      <div class="cta-row anim">
-        <a href="/screen10" class="btn btn-gold">✏️ תקן פרטים ← </a>
-        <a href="/screen10" class="btn btn-outline">← בדיקה חדשה</a>
-        <a href="/screen8?session_id=${SESSION_ID}" class="btn btn-outline">⚖️ מידע על ערר</a>
-      </div>`;
+  if (rights.length === 0) {
+    renderIneligible(area, result);
     return;
   }
 
-  const totalDiscount = result.total_discount_ils || 0;
+  const totalDiscount  = result.total_discount_ils || 0;
+  const topExplanation = result.explanation_he || '';
+
   area.innerHTML = `
     <div class="verdict-banner eligible anim">
       <div class="verdict-icon">✅</div>
@@ -186,12 +219,137 @@ function renderResult(result) {
         <div class="amount-label">סה"כ הנחה שנתית</div>
       </div>
     </div>
+    ${topExplanation ? `
+      <div class="explain-card anim">
+        <div class="explain-header">📝 סיכום בשפה פשוטה</div>
+        <div class="explain-body"><div class="plain-text">${escHtml(topExplanation)}</div></div>
+      </div>` : ''}
     ${rights.map(r=>buildRightCard(r)).join('')}
     <div class="cta-row anim">
       <a href="/screen10" class="btn btn-outline" style="border-color:var(--gold);color:var(--gold)">✏️ תקן פרטים ←</a>
       <a href="/screen7" class="btn btn-gold">💰 מחשבון מהיר</a>
       <a href="/screen8" class="btn btn-outline">⚖️ מידע על ממוש</a>
       <a href="/screen10" class="btn btn-outline" style="opacity:0.7">← בדיקה חדשה</a>
+    </div>`;
+}
+
+function renderIneligible(area, result) {
+  const perRight   = result.per_right_results || [];
+  const allReasons = perRight.flatMap(r =>
+    (r.failed_conditions || []).concat(r.triggered_exclusions || [])
+  );
+  const reasons        = [...new Set(allReasons)];
+  const topExplanation = result.explanation_he || '';
+
+  area.innerHTML = `
+    <div class="verdict-banner ineligible anim">
+      <div class="verdict-icon">❌</div>
+      <div class="verdict-text">
+        <div class="verdict-title" style="color:var(--red)">לא נמצאה זכאות להנחה</div>
+        <div class="verdict-sub">על פי הנתונים שהוזנו, לא עמדת בתנאי הזכאות</div>
+      </div>
+    </div>
+    ${topExplanation ? `
+      <div class="explain-card anim">
+        <div class="explain-header">📝 הסבר בשפה פשוטה</div>
+        <div class="explain-body"><div class="plain-text">${escHtml(topExplanation)}</div></div>
+      </div>` : ''}
+    <div class="explain-card anim">
+      <div class="explain-header">❌ תנאים שלא מולאו</div>
+      <div class="explain-body">
+        ${reasons.length > 0
+          ? reasons.map(r => `<div class="reason-item"><strong>•</strong> ${escHtml(r)}</div>`).join('')
+          : '<div style="color:var(--muted);font-size:13px">לא ניתן לקבל פרטים נוספים — בדוק שהמנוע פורסם מ<a href="/screen6" style="color:var(--gold)">שלב 6</a></div>'
+        }
+      </div>
+    </div>
+    <div class="cta-row anim">
+      <a href="/screen10" class="btn btn-gold">✏️ תקן פרטים ← </a>
+      <a href="/screen10" class="btn btn-outline">← בדיקה חדשה</a>
+      <a href="/screen8?session_id=${SESSION_ID}" class="btn btn-outline">⚖️ מידע על ערר</a>
+    </div>`;
+}
+
+function renderInsufficient(area, result) {
+  const missing        = result.missing_facts      || [];
+  const errors         = result.validation_errors  || [];
+  const topExplanation = result.explanation_he     || '';
+
+  const missingHtml = missing.length > 0
+    ? missing.map(f => `<div class="warn-item"><strong>•</strong> ${escHtml(factLabel(f))} <span style="color:var(--muted);font-family:monospace;font-size:11px;margin-right:6px">(${escHtml(f)})</span></div>`).join('')
+    : '';
+
+  const errorsHtml = errors.length > 0
+    ? errors.map(e => {
+        const ft = (e && e.fact_type) || '';
+        const er = (e && (e.error || e.message)) || (typeof e === 'string' ? e : JSON.stringify(e));
+        return `<div class="warn-item"><strong>•</strong> ${ft ? escHtml(factLabel(ft))+': ' : ''}${escHtml(er)}</div>`;
+      }).join('')
+    : '';
+
+  area.innerHTML = `
+    <div class="verdict-banner warning anim">
+      <div class="verdict-icon">⚠️</div>
+      <div class="verdict-text">
+        <div class="verdict-title" style="color:var(--yellow)">לא ניתן להכריע — חסרים נתונים</div>
+        <div class="verdict-sub">יש להשלים את הפרטים החסרים ולנסות שוב</div>
+      </div>
+    </div>
+    ${topExplanation ? `
+      <div class="explain-card anim">
+        <div class="explain-header">📝 הסבר</div>
+        <div class="explain-body"><div class="plain-text">${escHtml(topExplanation)}</div></div>
+      </div>` : ''}
+    ${missing.length > 0 ? `
+      <div class="explain-card anim">
+        <div class="explain-header" style="color:var(--yellow)">📋 נתונים חסרים</div>
+        <div class="explain-body">${missingHtml}</div>
+      </div>` : ''}
+    ${errors.length > 0 ? `
+      <div class="explain-card anim">
+        <div class="explain-header" style="color:var(--yellow)">⚠️ שגיאות בנתונים שהוזנו</div>
+        <div class="explain-body">${errorsHtml}</div>
+      </div>` : ''}
+    <div class="cta-row anim">
+      <a href="/screen10" class="btn btn-gold">✏️ השלם פרטים חסרים ←</a>
+      <a href="/screen10" class="btn btn-outline">← בדיקה חדשה</a>
+    </div>`;
+}
+
+function renderDomainNotIngested(area, result) {
+  const inferred       = result.inferred_domain   || 'UNKNOWN';
+  const supported      = result.supported_domains || [];
+  const topExplanation = result.explanation_he    || '';
+
+  const chipsHtml = supported.length > 0
+    ? supported.map(d => `<span class="domain-chip">${escHtml(domainLabel(d))}</span>`).join('')
+    : '<div style="color:var(--muted);font-size:13px">אין כרגע תחומים נטענים במערכת</div>';
+
+  area.innerHTML = `
+    <div class="verdict-banner info anim">
+      <div class="verdict-icon">📚</div>
+      <div class="verdict-text">
+        <div class="verdict-title" style="color:var(--blue-acc)">התחום עדיין לא נטען למערכת</div>
+        <div class="verdict-sub">תחום מבוקש: ${escHtml(domainLabel(inferred))}</div>
+      </div>
+    </div>
+    ${topExplanation ? `
+      <div class="explain-card anim">
+        <div class="explain-header">📝 הסבר</div>
+        <div class="explain-body"><div class="plain-text">${escHtml(topExplanation)}</div></div>
+      </div>` : ''}
+    <div class="explain-card anim">
+      <div class="explain-header" style="color:var(--blue-acc)">✅ תחומים נתמכים כרגע</div>
+      <div class="explain-body">
+        <div class="domain-chips">${chipsHtml}</div>
+        <div style="margin-top:14px;font-size:12px;color:var(--muted);line-height:1.6">
+          החקיקה בתחום המבוקש טרם נטענה למערכת. פנה למנהל המערכת לצירוף החקיקה, או בדוק בתחום אחר.
+        </div>
+      </div>
+    </div>
+    <div class="cta-row anim">
+      <a href="/screen10" class="btn btn-outline">← בדיקה חדשה</a>
+      <a href="/screen1" class="btn btn-outline">📁 טעינת חקיקה חדשה (מנהל)</a>
     </div>`;
 }
 
