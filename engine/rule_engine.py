@@ -14,6 +14,12 @@ Algorithm (per M2A Architecture Doc Section 5.2):
           If still equal → lexicographic catalog_id, flag for human review
   Step 5: Calculator — correct discount formula (no service days proration)
 
+Resolution status (surfaced to caller — never silent):
+  ELIGIBLE              — at least one right won
+  INELIGIBLE            — rights exist for inferred domain, conditions failed
+  INSUFFICIENT_EVIDENCE — required facts missing / invalid input
+  DOMAIN_NOT_INGESTED   — no rights in catalog for the inferred domain
+
 Formula per QA Feedback + Client Excel (March 2026):
   Soldier (תקנה 3ו):
     discount = annual_tax * (discount_rate_pct / 100)
@@ -29,6 +35,84 @@ Formula per QA Feedback + Client Excel (March 2026):
 
 from typing import Any, Dict, List, Optional
 from engine.fact_normalizer import normalize_facts
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Resolution status helpers (M2 fix: never go silent)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_DOMAIN_REQUIRED_FACTS = {
+    "RESERVE":   ["RESERVE_TYPE", "ANNUAL_TAX_ILS"],
+    "SENIOR":    ["IS_SENIOR", "ANNUAL_INCOME_ILS", "ANNUAL_TAX_ILS"],
+    "LOWINCOME": ["ANNUAL_INCOME_ILS", "ANNUAL_TAX_ILS"],
+    "TUITION":   ["CONSECUTIVE_DAYS"],
+    "PREGNANCY": ["IS_PREGNANCY_BED_REST", "GENDER"],
+    "UNKNOWN":   [],
+}
+
+
+def _infer_intended_domain(facts: Dict[str, Any]) -> str:
+    """
+    Infer which legal domain the citizen is asking about, based on the facts
+    they submitted. Used to route to the correct resolution_status when no
+    right qualifies.
+    """
+    if facts.get("IS_PREGNANCY_BED_REST") is True:
+        return "PREGNANCY"
+
+    consecutive = facts.get("CONSECUTIVE_DAYS")
+    try:
+        if consecutive is not None and int(consecutive) >= 1:
+            return "TUITION"
+    except (TypeError, ValueError):
+        pass
+
+    reserve_type = facts.get("RESERVE_TYPE")
+    if reserve_type in ("SOLDIER", "COMMANDER"):
+        return "RESERVE"
+
+    if facts.get("IS_SENIOR") is True:
+        return "SENIOR"
+
+    if facts.get("ANNUAL_INCOME_ILS") is not None:
+        return "LOWINCOME"
+
+    return "UNKNOWN"
+
+
+def _list_supported_domains(rights_with_clauses: List[dict]) -> List[str]:
+    """List of legal domains that currently have at least one active right in
+    the catalog. Used to decide DOMAIN_NOT_INGESTED vs INELIGIBLE."""
+    domains = set()
+    for r in rights_with_clauses:
+        cid = str(r.get("catalog_id", "")).upper()
+        sub = str(r.get("subcategory_tag", "")).upper()
+        combined = cid + " " + sub
+        if "TUITION" in combined:
+            domains.add("TUITION")
+        if "PREGNANCY" in combined:
+            domains.add("PREGNANCY")
+        if "RESERVE" in combined:
+            domains.add("RESERVE")
+        if "LOWINCOME" in combined or "LOW_INCOME" in combined:
+            domains.add("LOWINCOME")
+        if "SENIOR" in combined or "WOMEN" in combined:
+            domains.add("SENIOR")
+    return sorted(domains)
+
+
+def _find_missing_facts(facts: Dict[str, Any], domain: str) -> List[str]:
+    """Return the list of required fact_types that are absent or blank for
+    the given domain. Used to build INSUFFICIENT_EVIDENCE responses."""
+    required = _DOMAIN_REQUIRED_FACTS.get(domain, [])
+    missing = []
+    for fact_type in required:
+        val = facts.get(fact_type)
+        if val is None:
+            missing.append(fact_type)
+        elif isinstance(val, str) and not val.strip():
+            missing.append(fact_type)
+    return missing
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -416,10 +500,17 @@ def evaluate_eligibility(
           "winning_rights":     [{...after overlap resolution}],
           "flagged_for_review": bool,
           "total_discount_ils": float,
+          "resolution_status":  "ELIGIBLE" | "INELIGIBLE"
+                                | "INSUFFICIENT_EVIDENCE" | "DOMAIN_NOT_INGESTED",
+          "inferred_domain":    str,
+          "supported_domains":  [str],
+          "missing_facts":      [str],
         }
     """
     # ── L4: Normalize facts ───────────────────────────────────────────────────
     fact_result = normalize_facts(raw_facts)
+    supported_domains = _list_supported_domains(rights_with_clauses)
+
     if not fact_result["valid"]:
         return {
             "fact_validation":    fact_result,
@@ -428,6 +519,10 @@ def evaluate_eligibility(
             "winning_rights":     [],
             "flagged_for_review": False,
             "total_discount_ils": 0.0,
+            "resolution_status":  "INSUFFICIENT_EVIDENCE",
+            "inferred_domain":    _infer_intended_domain(raw_facts or {}),
+            "supported_domains":  supported_domains,
+            "missing_facts":      [],
             "error":              "Fact validation failed",
             "errors":             fact_result["errors"],
         }
@@ -458,6 +553,29 @@ def evaluate_eligibility(
         float(r.get("discount_ils", 0)) for r in winning_rights
     )
 
+    # ── Resolution status — never go silent (M2 acceptance criterion) ────────
+    intended_domain = _infer_intended_domain(facts)
+
+    if winning_rights:
+        resolution_status = "ELIGIBLE"
+        missing_facts = []
+    elif not rights_with_clauses:
+        resolution_status = "DOMAIN_NOT_INGESTED"
+        missing_facts = []
+    elif intended_domain == "UNKNOWN":
+        resolution_status = "INSUFFICIENT_EVIDENCE"
+        missing_facts = ["RESERVE_TYPE", "IS_SENIOR", "ANNUAL_INCOME_ILS",
+                         "IS_PREGNANCY_BED_REST", "CONSECUTIVE_DAYS"]
+    elif intended_domain not in supported_domains:
+        resolution_status = "DOMAIN_NOT_INGESTED"
+        missing_facts = []
+    else:
+        missing_facts = _find_missing_facts(facts, intended_domain)
+        if missing_facts:
+            resolution_status = "INSUFFICIENT_EVIDENCE"
+        else:
+            resolution_status = "INELIGIBLE"
+
     return {
         "fact_validation":    fact_result,
         "per_right_results":  per_right_results,
@@ -465,4 +583,8 @@ def evaluate_eligibility(
         "winning_rights":     winning_rights,
         "flagged_for_review": flagged,
         "total_discount_ils": round(total_discount, 2),
+        "resolution_status":  resolution_status,
+        "inferred_domain":    intended_domain,
+        "supported_domains":  supported_domains,
+        "missing_facts":      missing_facts,
     }
