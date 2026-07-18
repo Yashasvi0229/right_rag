@@ -21,18 +21,24 @@
   .upload-zone p  { font-size: 14px; color: var(--muted); }
 
   .source-row {
-    display: flex; align-items: center; gap: 12px;
+    display: flex; align-items: flex-start; gap: 12px;
     padding: 12px 14px;
     background: var(--bg-card); border: 1px solid var(--border2);
     border-radius: var(--radius-sm); margin-bottom: 10px; transition: all 0.2s;
     flex-wrap: wrap;
   }
   .source-row:hover { border-color: var(--border); }
-  .source-icon { font-size: 22px; flex-shrink: 0; }
+  .source-icon { font-size: 22px; flex-shrink: 0; padding-top: 2px; }
   .source-info { flex: 1; min-width: 0; }
   .source-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .source-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .source-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .source-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+  .ingest-warn {
+    display: block; margin-top: 6px; padding: 6px 10px;
+    background: rgba(241,196,15,0.08); border: 1px solid rgba(241,196,15,0.25);
+    border-radius: 6px; color: var(--yellow); font-size: 11px; line-height: 1.5;
+  }
+  .ingest-warn strong { color: var(--yellow); }
 
   /* QA #2: 5 type buttons */
   .type-grid {
@@ -89,6 +95,21 @@
   /* QA #1: Date error */
   .form-input.input-error { border-color: var(--red) !important; }
   .date-error-msg { color: var(--red); font-size: 12px; margin-top: 4px; display: none; }
+
+  /* Custom source panel */
+  .custom-source-panel {
+    display: none;
+    margin-top: 12px; padding: 14px;
+    background: rgba(90,155,240,0.05);
+    border: 1px solid rgba(90,155,240,0.25);
+    border-radius: var(--radius-sm);
+  }
+  .custom-source-panel .form-group { margin-bottom: 10px; }
+  .custom-source-panel .form-group:last-child { margin-bottom: 0; }
+  .custom-source-hdr {
+    font-size: 12px; color: var(--blue-acc); font-weight: 600;
+    margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+  }
 
   /* Two-col layout for upload + list */
   .upload-grid {
@@ -236,8 +257,8 @@
                 <div class="tooltip-box">
                   <strong>מה זה מקור מאושר?</strong><br>
                   רשימת המסמכים שאושרו כמקורות חוק תקפים במערכת.<br><br>
-                  <strong>מה קורה כשבוחרים?</strong><br>
-                  הסעיפים שיחולצו יקושרו למקור זה בשרשרת הראיות.
+                  <strong>מקור חדש?</strong><br>
+                  בחר "➕ מקור חדש" ומלא פרטים ידנית — כל תחום חקיקה נתמך.
                 </div>
               </div>
             </div>
@@ -245,11 +266,52 @@
               <select class="form-select" id="doc-id-select" onchange="onSourceSelect(this)">
                 <option value="">— בחר מקור מאושר —</option>
                 {% for src in approved_sources %}
-                <option value="{{ src.doc_id }}" data-date="{{ src.publication_date }}">{{ src.doc_id }}{% if src.title %} — {{ src.title[:40] }}{% endif %}</option>
+                <option value="{{ src.doc_id }}" data-date="{{ src.publication_date }}" data-registered="1">{{ src.doc_id }}{% if src.title %} — {{ src.title[:40] }}{% endif %}</option>
                 {% endfor %}
+                <option value="__NEW__" data-registered="0" style="color:var(--blue-acc); font-weight:600">➕ מקור חדש / תחום חקיקה אחר</option>
               </select>
             </div>
-            <div class="field-hint">⚠️ ניתן להעלות רק מסמכים מהרשימה המאושרת.</div>
+            <div class="field-hint">💡 ניתן לבחור מהרשימה או להוסיף מקור חדש עם פרטים ידניים.</div>
+          </div>
+
+          <!-- ★ NEW: Custom source panel — shown when __NEW__ selected -->
+          <div id="custom-source-panel" class="custom-source-panel">
+            <div class="custom-source-hdr">📝 פרטי מקור חדש</div>
+            <div class="form-group">
+              <label class="form-label">מזהה מסמך חדש (doc_id) *</label>
+              <input class="form-input" id="custom-doc-id"
+                     placeholder="GOV-IL-EXAMPLE-2026"
+                     style="direction:ltr; text-align:left;"
+                     oninput="_tryAutoUpload()" />
+              <div class="field-hint">מזהה ייחודי באנגלית — אותיות, ספרות ומקפים בלבד</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">שם המסמך (כותרת) *</label>
+              <input class="form-input" id="custom-title"
+                     placeholder="שם החוק / התקנה / פסק הדין"
+                     oninput="_tryAutoUpload()" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">מפרסם *</label>
+              <input class="form-input" id="custom-publisher"
+                     placeholder="e.g. משרד הפנים / כנסת ישראל / בית המשפט העליון"
+                     oninput="_tryAutoUpload()" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">קטגוריה</label>
+              <select class="form-select" id="custom-category">
+                <option value="general">כללי</option>
+                <option value="reserve_soldiers">חיילי מילואים</option>
+                <option value="low_income">מעוטי יכולת</option>
+                <option value="senior">גיל פרישה</option>
+                <option value="pregnancy">שמירת הריון</option>
+                <option value="family">משפחה</option>
+                <option value="employment">עבודה</option>
+                <option value="welfare">רווחה</option>
+                <option value="education">חינוך</option>
+                <option value="other">אחר</option>
+              </select>
+            </div>
           </div>
 
           <!-- QA #4: Date help + QA #1: year validation -->
@@ -289,7 +351,7 @@
           <button class="btn btn-gold" style="width:100%;opacity:0.7" id="upload-btn"
                   onclick="uploadDocument()">⬆ העלה מסמך ידנית</button>
           <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">
-            ⚡ ההעלאה תתחיל אוטומטית כשייבחרו קובץ ומקור מאושר
+            ⚡ ההעלאה תתחיל אוטומטית כשכל השדות ימולאו
           </div>
         </div>
       </div>
@@ -357,6 +419,7 @@
       <tr><td style="padding:8px 0; color:var(--muted);">הועלה ב</td><td id="m-ingested" style="color:var(--white);"></td></tr>
       <tr><td style="padding:8px 0; color:var(--muted);">הועלה ע"י</td><td id="m-by" style="color:var(--white);"></td></tr>
       <tr><td style="padding:8px 0; color:var(--muted);">סטטוס</td><td id="m-status"></td></tr>
+      <tr id="m-ingest-row" style="display:none"><td style="padding:8px 0; color:var(--muted);">תוצאת עיבוד</td><td id="m-ingest" style="color:var(--white);"></td></tr>
       <tr><td style="padding:8px 0; color:var(--muted);">SHA-256</td><td id="m-hash" style="font-family:monospace; font-size:11px; color:var(--muted); word-break:break-all;"></td></tr>
     </table>
     <div style="margin-top:20px; text-align:center;">
@@ -369,7 +432,33 @@
 let selectedFile = null;
 let selectedType = 'חוק';
 
+const REASON_HE = {
+  'OPENAI_API_KEY_MISSING':  'מפתח OpenAI חסר — הגדר .env',
+  'OPENAI_API_ERROR':        'שגיאה מ-OpenAI',
+  'OPENAI_RETURNED_EMPTY':   'OpenAI החזיר תשובה ריקה',
+  'OPENAI_PARSE_ERROR':      'שגיאה בפענוח תשובת OpenAI',
+  'TEXT_EXTRACTION_FAILED':  'חילוץ טקסט נכשל',
+  'TEXT_TOO_SHORT':          'הטקסט קצר מדי',
+  'ALL_CLAUSES_TOO_SHORT':   'כל הסעיפים שחולצו קצרים מדי',
+};
+
+function reasonLabel(code) {
+  if (!code) return '';
+  return REASON_HE[code] || code;
+}
+
 function onSourceSelect(sel) {
+  const isNew  = sel.value === '__NEW__';
+  const panel  = document.getElementById('custom-source-panel');
+  panel.style.display = isNew ? 'block' : 'none';
+
+  if (isNew) {
+    document.getElementById('zone-title').textContent = 'מקור חדש — הזן פרטים למטה';
+    document.getElementById('zone-title').style.fontSize = '15px';
+    _tryAutoUpload();
+    return;
+  }
+
   const opt = sel.options[sel.selectedIndex];
   const date = opt.getAttribute('data-date') || '';
   if (date) {
@@ -379,7 +468,6 @@ function onSourceSelect(sel) {
       validateDateInput(document.getElementById('pub-date'));
     }
   }
-  // Show selected source title in upload zone
   const fullText = opt.textContent.trim();
   const dashIdx  = fullText.indexOf(' — ');
   const title    = dashIdx !== -1 ? fullText.slice(dashIdx + 3) : fullText;
@@ -391,7 +479,6 @@ function onSourceSelect(sel) {
     document.getElementById('zone-title').textContent = 'גרור קובץ לכאן';
     document.getElementById('zone-title').style.fontSize = '';
   }
-  // ★ AUTO-UPLOAD: if file already selected → upload now
   _tryAutoUpload();
 }
 
@@ -405,7 +492,6 @@ function onFileSelected(input) {
   if (input.files && input.files[0]) {
     selectedFile = input.files[0];
     document.getElementById('zone-sub').textContent = selectedFile.name + ' · ' + (selectedFile.size/1024/1024).toFixed(2) + ' MB';
-    // ★ AUTO-UPLOAD: if source already selected → upload now
     _tryAutoUpload();
   }
 }
@@ -417,18 +503,24 @@ function onDrop(e) {
   if (f) {
     selectedFile = f;
     document.getElementById('zone-sub').textContent = f.name + ' · ' + (f.size/1024/1024).toFixed(2) + ' MB';
-    // ★ AUTO-UPLOAD: if source already selected → upload now
     _tryAutoUpload();
   }
 }
 
-// ★ NEW: Auto-upload when both file AND source are ready
 function _tryAutoUpload() {
-  const docId = document.getElementById('doc-id-select').value;
-  if (selectedFile && docId) {
-    // Small delay so UI updates visually first
+  const docSel = document.getElementById('doc-id-select');
+  if (!selectedFile || !docSel.value) return;
+
+  if (docSel.value === '__NEW__') {
+    const cid   = document.getElementById('custom-doc-id').value.trim();
+    const title = document.getElementById('custom-title').value.trim();
+    const pub   = document.getElementById('custom-publisher').value.trim();
+    if (!cid || !title || !pub) return;
     setTimeout(() => uploadDocument(), 400);
+    return;
   }
+
+  setTimeout(() => uploadDocument(), 400);
 }
 
 /* QA #1: Date validation — DD/MM/YYYY format, 4-digit year only */
@@ -479,7 +571,7 @@ function validateDateInput(input) {
 }
 
 // ✅ FIX: Eye button modal functions
-function showDocModal(docId, title, publisher, pubDate, hash, status, ingested, ingestedBy) {
+function showDocModal(docId, title, publisher, pubDate, hash, status, ingested, ingestedBy, ingestEvent, ingestReason, ingestDetail) {
   document.getElementById('m-docid').textContent     = docId;
   document.getElementById('m-title').textContent     = title;
   document.getElementById('m-publisher').textContent = publisher;
@@ -491,6 +583,25 @@ function showDocModal(docId, title, publisher, pubDate, hash, status, ingested, 
   statusEl.innerHTML = status === 'ACTIVE'
     ? '<span class="badge badge-green">✔ פעיל</span>'
     : '<span class="badge badge-yellow">⏳ ' + status + '</span>';
+
+  const ingestRow = document.getElementById('m-ingest-row');
+  const ingestCell = document.getElementById('m-ingest');
+  if (ingestEvent) {
+    ingestRow.style.display = '';
+    if (ingestEvent === 'INGEST_SUCCESS') {
+      ingestCell.innerHTML = '<span class="badge badge-green">✔ עיבוד הצליח</span>';
+    } else if (ingestEvent === 'INGEST_ZERO_CLAUSES') {
+      const rHe = reasonLabel(ingestReason);
+      ingestCell.innerHTML = `<span style="color:var(--yellow)">⚠️ 0 סעיפים — ${escHtml(rHe)}</span>` +
+        (ingestDetail ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;font-family:monospace">${escHtml(ingestDetail)}</div>` : '');
+    } else {
+      ingestCell.textContent = ingestEvent;
+    }
+  } else {
+    ingestRow.style.display = 'none';
+    ingestCell.innerHTML = '';
+  }
+
   const modal = document.getElementById('doc-modal');
   modal.style.display = 'flex';
 }
@@ -520,19 +631,38 @@ function showAlert(msg, type) {
   box.className = 'alert alert-' + type;
   box.textContent = msg;
   box.style.display = 'block';
-  // ★ FIX: Scroll alert into view so user always sees it
   box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   if (type === 'success') setTimeout(() => box.style.display='none', 6000);
 }
 
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return escHtml(s).replace(/'/g,'&#39;'); }
+
 async function uploadDocument() {
-  const docId      = document.getElementById('doc-id-select').value;
+  const docSel     = document.getElementById('doc-id-select');
+  const isNew      = docSel.value === '__NEW__';
   const ingestedBy = document.getElementById('ingested-by').value.trim();
   const pubDateEl  = document.getElementById('pub-date');
 
+  let docId, customTitle, customPublisher, customCategory;
+
+  if (isNew) {
+    docId           = document.getElementById('custom-doc-id').value.trim();
+    customTitle     = document.getElementById('custom-title').value.trim();
+    customPublisher = document.getElementById('custom-publisher').value.trim();
+    customCategory  = document.getElementById('custom-category').value;
+    if (!docId)           return showAlert('אנא הזן מזהה מסמך חדש', 'error');
+    if (!customTitle)     return showAlert('אנא הזן שם מסמך', 'error');
+    if (!customPublisher) return showAlert('אנא הזן מפרסם', 'error');
+    if (!/^[A-Za-z0-9\-_]+$/.test(docId))
+      return showAlert('מזהה מסמך חייב להיות באנגלית — אותיות, ספרות ומקפים בלבד', 'error');
+  } else {
+    docId = docSel.value;
+    if (!docId) return showAlert('אנא בחר מזהה מסמך', 'error');
+  }
+
   if (pubDateEl.value && !validateYear(pubDateEl))
     return showAlert('⚠️ תאריך פרסום אינו תקין — נא להזין שנה בת 4 ספרות', 'error');
-  if (!docId)        return showAlert('אנא בחר מזהה מסמך', 'error');
   if (!ingestedBy)   return showAlert('אנא הזן שם משתמש', 'error');
   if (!selectedFile) return showAlert('אנא בחר קובץ', 'error');
 
@@ -546,45 +676,50 @@ async function uploadDocument() {
   form.append('doc_id', docId);
   form.append('ingested_by', ingestedBy);
   form.append('doc_type', selectedType);
-  const pubDate = getIsoDate();
-  form.append('publication_date', pubDate);
+  form.append('publication_date', getIsoDate());
+  if (isNew) {
+    form.append('title', customTitle);
+    form.append('publisher', customPublisher);
+    form.append('category', customCategory);
+  }
 
   try {
     const res  = await fetch('/api/ingest', { method: 'POST', body: form });
     const data = await res.json();
     if (res.ok) {
-      // ★ FIX: Show success + clear next-step guidance
       const box = document.getElementById('alert-box');
-      box.className = 'alert alert-success';
-      box.innerHTML = `
-        ✅ ${data.clause_count} סעיפים חולצו בהצלחה!<br>
-        <div style="margin-top:10px; padding:10px 14px; background:rgba(201,168,76,0.1);
-          border:1px solid rgba(201,168,76,0.4); border-radius:6px; font-size:13px; color:var(--gold);">
-          ⚡ <strong>השלב הבא:</strong> עבור ל<a href="/screen6" style="color:var(--gold);text-decoration:underline;font-weight:700;">שלב 6 — אישור מומחה</a>
-          כדי לאשר את הסעיפים שחולצו. רק לאחר האישור יתעדכנו הערכים במחשבון ובמנוע.
-        </div>`;
+      const zeroClauses = data.status === 'NO_CLAUSES_EXTRACTED' || data.clause_count === 0;
+
+      if (zeroClauses) {
+        const rHe = reasonLabel(data.failure_reason);
+        box.className = 'alert alert-warning';
+        box.innerHTML = `
+          ⚠️ המסמך הועלה אך <strong>0 סעיפים חולצו</strong><br>
+          <div style="margin-top:8px; font-size:12px">
+            סיבה: <strong>${escHtml(rHe)}</strong>
+            ${data.failure_detail ? `<div style="font-family:monospace;color:var(--muted);margin-top:4px">${escHtml(data.failure_detail)}</div>` : ''}
+          </div>
+          <div style="margin-top:10px; padding:10px 14px; background:rgba(241,196,15,0.08); border:1px solid rgba(241,196,15,0.3); border-radius:6px; font-size:13px; color:var(--yellow);">
+            💡 בדוק את הקובץ — יתכן שהטקסט קצר, שהמפתח חסר, או שהתקבלה שגיאה מ-OpenAI. פרטים ב<a href="/screen9" style="color:var(--yellow);text-decoration:underline">יומן ביקורת</a>.
+          </div>`;
+      } else {
+        box.className = 'alert alert-success';
+        box.innerHTML = `
+          ✅ ${data.clause_count} סעיפים חולצו בהצלחה!<br>
+          <div style="margin-top:10px; padding:10px 14px; background:rgba(201,168,76,0.1);
+            border:1px solid rgba(201,168,76,0.4); border-radius:6px; font-size:13px; color:var(--gold);">
+            ⚡ <strong>השלב הבא:</strong> עבור ל<a href="/screen6" style="color:var(--gold);text-decoration:underline;font-weight:700;">שלב 6 — אישור מומחה</a>
+            כדי לאשר את הסעיפים שחולצו. רק לאחר האישור יתעדכנו הערכים במחשבון ובמנוע.
+          </div>`;
+      }
       box.style.display = 'block';
       box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      const docs = await (await fetch('/api/documents')).json();
-      document.getElementById('doc-count').textContent = docs.length;
-      document.getElementById('documents-list').innerHTML = docs.map(d => `
-        <div class="source-row">
-          <div class="source-icon">📜</div>
-          <div class="source-info">
-            <div class="source-name">${d.title}</div>
-            <div class="source-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${d.publisher} · ${(d.ingested_at||'').slice(0,10)} ${(d.ingested_at||'').slice(11,16)} · SHA: ${(d.file_hash||'').slice(0,6)}...
-              <span style="color:var(--gold);font-weight:600;"> · ✨ הועלה כעת</span>
-            </div>
-          </div>
-          ${d.ingested_by==='system-seed' ? '<span class="badge" style="background:rgba(255,255,255,0.07);color:var(--muted);border:1px solid var(--border2);">📦 נתוני בסיס</span>' : '<span class="badge '+(d.status==='ACTIVE'?'badge-green':'badge-yellow')+'">'+( d.status==='ACTIVE'?'✔ מנותח':'⏳ '+d.status)+'</span>'}
-          <div class="source-actions"><button class="btn btn-outline" style="padding:6px 10px;font-size:12px"
-            onclick="showDocModal('${d.doc_id}','${d.title}','${d.publisher}','${d.publication_date}','${d.file_hash}','${d.status}','${(d.ingested_at||'').slice(0,16).replace('T',' ')}','${d.ingested_by||''}')">👁</button></div>
-        </div>`).join('');
+
+      await refreshDocumentsList();
     } else if (res.status === 409) {
       showAlert('⚠️ ' + (data.detail || 'המסמך לא השתנה — העלה גרסה עדכנית'), 'warning');
-    } else if (res.status === 400 && (data.detail || '').includes('not on approved source list')) {
-      showAlert('❌ מסמך זה אינו ברשימת המקורות המאושרים. יש לבחור מזהה מסמך מהרשימה הנפתחת.', 'error');
+    } else if (res.status === 400) {
+      showAlert('❌ ' + (data.detail || 'שגיאה בהעלאה'), 'error');
     } else {
       showAlert('❌ ' + (data.detail || 'שגיאה'), 'error');
     }
@@ -595,5 +730,63 @@ async function uploadDocument() {
     document.getElementById('progress-bar').style.display = 'none';
   }
 }
+
+async function refreshDocumentsList() {
+  let docs;
+  try {
+    const res = await fetch('/api/documents/status');
+    if (!res.ok) throw new Error('status endpoint failed');
+    docs = await res.json();
+  } catch(e) {
+    try {
+      const res2 = await fetch('/api/documents');
+      docs = await res2.json();
+    } catch(e2) { return; }
+  }
+
+  document.getElementById('doc-count').textContent = docs.length;
+  document.getElementById('documents-list').innerHTML = docs.map(d => renderDocRow(d)).join('');
+}
+
+function renderDocRow(d) {
+  const isSeed     = d.ingested_by === 'system-seed';
+  const zeroClause = d.latest_ingestion_event === 'INGEST_ZERO_CLAUSES';
+  const rHe        = reasonLabel(d.latest_ingestion_reason);
+
+  const badge = isSeed
+    ? '<span class="badge" style="background:rgba(255,255,255,0.07);color:var(--muted);border:1px solid var(--border2);">📦 נתוני בסיס</span>'
+    : (zeroClause
+        ? `<span class="badge badge-yellow" title="${escAttr(d.latest_ingestion_detail || '')}">⚠️ 0 סעיפים</span>`
+        : '<span class="badge ' + (d.status==='ACTIVE'?'badge-green':'badge-yellow') + '">' +
+          (d.status==='ACTIVE'?'✔ מנותח':'⏳ ' + d.status) + '</span>');
+
+  const zeroClauseWarn = (zeroClause && !isSeed)
+    ? `<div class="ingest-warn">⚠️ <strong>0 סעיפים חולצו</strong> — סיבה: ${escHtml(rHe)}${d.latest_ingestion_detail ? ` · <span style="font-family:monospace">${escHtml((d.latest_ingestion_detail||'').slice(0,80))}</span>` : ''}</div>`
+    : '';
+
+  const ingestedAt = (d.ingested_at || '').slice(0, 10) + ' ' + (d.ingested_at || '').slice(11, 16);
+  const shaShort   = (d.file_hash || '').slice(0, 6);
+
+  return `
+    <div class="source-row">
+      <div class="source-icon">📜</div>
+      <div class="source-info">
+        <div class="source-name">${escHtml(d.title || '')}</div>
+        <div class="source-meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${escHtml(d.publisher || '')} · ${escHtml(ingestedAt)} · SHA: ${escHtml(shaShort)}...
+        </div>
+        ${zeroClauseWarn}
+      </div>
+      ${badge}
+      <div class="source-actions">
+        <button class="btn btn-outline" style="padding:6px 10px;font-size:12px"
+          onclick="showDocModal('${escAttr(d.doc_id)}','${escAttr(d.title)}','${escAttr(d.publisher)}','${escAttr(d.publication_date)}','${escAttr(d.file_hash)}','${escAttr(d.status)}','${escAttr((d.ingested_at||'').slice(0,16).replace('T',' '))}','${escAttr(d.ingested_by||'')}','${escAttr(d.latest_ingestion_event||'')}','${escAttr(d.latest_ingestion_reason||'')}','${escAttr(d.latest_ingestion_detail||'')}')">👁</button>
+      </div>
+    </div>`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  refreshDocumentsList();
+});
 </script>
 {% endblock %}
