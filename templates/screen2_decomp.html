@@ -103,6 +103,40 @@
     font-family: 'Heebo', sans-serif; margin-bottom: 16px; width: 100%;
   }
 
+  /* Zero-clauses ingestion alert */
+  .zero-clauses-alert {
+    padding: 14px 16px;
+    background: rgba(241,196,15,0.08);
+    border: 1px solid rgba(241,196,15,0.3);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    display: none;
+  }
+  .zero-alert-hdr {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(241,196,15,0.2);
+    flex-wrap: wrap;
+  }
+  .zero-alert-title { font-weight: 700; color: var(--yellow); flex: 1; }
+  .zero-alert-hint {
+    font-size: 12px; color: var(--muted);
+    margin-bottom: 10px; line-height: 1.6;
+  }
+  .zero-doc-item {
+    padding: 10px 12px; background: rgba(0,0,0,0.15);
+    border-radius: 6px; margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .zero-doc-item:last-child { margin-bottom: 0; }
+  .zero-doc-title  { font-weight: 600; color: var(--white); margin-bottom: 4px; }
+  .zero-doc-reason { color: var(--yellow); }
+  .zero-doc-detail {
+    font-family: monospace; color: var(--muted);
+    margin-top: 4px; font-size: 11px; word-break: break-all;
+  }
+
   @media (max-width: 768px) {
     .sidebar-toggle { display: flex; }
     .summary-bar { grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -161,6 +195,19 @@
       <div class="step pending"><span class="step-num">5</span> הסברתיות</div>
       <span class="step-sep">›</span>
       <div class="step pending"><span class="step-num">6</span> אישור</div>
+    </div>
+
+    <!-- ★ NEW: Zero-clauses ingestion alert (populated from /api/documents/status) -->
+    <div class="zero-clauses-alert anim anim-2" id="zero-clauses-alert">
+      <div class="zero-alert-hdr">
+        <span style="font-size:20px">⚠️</span>
+        <span class="zero-alert-title">מסמכים ללא סעיפים חולצו</span>
+        <span id="zero-count" style="font-size:12px; color:var(--muted)"></span>
+      </div>
+      <div class="zero-alert-hint">
+        המסמכים הבאים הועלו אך <strong>לא הופקו מהם סעיפים</strong>. בדוק את סיבת הכשל וגם את יומן ה<a href="/screen9" style="color:var(--gold)">גרסאות והביקורת</a>.
+      </div>
+      <div id="zero-clauses-list"></div>
     </div>
 
     <div class="summary-bar anim anim-2">
@@ -257,6 +304,21 @@
 </div>
 
 <script>
+const REASON_HE = {
+  'OPENAI_API_KEY_MISSING':  'מפתח OpenAI חסר — הגדר .env',
+  'OPENAI_API_ERROR':        'שגיאה מ-OpenAI',
+  'OPENAI_RETURNED_EMPTY':   'OpenAI החזיר תשובה ריקה',
+  'OPENAI_PARSE_ERROR':      'שגיאה בפענוח תשובת OpenAI',
+  'TEXT_EXTRACTION_FAILED':  'חילוץ טקסט נכשל',
+  'TEXT_TOO_SHORT':          'הטקסט קצר מדי לחילוץ',
+  'ALL_CLAUSES_TOO_SHORT':   'כל הסעיפים שחולצו קצרים מדי',
+};
+
+function reasonLabel(code) {
+  if (!code) return '—';
+  return REASON_HE[code] || code;
+}
+
 // ── Core helper: render buttons based on status ───────────────────────────
 // Single source of truth — always use this to set clause actions
 function renderActions(id, status) {
@@ -333,6 +395,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const id = row.id.replace('row-', '');
     renderActions(id, 'pending');
   });
+  // ★ NEW: Load ingestion status alerts
+  loadZeroClausesAlerts();
 });
 
 function getReviewer() {
@@ -461,6 +525,38 @@ function updateCounts() {
   document.getElementById('excl-count').textContent     = document.querySelectorAll('.clause-row[data-status="pending"][data-type="EXCLUSION"]').length;
   const bulkCount = document.getElementById('bulk-count');
   if (bulkCount) bulkCount.textContent = pending + ' סעיפים ממתינים · ' + approved + ' מאושרים';
+}
+
+// ── ★ NEW: Load zero-clauses ingestion alerts ─────────────────────────────
+async function loadZeroClausesAlerts() {
+  try {
+    const res = await fetch('/api/documents/status');
+    if (!res.ok) return;
+    const docs = await res.json();
+    if (!Array.isArray(docs)) return;
+
+    const failed = docs.filter(d =>
+      d.latest_ingestion_event === 'INGEST_ZERO_CLAUSES' &&
+      d.ingested_by !== 'system-seed'
+    );
+    if (failed.length === 0) return;
+
+    const list = document.getElementById('zero-clauses-list');
+    list.innerHTML = failed.map(d => `
+      <div class="zero-doc-item">
+        <div class="zero-doc-title">📄 ${escHtml(d.title || d.doc_id || '')}</div>
+        <div class="zero-doc-reason">
+          <strong>סיבה:</strong> ${escHtml(reasonLabel(d.latest_ingestion_reason))}
+        </div>
+        ${d.latest_ingestion_detail ? `
+          <div class="zero-doc-detail">${escHtml((d.latest_ingestion_detail || '').slice(0, 200))}</div>
+        ` : ''}
+      </div>
+    `).join('');
+
+    document.getElementById('zero-count').textContent = `(${failed.length})`;
+    document.getElementById('zero-clauses-alert').style.display = 'block';
+  } catch(e) { /* silent — don't break the page over an alert */ }
 }
 
 // ── Load approved clauses from API ────────────────────────────────────────
