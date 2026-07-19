@@ -95,6 +95,29 @@
   .warn-detail-row { margin-bottom: 4px; }
   .warn-detail-label { color: var(--muted); font-size: 11px; }
 
+  /* Contradictions card */
+  .contradict-row {
+    padding: 12px 14px;
+    background: rgba(231,140,60,0.06);
+    border: 1px solid rgba(231,140,60,0.25);
+    border-radius: 6px;
+    margin-bottom: 8px;
+  }
+  .contradict-header {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .contradict-code   { color: #e88c3c; font-weight: 700; font-size: 13px; }
+  .contradict-src    { color: var(--muted); font-family: monospace; font-size: 11px; }
+  .contradict-msg    { font-size: 12px; color: var(--white); line-height: 1.6; margin-top: 4px; }
+  .contradict-clauses{
+    font-size: 11px; color: var(--gold); font-family: monospace;
+    margin-top: 6px; word-break: break-all;
+  }
+  .contradict-extra {
+    font-size: 11px; color: var(--muted); margin-top: 4px;
+  }
+
   /* ── RESPONSIVE ───────────────────────── */
   @media (max-width: 768px) {
     .sidebar-toggle { display: flex; }
@@ -205,6 +228,23 @@
             </div>
           </li>
           <li class="check-item">
+            <div class="check-icon {% if validation.contradictions_count is not defined or validation.contradictions_count == 0 %}icon-pass{% else %}icon-warn{% endif %}">
+              {% if validation.contradictions_count is not defined or validation.contradictions_count == 0 %}✔{% else %}⚠{% endif %}
+            </div>
+            <div class="check-body">
+              <div class="check-title">
+                {% if validation.contradictions_count is not defined %}בדיקת עקביות תוכן
+                {% elif validation.contradictions_count == 0 %}עקביות תוכן — אין ניגודים בין סעיפים
+                {% else %}{{ validation.contradictions_count }} ניגודים זוהו בין סעיפים{% endif %}
+              </div>
+              <div class="check-detail">
+                {% if validation.contradictions_count is not defined %}לא זמין בגרסה זו
+                {% elif validation.contradictions_count == 0 %}לא נמצאו סעיפים סותרים באותה סמכות
+                {% else %}נדרשת בדיקה של מומחה משפטי{% endif %}
+              </div>
+            </div>
+          </li>
+          <li class="check-item">
             <div class="check-icon icon-pass">✔</div>
             <div class="check-body">
               <div class="check-title">Hash מסמכים תקין</div>
@@ -276,6 +316,9 @@
             total_mappings: <span style="color:var(--blue-acc)">{{ validation.total_mappings }}</span><br>
             critical_errors:<span style="color:{% if validation.critical_errors==0 %}var(--green){% else %}var(--red){% endif %}"> {{ validation.critical_errors }}</span><br>
             warnings:       <span style="color:{% if validation.warnings==0 %}var(--green){% else %}var(--yellow){% endif %}"> {{ validation.warnings }}</span><br>
+            {% if validation.contradictions_count is defined %}
+            contradictions: <span style="color:{% if validation.contradictions_count==0 %}var(--green){% else %}#e88c3c{% endif %}"> {{ validation.contradictions_count }}</span><br>
+            {% endif %}
             validated_at:   <span style="color:var(--white)">{{ validation.validated_at[:19].replace('T',' ') }}</span><br>
             status:         <span style="color:{% if validation.passed %}var(--green){% else %}var(--red){% endif %}">
               {% if validation.passed %}PASS{% else %}FAIL{% endif %}
@@ -284,6 +327,34 @@
         </div>
       </div>
     </div>
+
+    {% if validation.contradictions and validation.contradictions|length > 0 %}
+    <div class="card anim anim-4" style="margin-bottom:16px; padding:0; overflow:hidden;">
+      <div style="padding:14px 20px; border-bottom:1px solid var(--border2); display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <span style="font-weight:700; color:#e88c3c">🔀 ניגודים בין סעיפים ({{ validation.contradictions|length }})</span>
+        <span style="font-size:12px; color:var(--muted)">M1 acceptance — סתירות זוהו ומדווחות במפורש</span>
+      </div>
+      <div style="padding:14px 20px;">
+        {% for c in validation.contradictions %}
+        <div class="contradict-row">
+          <div class="contradict-header">
+            <span class="contradict-code">🔀 {{ c.code }}</span>
+            {% if c.source_doc_id %}
+            <span class="contradict-src">{{ c.source_doc_id }} · {{ c.section_ref }}</span>
+            {% endif %}
+          </div>
+          <div class="contradict-msg">{{ c.msg }}</div>
+          {% if c.clause_ids %}
+          <div class="contradict-clauses">Clauses: {{ c.clause_ids|join(', ') }}</div>
+          {% endif %}
+          {% if c.discounts_found %}
+          <div class="contradict-extra">שיעורי הנחה שנמצאו: {{ c.discounts_found|join(', ') }}%</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     {% if validation.warnings_list %}
     <div class="card anim anim-4" style="margin-bottom:16px; padding:0; overflow:hidden;">
@@ -324,6 +395,7 @@
               <span class="warn-detail-label">פעולה מומלצת: </span>
               <span style="color:var(--muted)">
                 {% if 'SECTION_REF' in w.code %}סעיף זה חסר הפניה ספציפית — יש לבדוק ידנית את המסמך המקורי ולהוסיף section_ref
+                {% elif 'CONTRADICTION' in w.code %}ניגוד זוהה — יש לבדוק אם הסעיפים משלימים או סותרים באמת
                 {% elif 'OVERLAP' in w.code %}זכויות חופפות — בדוק את הגדרות הקטגוריות
                 {% elif 'MISSING' in w.code %}שדה חסר — השלם את הנתונים החסרים
                 {% else %}נדרשת בדיקה אנושית — פנה למומחה משפטי{% endif %}
