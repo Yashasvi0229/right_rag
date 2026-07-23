@@ -1,7 +1,7 @@
 """
 Rights Angel — SQLite Database Schema
 Architecture Brief v1.2 Section 4 — Exact Implementation
-6 tables as specified + audit_log + review_queue
+6 tables as specified + audit_log + review_queue + expert_questions
 """
 import sqlite3
 import os
@@ -19,6 +19,16 @@ def get_db() -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
+
+
+def _add_column_if_missing(conn, table: str, column: str, coldef: str):
+    """Idempotent ALTER TABLE ADD COLUMN — safe on both fresh and existing DBs."""
+    try:
+        cols = [r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+        if column not in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coldef}")
+    except Exception:
+        pass
 
 
 def init_db():
@@ -56,17 +66,23 @@ def init_db():
 
     -- ── 3. clauses ───────────────────────────────────────────────────────────
     CREATE TABLE IF NOT EXISTS clauses (
-        clause_id         TEXT PRIMARY KEY,
-        source_doc_id     TEXT NOT NULL REFERENCES source_documents(doc_id),
-        section_ref       TEXT NOT NULL,
-        text              TEXT NOT NULL,
-        clause_type       TEXT NOT NULL
-                          CHECK(clause_type IN ('ELIGIBILITY','EXCLUSION','DEFINITION','PROCEDURE')),
-        extraction_method TEXT NOT NULL
-                          CHECK(extraction_method IN ('HUMAN','AI_REVIEWED')),
-        version           TEXT NOT NULL DEFAULT '1.0',
-        is_current        INTEGER NOT NULL DEFAULT 1 CHECK(is_current IN (0,1)),
-        created_at        TEXT NOT NULL
+        clause_id           TEXT PRIMARY KEY,
+        source_doc_id       TEXT NOT NULL REFERENCES source_documents(doc_id),
+        section_ref         TEXT NOT NULL,
+        text                TEXT NOT NULL,
+        clause_type         TEXT NOT NULL
+                            CHECK(clause_type IN ('ELIGIBILITY','EXCLUSION','DEFINITION','PROCEDURE')),
+        extraction_method   TEXT NOT NULL
+                            CHECK(extraction_method IN ('HUMAN','AI_REVIEWED')),
+        version             TEXT NOT NULL DEFAULT '1.0',
+        is_current          INTEGER NOT NULL DEFAULT 1 CHECK(is_current IN (0,1)),
+        created_at          TEXT NOT NULL,
+        plain_explanation   TEXT,
+        practical_meaning   TEXT,
+        evidence_needed     TEXT,
+        approving_authority TEXT,
+        confidence_level    TEXT DEFAULT 'MEDIUM',
+        notes               TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_clauses_doc     ON clauses(source_doc_id);
     CREATE INDEX IF NOT EXISTS idx_clauses_type    ON clauses(clause_type);
@@ -146,7 +162,39 @@ def init_db():
         reviewed_at   TEXT
     );
 
+    -- ── Expert questions (M1 acceptance — human expert workflow) ──────────────
+    CREATE TABLE IF NOT EXISTS expert_questions (
+        question_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_doc_id      TEXT NOT NULL,
+        question           TEXT NOT NULL,
+        ambiguity_source   TEXT,
+        alternatives       TEXT,
+        impact             TEXT,
+        risk_level         TEXT DEFAULT 'MEDIUM',
+        respondent         TEXT,
+        reference_source   TEXT,
+        related_clause_ids TEXT,
+        status             TEXT NOT NULL DEFAULT 'OPEN'
+                           CHECK(status IN ('OPEN','IN_REVIEW','ANSWERED','CLOSED')),
+        expert_answer      TEXT,
+        answered_by        TEXT,
+        answered_at        TEXT,
+        created_at         TEXT NOT NULL,
+        updated_at         TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_expert_q_doc    ON expert_questions(source_doc_id);
+    CREATE INDEX IF NOT EXISTS idx_expert_q_status ON expert_questions(status);
+
     """)
+
+    # ── Migration: add new clause columns on existing databases ─────────────
+    _add_column_if_missing(conn, "clauses", "plain_explanation",   "TEXT")
+    _add_column_if_missing(conn, "clauses", "practical_meaning",   "TEXT")
+    _add_column_if_missing(conn, "clauses", "evidence_needed",     "TEXT")
+    _add_column_if_missing(conn, "clauses", "approving_authority", "TEXT")
+    _add_column_if_missing(conn, "clauses", "confidence_level",    "TEXT DEFAULT 'MEDIUM'")
+    _add_column_if_missing(conn, "clauses", "notes",               "TEXT")
+
     conn.commit()
     conn.close()
 
