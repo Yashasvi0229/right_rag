@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+{% set active = 's1' %}
+{% block title %}מילון משפטי — {{ doc_title or 'כל המסמכים' }}{% endblock %}
+{% block extra_head %}
+<style>
+  /* ── Dictionary table ── */
+  .dict-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+  }
+  .dict-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 900px;
+  }
+  .dict-table thead th {
+    background: var(--bg-card2);
+    padding: 10px 14px;
+    text-align: right;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border2);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .dict-table tbody tr {
+    border-bottom: 1px solid var(--border2);
+    transition: background 0.15s;
+    cursor: pointer;
+  }
+  .dict-table tbody tr:last-child { border-bottom: none; }
+  .dict-table tbody tr:hover { background: rgba(201,168,76,0.04); }
+  .dict-table td {
+    padding: 10px 14px;
+    vertical-align: top;
+    line-height: 1.6;
+  }
+
+  /* Column widths */
+  .col-id      { width: 120px; font-family: monospace; font-size: 11px; color: var(--gold); }
+  .col-ref     { width: 110px; font-family: monospace; font-size: 11px; color: var(--muted); }
+  .col-text    { width: 200px; max-width: 200px; }
+  .col-expl    { width: 180px; }
+  .col-pract   { width: 160px; }
+  .col-type    { width: 90px; }
+  .col-evid    { width: 150px; }
+  .col-auth    { width: 120px; }
+  .col-conf    { width: 80px; text-align: center; }
+  .col-notes   { width: 140px; }
+
+  .text-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: var(--white);
+    direction: rtl;
+  }
+  .text-clamp.expanded { -webkit-line-clamp: unset; overflow: visible; }
+
+  .conf-badge {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 10px; font-size: 10px; font-weight: 700; white-space: nowrap;
+  }
+  .conf-HIGH   { background: rgba(46,204,113,0.15); color: var(--green);    border: 1px solid rgba(46,204,113,0.3); }
+  .conf-MEDIUM { background: rgba(241,196,15,0.15);  color: var(--yellow);   border: 1px solid rgba(241,196,15,0.3); }
+  .conf-LOW    { background: rgba(231,76,60,0.15);   color: var(--red);      border: 1px solid rgba(231,76,60,0.3); }
+
+  .type-chip {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 10px; font-size: 10px; font-weight: 600; white-space: nowrap;
+  }
+  .type-ELIGIBILITY { background: rgba(46,204,113,0.1);  color: var(--green);    border: 1px solid rgba(46,204,113,0.3); }
+  .type-EXCLUSION   { background: rgba(231,76,60,0.1);   color: var(--red);      border: 1px solid rgba(231,76,60,0.3); }
+  .type-DEFINITION  { background: rgba(74,158,221,0.1);  color: var(--blue-acc); border: 1px solid rgba(74,158,221,0.3); }
+  .type-PROCEDURE   { background: rgba(241,196,15,0.1);  color: var(--yellow);   border: 1px solid rgba(241,196,15,0.3); }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .filter-chip {
+    padding: 6px 12px; font-size: 12px;
+    border: 1px solid var(--border2); border-radius: 20px;
+    background: transparent; color: var(--muted);
+    cursor: pointer; font-family: 'Heebo', sans-serif; transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .filter-chip:hover   { border-color: var(--border); color: var(--white); }
+  .filter-chip.active  { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.1); }
+
+  /* Doc selector */
+  .doc-selector {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+  .stat-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 12px; background: var(--bg-card);
+    border: 1px solid var(--border2); border-radius: 20px; font-size: 12px;
+  }
+  .stat-num { font-weight: 700; font-size: 14px; }
+
+  /* Detail modal */
+  .detail-modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75); z-index: 200;
+    align-items: center; justify-content: center; padding: 16px;
+  }
+  .detail-modal.open { display: flex; }
+  .detail-box {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px;
+    max-width: 640px; width: 100%; max-height: 85vh;
+    overflow-y: auto; position: relative;
+  }
+  .detail-close {
+    position: absolute; top: 12px; left: 16px;
+    background: none; border: none; color: var(--muted);
+    font-size: 20px; cursor: pointer; line-height: 1;
+  }
+  .detail-section {
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border2);
+  }
+  .detail-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .detail-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--muted); margin-bottom: 5px;
+  }
+  .detail-value { font-size: 13px; color: var(--white); line-height: 1.7; direction: rtl; }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center; padding: 60px 24px; color: var(--muted);
+  }
+
+  /* Search */
+  .search-input {
+    flex: 1; min-width: 180px;
+  }
+
+  /* Loading */
+  .loading-row td { color: var(--muted); text-align: center; padding: 32px; }
+
+  /* Sidebar toggle */
+  .sidebar-toggle {
+    display: none; align-items: center; gap: 8px;
+    background: var(--bg-card2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 8px 14px;
+    color: var(--gold); font-size: 13px; cursor: pointer;
+    font-family: 'Heebo', sans-serif; margin-bottom: 16px; width: 100%;
+  }
+
+  @media (max-width: 768px) {
+    .sidebar-toggle { display: flex; }
+    .stats-row { gap: 8px; }
+    .filter-bar { gap: 6px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-section">זרימת עבודה</div>
+    <a class="sidebar-item" href="/screen1">📥 מקורות חוק</a>
+    <a class="sidebar-item" href="/screen2">⚙️ פירוק סעיפים</a>
+    <a class="sidebar-item" href="/screen3">📋 טיוטת מנוע</a>
+    <a class="sidebar-item" href="/screen4">✅ אימות עצמי</a>
+    <a class="sidebar-item" href="/screen5">💡 הסברתיות</a>
+    <a class="sidebar-item" href="/screen6">👤 אישור מומחה</a>
+    <div class="sidebar-section">ניתוח</div>
+    <a class="sidebar-item active" href="/screen13">📖 מילון משפטי</a>
+    <a class="sidebar-item" href="/screen14">❓ שאלות למומחה</a>
+    <div class="sidebar-section">מערכת</div>
+    <a class="sidebar-item" href="/screen9">🕐 גרסאות</a>
+  </nav>
+
+  <div class="main-content">
+    <button class="sidebar-toggle" onclick="toggleSidebar()">☰ תפריט ניהול</button>
+
+    <div class="page-header anim">
+      <h2>📖 מילון משפטי</h2>
+      <p>סעיפים מאושרים עם הסבר פשוט, משמעות מעשית, הוכחות נדרשות וגורם מאשר</p>
+    </div>
+
+    <!-- Doc selector -->
+    <div class="doc-selector anim anim-1">
+      <span style="font-size:13px; color:var(--muted); flex-shrink:0">מסמך:</span>
+      <select class="form-select" id="doc-select" style="width:auto; flex:1; max-width:400px" onchange="loadDictionary()">
+        <option value="">כל המסמכים</option>
+      </select>
+      <button class="btn btn-outline" style="padding:6px 14px;font-size:12px" onclick="loadDictionary()">🔄 רענן</button>
+      <a href="/screen14" class="btn btn-outline" style="padding:6px 14px;font-size:12px">❓ שאלות למומחה</a>
+    </div>
+
+    <!-- Stats row -->
+    <div class="stats-row anim anim-1" id="stats-row">
+      <div class="stat-pill">
+        <span class="stat-num" id="stat-total" style="color:var(--white)">—</span>
+        <span style="color:var(--muted)">סה"כ סעיפים</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-num" id="stat-elig" style="color:var(--green)">—</span>
+        <span style="color:var(--muted)">תנאי זכאות</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-num" id="stat-excl" style="color:var(--red)">—</span>
+        <span style="color:var(--muted)">חריגים</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-num" id="stat-defn" style="color:var(--blue-acc)">—</span>
+        <span style="color:var(--muted)">הגדרות</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-num" id="stat-proc" style="color:var(--yellow)">—</span>
+        <span style="color:var(--muted)">הליכים</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-num" id="stat-high" style="color:var(--green)">—</span>
+        <span style="color:var(--muted)">ודאות גבוהה</span>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar anim anim-2">
+      <span style="font-size:12px; color:var(--muted); flex-shrink:0">סינון:</span>
+      <button class="filter-chip active" onclick="setFilter('ALL',this)">הכל</button>
+      <button class="filter-chip" onclick="setFilter('ELIGIBILITY',this)">✔ תנאי זכאות</button>
+      <button class="filter-chip" onclick="setFilter('EXCLUSION',this)">🚫 חריגים</button>
+      <button class="filter-chip" onclick="setFilter('DEFINITION',this)">📖 הגדרות</button>
+      <button class="filter-chip" onclick="setFilter('PROCEDURE',this)">📋 הליכים</button>
+      <span style="margin-right:auto"></span>
+      <input class="form-input search-input" id="search-input"
+             placeholder="🔍 חיפוש חופשי..."
+             style="padding:6px 12px; font-size:12px; max-width:200px"
+             oninput="applyFilters()" />
+    </div>
+
+    <!-- Dictionary table -->
+    <div class="dict-table-wrap anim anim-3">
+      <table class="dict-table" id="dict-table">
+        <thead>
+          <tr>
+            <th class="col-id">מזהה</th>
+            <th class="col-ref">מקור / סעיף</th>
+            <th class="col-text">נוסח מקורי</th>
+            <th class="col-expl">הסבר פשוט</th>
+            <th class="col-pract">משמעות מעשית</th>
+            <th class="col-type">סוג רכיב</th>
+            <th class="col-evid">הוכחה נדרשת</th>
+            <th class="col-auth">גורם מאשר</th>
+            <th class="col-conf">ודאות</th>
+            <th class="col-notes">הערות</th>
+          </tr>
+        </thead>
+        <tbody id="dict-body">
+          <tr class="loading-row"><td colspan="10">⏳ טוען נתונים...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div id="empty-state" class="empty-state" style="display:none">
+      <div style="font-size:48px; margin-bottom:16px">📭</div>
+      <div style="font-size:16px; font-weight:600; margin-bottom:8px">אין סעיפים מאושרים</div>
+      <div style="font-size:13px; margin-bottom:20px">יש לאשר סעיפים תחילה דרך <a href="/screen6" style="color:var(--gold)">אישור מומחה</a></div>
+      <a href="/screen6" class="btn btn-gold">👤 אישור מומחה</a>
+    </div>
+
+  </div>
+</div>
+
+<!-- Detail modal -->
+<div id="detail-modal" class="detail-modal" onclick="if(event.target===this)closeDetail()">
+  <div class="detail-box">
+    <button class="detail-close" onclick="closeDetail()">✕</button>
+    <div style="font-size:16px; font-weight:700; color:var(--gold); margin-bottom:16px">📄 פרטי סעיף מלאים</div>
+
+    <div class="detail-section">
+      <div class="detail-label">מזהה סעיף</div>
+      <div class="detail-value" id="d-id" style="font-family:monospace; color:var(--gold)"></div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">מקור / סעיף</div>
+      <div class="detail-value" id="d-ref" style="font-family:monospace; color:var(--muted)"></div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">נוסח מקורי (Verbatim)</div>
+      <div class="detail-value" id="d-text" style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; border-right:3px solid var(--gold)"></div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">הסבר פשוט</div>
+      <div class="detail-value" id="d-expl"></div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">משמעות מעשית</div>
+      <div class="detail-value" id="d-pract"></div>
+    </div>
+    <div class="detail-section" id="d-evid-sec">
+      <div class="detail-label">הוכחה נדרשת</div>
+      <div class="detail-value" id="d-evid"></div>
+    </div>
+    <div class="detail-section" id="d-auth-sec">
+      <div class="detail-label">גורם מאשר</div>
+      <div class="detail-value" id="d-auth"></div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">סוג רכיב</div>
+      <div class="detail-value" id="d-type"></div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">ודאות</div>
+      <div class="detail-value" id="d-conf"></div>
+    </div>
+    <div class="detail-section" id="d-notes-sec">
+      <div class="detail-label">הערות</div>
+      <div class="detail-value" id="d-notes"></div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-label">מסמך מקור</div>
+      <div class="detail-value" id="d-doc" style="font-size:12px; color:var(--muted)"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let allClauses = [];
+let currentFilter = 'ALL';
+
+const TYPE_LABELS = {
+  'ELIGIBILITY': '✔ תנאי זכאות',
+  'EXCLUSION':   '🚫 חריג',
+  'DEFINITION':  '📖 הגדרה',
+  'PROCEDURE':   '📋 הליך',
+};
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setFilter(type, btn) {
+  currentFilter = type;
+  document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function applyFilters() {
+  const search = (document.getElementById('search-input').value || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('#dict-body tr[data-clause-id]');
+  let visible = 0;
+  rows.forEach(row => {
+    const type    = row.dataset.type || '';
+    const text    = (row.dataset.text || '').toLowerCase();
+    const typeOk  = currentFilter === 'ALL' || type === currentFilter;
+    const srchOk  = !search || text.includes(search);
+    row.style.display = (typeOk && srchOk) ? '' : 'none';
+    if (typeOk && srchOk) visible++;
+  });
+  document.getElementById('empty-state').style.display = visible === 0 && allClauses.length > 0 ? 'block' : 'none';
+}
+
+function updateStats(clauses) {
+  const counts = { ELIGIBILITY: 0, EXCLUSION: 0, DEFINITION: 0, PROCEDURE: 0 };
+  let high = 0;
+  clauses.forEach(c => {
+    if (counts[c.clause_type] !== undefined) counts[c.clause_type]++;
+    if (c.confidence_level === 'HIGH') high++;
+  });
+  document.getElementById('stat-total').textContent = clauses.length;
+  document.getElementById('stat-elig').textContent  = counts.ELIGIBILITY;
+  document.getElementById('stat-excl').textContent  = counts.EXCLUSION;
+  document.getElementById('stat-defn').textContent  = counts.DEFINITION;
+  document.getElementById('stat-proc').textContent  = counts.PROCEDURE;
+  document.getElementById('stat-high').textContent  = high;
+}
+
+function renderTable(clauses) {
+  const tbody = document.getElementById('dict-body');
+  if (!clauses || clauses.length === 0) {
+    tbody.innerHTML = '';
+    document.getElementById('empty-state').style.display = 'block';
+    return;
+  }
+  document.getElementById('empty-state').style.display = 'none';
+
+  tbody.innerHTML = clauses.map((c, idx) => {
+    const typeLabel = TYPE_LABELS[c.clause_type] || c.clause_type;
+    const typeClass = 'type-' + (c.clause_type || 'ELIGIBILITY');
+    const confClass = 'conf-' + (c.confidence_level || 'MEDIUM');
+    const confLabel = c.confidence_level === 'HIGH' ? 'גבוהה' : c.confidence_level === 'LOW' ? 'נמוכה' : 'בינונית';
+    const searchText = [c.clause_id, c.section_ref, c.text, c.plain_explanation, c.practical_meaning, c.evidence_needed, c.approving_authority, c.notes].join(' ').toLowerCase();
+    const shortId = (c.clause_id || '').slice(-14);
+
+    return `<tr data-clause-id="${escHtml(c.clause_id)}" data-type="${escHtml(c.clause_type)}" data-text="${escHtml(searchText)}" onclick="openDetail(${idx})">
+      <td class="col-id" title="${escHtml(c.clause_id)}">${escHtml(shortId)}</td>
+      <td class="col-ref">${escHtml(c.section_ref || '—')}</td>
+      <td class="col-text"><div class="text-clamp">${escHtml((c.text||'').slice(0,160))}${(c.text||'').length>160?'…':''}</div></td>
+      <td class="col-expl"><div class="text-clamp">${escHtml(c.plain_explanation || '—')}</div></td>
+      <td class="col-pract"><div class="text-clamp">${escHtml(c.practical_meaning || '—')}</div></td>
+      <td class="col-type"><span class="type-chip ${typeClass}">${typeLabel}</span></td>
+      <td class="col-evid" style="font-size:12px; color:var(--muted)">${escHtml(c.evidence_needed || '—')}</td>
+      <td class="col-auth" style="font-size:12px; color:var(--muted)">${escHtml(c.approving_authority || '—')}</td>
+      <td class="col-conf"><span class="conf-badge ${confClass}">${confLabel}</span></td>
+      <td class="col-notes" style="font-size:11px; color:var(--muted)">${escHtml((c.notes||'').slice(0,80))}${(c.notes||'').length>80?'…':''}</td>
+    </tr>`;
+  }).join('');
+
+  updateStats(clauses);
+}
+
+function openDetail(idx) {
+  const c = allClauses[idx];
+  if (!c) return;
+  const typeLabel = TYPE_LABELS[c.clause_type] || c.clause_type;
+  const typeClass = 'type-' + (c.clause_type || 'ELIGIBILITY');
+  const confClass = 'conf-' + (c.confidence_level || 'MEDIUM');
+  const confLabel = c.confidence_level === 'HIGH' ? 'גבוהה' : c.confidence_level === 'LOW' ? 'נמוכה' : 'בינונית';
+
+  document.getElementById('d-id').textContent   = c.clause_id || '';
+  document.getElementById('d-ref').textContent  = c.section_ref || '—';
+  document.getElementById('d-text').textContent = c.text || '—';
+  document.getElementById('d-expl').textContent = c.plain_explanation || '—';
+  document.getElementById('d-pract').textContent = c.practical_meaning || '—';
+
+  const evidSec = document.getElementById('d-evid-sec');
+  if (c.evidence_needed) {
+    document.getElementById('d-evid').textContent = c.evidence_needed;
+    evidSec.style.display = '';
+  } else {
+    evidSec.style.display = 'none';
+  }
+
+  const authSec = document.getElementById('d-auth-sec');
+  if (c.approving_authority) {
+    document.getElementById('d-auth').textContent = c.approving_authority;
+    authSec.style.display = '';
+  } else {
+    authSec.style.display = 'none';
+  }
+
+  document.getElementById('d-type').innerHTML  = `<span class="type-chip ${typeClass}">${typeLabel}</span>`;
+  document.getElementById('d-conf').innerHTML  = `<span class="conf-badge ${confClass}">${confLabel}</span>`;
+
+  const notesSec = document.getElementById('d-notes-sec');
+  if (c.notes) {
+    document.getElementById('d-notes').textContent = c.notes;
+    notesSec.style.display = '';
+  } else {
+    notesSec.style.display = 'none';
+  }
+
+  document.getElementById('d-doc').textContent = [c.doc_title || c.source_doc_id, c.publisher].filter(Boolean).join(' · ');
+
+  document.getElementById('detail-modal').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail-modal').classList.remove('open');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+
+async function loadDocuments() {
+  try {
+    const res = await fetch('/api/documents');
+    if (!res.ok) return;
+    const docs = await res.json();
+    const sel  = document.getElementById('doc-select');
+    docs.forEach(d => {
+      if (d.ingested_by === 'system-seed') return;
+      const opt = document.createElement('option');
+      opt.value       = d.doc_id;
+      opt.textContent = (d.title || d.doc_id).slice(0, 60);
+      sel.appendChild(opt);
+    });
+    // Pre-select from URL param if present
+    const params = new URLSearchParams(window.location.search);
+    const docParam = params.get('doc_id');
+    if (docParam) sel.value = docParam;
+  } catch(e) { /* silent */ }
+}
+
+async function loadDictionary() {
+  const docId  = document.getElementById('doc-select').value;
+  const tbody  = document.getElementById('dict-body');
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="10">⏳ טוען סעיפים...</td></tr>';
+  document.getElementById('empty-state').style.display = 'none';
+
+  try {
+    const params = new URLSearchParams();
+    if (docId) params.set('source_doc_id', docId);
+    const res = await fetch('/api/clauses?' + params.toString());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    allClauses = await res.json();
+    renderTable(allClauses);
+    applyFilters();
+  } catch(e) {
+    tbody.innerHTML = `<tr class="loading-row"><td colspan="10" style="color:var(--red)">❌ שגיאה: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadDocuments();
+  await loadDictionary();
+});
+</script>
+{% endblock %}
