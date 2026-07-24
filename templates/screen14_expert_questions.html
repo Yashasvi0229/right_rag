@@ -1,0 +1,602 @@
+{% extends "base.html" %}
+{% set active = 's1' %}
+{% block title %}שאלות למומחה משפטי{% endblock %}
+{% block extra_head %}
+<style>
+  /* ── Question cards ── */
+  .q-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+    overflow: hidden;
+  }
+  .q-card:hover { border-color: var(--border); }
+  .q-card.risk-HIGH   { border-right: 3px solid var(--red); }
+  .q-card.risk-MEDIUM { border-right: 3px solid var(--yellow); }
+  .q-card.risk-LOW    { border-right: 3px solid var(--green); }
+  .q-card.status-ANSWERED { border-color: rgba(46,204,113,0.4); background: rgba(46,204,113,0.03); }
+  .q-card.status-CLOSED   { opacity: 0.6; }
+
+  .q-header {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px; cursor: pointer;
+  }
+  .q-num {
+    font-family: 'Frank Ruhl Libre', serif;
+    font-size: 20px; font-weight: 900;
+    color: var(--muted); flex-shrink: 0; width: 28px;
+    padding-top: 2px; text-align: center;
+  }
+  .q-main { flex: 1; min-width: 0; }
+  .q-text {
+    font-size: 14px; font-weight: 600;
+    color: var(--white); line-height: 1.6;
+    direction: rtl; margin-bottom: 6px;
+  }
+  .q-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .q-toggle { font-size: 14px; color: var(--muted); flex-shrink: 0; transition: transform 0.2s; margin-top: 2px; }
+  .q-toggle.open { transform: rotate(180deg); }
+
+  .q-body {
+    display: none;
+    padding: 0 16px 16px 16px;
+    border-top: 1px solid var(--border2);
+    margin-top: 0;
+  }
+  .q-body.open { display: block; }
+
+  .q-section { margin-top: 12px; }
+  .q-section-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--muted); margin-bottom: 5px;
+  }
+  .q-section-value { font-size: 13px; color: var(--white); line-height: 1.7; direction: rtl; }
+
+  .alternatives-list {
+    list-style: none; padding: 0; margin: 0;
+  }
+  .alternatives-list li {
+    padding: 6px 10px; margin-bottom: 4px;
+    background: rgba(74,158,221,0.07);
+    border: 1px solid rgba(74,158,221,0.2);
+    border-radius: 6px; font-size: 13px; color: var(--white);
+    direction: rtl;
+  }
+  .alternatives-list li::before { content: '◦ '; color: var(--blue-acc); }
+
+  /* Answer area */
+  .answer-area {
+    margin-top: 14px; padding: 12px 14px;
+    background: rgba(46,204,113,0.05);
+    border: 1px solid rgba(46,204,113,0.2);
+    border-radius: var(--radius-sm);
+  }
+  .answer-area.has-answer {
+    background: rgba(46,204,113,0.08);
+    border-color: rgba(46,204,113,0.4);
+  }
+  .answer-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--green); margin-bottom: 8px;
+  }
+  .answer-text {
+    font-size: 13px; color: var(--white); line-height: 1.7;
+    direction: rtl; margin-bottom: 0;
+  }
+  .answer-meta {
+    font-size: 11px; color: var(--muted); margin-top: 6px;
+  }
+  .answer-form { display: flex; flex-direction: column; gap: 8px; }
+  .answer-form textarea {
+    min-height: 80px; resize: vertical; direction: rtl;
+  }
+  .answer-form-row { display: flex; gap: 8px; align-items: flex-start; }
+
+  /* Risk badges */
+  .risk-badge {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 10px; font-size: 10px; font-weight: 700; white-space: nowrap;
+  }
+  .risk-HIGH   { background: rgba(231,76,60,0.15);  color: var(--red);    border: 1px solid rgba(231,76,60,0.3); }
+  .risk-MEDIUM { background: rgba(241,196,15,0.15); color: var(--yellow); border: 1px solid rgba(241,196,15,0.3); }
+  .risk-LOW    { background: rgba(46,204,113,0.15); color: var(--green);  border: 1px solid rgba(46,204,113,0.3); }
+
+  /* Status badges */
+  .status-badge {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 10px; font-size: 10px; font-weight: 700; white-space: nowrap;
+  }
+  .status-OPEN     { background: rgba(74,158,221,0.15); color: var(--blue-acc); border: 1px solid rgba(74,158,221,0.3); }
+  .status-IN_REVIEW{ background: rgba(241,196,15,0.15); color: var(--yellow);   border: 1px solid rgba(241,196,15,0.3); }
+  .status-ANSWERED { background: rgba(46,204,113,0.15); color: var(--green);    border: 1px solid rgba(46,204,113,0.3); }
+  .status-CLOSED   { background: rgba(255,255,255,0.07); color: var(--muted);   border: 1px solid var(--border2); }
+
+  /* Controls bar */
+  .controls-bar {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  /* Doc selector */
+  .doc-selector {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 16px; padding: 10px 14px;
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+  }
+
+  /* Stats */
+  .stats-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .stat-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 12px; background: var(--bg-card);
+    border: 1px solid var(--border2); border-radius: 20px; font-size: 12px;
+  }
+  .stat-num { font-weight: 700; font-size: 14px; }
+
+  /* Generate section */
+  .generate-banner {
+    padding: 14px 16px; margin-bottom: 16px;
+    background: rgba(74,158,221,0.06);
+    border: 1px solid rgba(74,158,221,0.25);
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .generate-banner-text { flex: 1; font-size: 13px; color: var(--white); }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 60px 24px; color: var(--muted); }
+
+  /* Filter chip */
+  .filter-chip {
+    padding: 6px 12px; font-size: 12px;
+    border: 1px solid var(--border2); border-radius: 20px;
+    background: transparent; color: var(--muted);
+    cursor: pointer; font-family: 'Heebo', sans-serif; transition: all 0.2s; white-space: nowrap;
+  }
+  .filter-chip:hover  { border-color: var(--border); color: var(--white); }
+  .filter-chip.active { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.1); }
+
+  /* Sidebar toggle */
+  .sidebar-toggle {
+    display: none; align-items: center; gap: 8px;
+    background: var(--bg-card2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 8px 14px;
+    color: var(--gold); font-size: 13px; cursor: pointer;
+    font-family: 'Heebo', sans-serif; margin-bottom: 16px; width: 100%;
+  }
+  @media (max-width: 768px) {
+    .sidebar-toggle { display: flex; }
+    .controls-bar { gap: 6px; }
+    .generate-banner { flex-direction: column; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-section">זרימת עבודה</div>
+    <a class="sidebar-item" href="/screen1">📥 מקורות חוק</a>
+    <a class="sidebar-item" href="/screen2">⚙️ פירוק סעיפים</a>
+    <a class="sidebar-item" href="/screen3">📋 טיוטת מנוע</a>
+    <a class="sidebar-item" href="/screen4">✅ אימות עצמי</a>
+    <a class="sidebar-item" href="/screen5">💡 הסברתיות</a>
+    <a class="sidebar-item" href="/screen6">👤 אישור מומחה</a>
+    <div class="sidebar-section">ניתוח</div>
+    <a class="sidebar-item" href="/screen13">📖 מילון משפטי</a>
+    <a class="sidebar-item active" href="/screen14">❓ שאלות למומחה</a>
+    <div class="sidebar-section">מערכת</div>
+    <a class="sidebar-item" href="/screen9">🕐 גרסאות</a>
+  </nav>
+
+  <div class="main-content">
+    <button class="sidebar-toggle" onclick="toggleSidebar()">☰ תפריט ניהול</button>
+
+    <div class="page-header anim">
+      <h2>❓ שאלות למומחה משפטי</h2>
+      <p>עמימויות ונקודות החלטה הדורשות שיקול דעת אנושי לפני הפעלת המנוע</p>
+    </div>
+
+    <!-- Doc selector -->
+    <div class="doc-selector anim anim-1">
+      <span style="font-size:13px; color:var(--muted); flex-shrink:0">מסמך:</span>
+      <select class="form-select" id="doc-select" style="width:auto; flex:1; max-width:400px" onchange="onDocChange()">
+        <option value="">כל המסמכים</option>
+      </select>
+      <button class="btn btn-outline" style="padding:6px 14px;font-size:12px" onclick="loadQuestions()">🔄 רענן</button>
+      <a href="/screen13" class="btn btn-outline" style="padding:6px 14px;font-size:12px">📖 מילון משפטי</a>
+    </div>
+
+    <!-- Generate banner — shown when doc selected + no questions yet -->
+    <div id="generate-banner" class="generate-banner" style="display:none">
+      <div class="generate-banner-text">
+        <strong>🤖 יצירת שאלות אוטומטית</strong><br>
+        <span style="font-size:12px; color:var(--muted)">המערכת יכולה לנתח את הסעיפים המאושרים ולייצר שאלות לבדיקת המומחה המשפטי</span>
+      </div>
+      <button class="btn btn-gold" style="padding:8px 16px; font-size:13px; flex-shrink:0" onclick="generateQuestions(false)" id="gen-btn">
+        ✨ צור שאלות
+      </button>
+      <button class="btn btn-outline" style="padding:8px 12px; font-size:12px; flex-shrink:0" onclick="generateQuestions(true)" title="יצירה מחדש — תסגור שאלות קיימות">
+        🔄 צור מחדש
+      </button>
+    </div>
+
+    <!-- Stats row -->
+    <div class="stats-row anim anim-1" id="stats-row" style="display:none">
+      <div class="stat-pill">
+        <span class="stat-num" id="stat-total" style="color:var(--white)">0</span>
+        <span style="color:var(--muted)">סה"כ שאלות</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-num" id="stat-open" style="color:var(--blue-acc)">0</span>
+        <span style="color:var(--muted)">פתוחות</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-num" id="stat-answered" style="color:var(--green)">0</span>
+        <span style="color:var(--muted)">נענו</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-num" id="stat-high" style="color:var(--red)">0</span>
+        <span style="color:var(--muted)">סיכון גבוה</span>
+      </div>
+    </div>
+
+    <!-- Filter chips -->
+    <div class="controls-bar anim anim-2" id="filter-bar" style="display:none">
+      <span style="font-size:12px; color:var(--muted); flex-shrink:0">סינון:</span>
+      <button class="filter-chip active" onclick="setFilter('ALL',this)">הכל</button>
+      <button class="filter-chip" onclick="setFilter('OPEN',this)">פתוחות</button>
+      <button class="filter-chip" onclick="setFilter('ANSWERED',this)">נענו</button>
+      <button class="filter-chip" onclick="setFilter('HIGH',this)">🔴 סיכון גבוה</button>
+      <button class="filter-chip" onclick="setFilter('MEDIUM',this)">🟡 סיכון בינוני</button>
+      <button class="filter-chip" onclick="setFilter('LOW',this)">🟢 סיכון נמוך</button>
+    </div>
+
+    <!-- Questions list -->
+    <div id="questions-container" class="anim anim-3">
+      <div class="empty-state" id="loading-state">
+        <div style="font-size:36px; margin-bottom:12px">⏳</div>
+        <div>טוען שאלות...</div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div id="empty-state" class="empty-state" style="display:none">
+      <div style="font-size:48px; margin-bottom:16px">💭</div>
+      <div style="font-size:16px; font-weight:600; margin-bottom:8px">אין שאלות עדיין</div>
+      <div style="font-size:13px; color:var(--muted); margin-bottom:20px">
+        בחר מסמך עם סעיפים מאושרים ולחץ "צור שאלות"
+      </div>
+      <a href="/screen6" class="btn btn-outline" style="margin-left:8px">👤 אישור מומחה</a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let allQuestions = [];
+let currentFilter = 'ALL';
+let currentDocId  = '';
+
+const RISK_LABELS = { HIGH: 'גבוה', MEDIUM: 'בינוני', LOW: 'נמוך' };
+const STATUS_LABELS = { OPEN: 'פתוחה', IN_REVIEW: 'בבדיקה', ANSWERED: 'נענתה', CLOSED: 'סגורה' };
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderQuestions(allQuestions);
+}
+
+function updateStats(questions) {
+  const total    = questions.length;
+  const open     = questions.filter(q => q.status === 'OPEN' || q.status === 'IN_REVIEW').length;
+  const answered = questions.filter(q => q.status === 'ANSWERED').length;
+  const high     = questions.filter(q => q.risk_level === 'HIGH').length;
+
+  document.getElementById('stat-total').textContent    = total;
+  document.getElementById('stat-open').textContent     = open;
+  document.getElementById('stat-answered').textContent = answered;
+  document.getElementById('stat-high').textContent     = high;
+
+  const statsRow  = document.getElementById('stats-row');
+  const filterBar = document.getElementById('filter-bar');
+  statsRow.style.display  = total > 0 ? 'flex' : 'none';
+  filterBar.style.display = total > 0 ? 'flex' : 'none';
+}
+
+function applyFilter(questions) {
+  if (currentFilter === 'ALL') return questions;
+  if (currentFilter === 'OPEN')     return questions.filter(q => q.status === 'OPEN' || q.status === 'IN_REVIEW');
+  if (currentFilter === 'ANSWERED') return questions.filter(q => q.status === 'ANSWERED');
+  if (currentFilter === 'HIGH')     return questions.filter(q => q.risk_level === 'HIGH');
+  if (currentFilter === 'MEDIUM')   return questions.filter(q => q.risk_level === 'MEDIUM');
+  if (currentFilter === 'LOW')      return questions.filter(q => q.risk_level === 'LOW');
+  return questions;
+}
+
+function renderQuestions(questions) {
+  const container = document.getElementById('questions-container');
+  const emptyEl   = document.getElementById('empty-state');
+  const filtered  = applyFilter(questions);
+
+  if (filtered.length === 0) {
+    container.innerHTML = '';
+    emptyEl.style.display = 'block';
+    return;
+  }
+  emptyEl.style.display = 'none';
+
+  container.innerHTML = filtered.map((q, idx) => {
+    const riskLabel   = RISK_LABELS[q.risk_level]   || q.risk_level;
+    const statusLabel = STATUS_LABELS[q.status]      || q.status;
+    const alts        = Array.isArray(q.alternatives) ? q.alternatives : [];
+    const relIds      = Array.isArray(q.related_clause_ids) ? q.related_clause_ids : [];
+    const isAnswered  = q.status === 'ANSWERED';
+    const isClosed    = q.status === 'CLOSED';
+
+    return `
+    <div class="q-card risk-${q.risk_level} status-${q.status}" id="qcard-${q.question_id}">
+      <div class="q-header" onclick="toggleCard(${q.question_id})">
+        <div class="q-num">${idx + 1}</div>
+        <div class="q-main">
+          <div class="q-text">${escHtml(q.question)}</div>
+          <div class="q-meta">
+            <span class="risk-badge risk-${q.risk_level}">סיכון: ${riskLabel}</span>
+            <span class="status-badge status-${q.status}">${statusLabel}</span>
+            ${q.respondent ? `<span style="font-size:11px;color:var(--muted)">📋 ${escHtml(q.respondent)}</span>` : ''}
+            ${relIds.length > 0 ? `<span style="font-size:11px;color:var(--muted)">🔗 ${relIds.length} סעיפים</span>` : ''}
+          </div>
+        </div>
+        <div class="q-toggle" id="qtoggle-${q.question_id}">▼</div>
+      </div>
+
+      <div class="q-body" id="qbody-${q.question_id}">
+
+        ${q.ambiguity_source ? `
+        <div class="q-section">
+          <div class="q-section-label">מקור העמימות</div>
+          <div class="q-section-value" style="color:var(--muted); font-size:12px">${escHtml(q.ambiguity_source)}</div>
+        </div>` : ''}
+
+        ${alts.length > 0 ? `
+        <div class="q-section">
+          <div class="q-section-label">חלופות אפשריות</div>
+          <ul class="alternatives-list">
+            ${alts.map(a => `<li>${escHtml(a)}</li>`).join('')}
+          </ul>
+        </div>` : ''}
+
+        ${q.impact ? `
+        <div class="q-section">
+          <div class="q-section-label">השפעה</div>
+          <div class="q-section-value">${escHtml(q.impact)}</div>
+        </div>` : ''}
+
+        ${relIds.length > 0 ? `
+        <div class="q-section">
+          <div class="q-section-label">סעיפים קשורים</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap">
+            ${relIds.map(id => `<span style="font-family:monospace;font-size:11px;padding:2px 8px;background:var(--bg-navy);border-radius:4px;color:var(--gold)">${escHtml(id)}</span>`).join('')}
+          </div>
+        </div>` : ''}
+
+        ${q.reference_source ? `
+        <div class="q-section">
+          <div class="q-section-label">מקור להשוואה</div>
+          <div class="q-section-value" style="font-size:12px">
+            <a href="${escHtml(q.reference_source)}" target="_blank" style="color:var(--blue-acc)">${escHtml(q.reference_source)}</a>
+          </div>
+        </div>` : ''}
+
+        <!-- Answer area -->
+        <div class="answer-area ${isAnswered ? 'has-answer' : ''}" id="answer-area-${q.question_id}">
+          ${isAnswered ? `
+            <div class="answer-label">✔ תשובת המומחה</div>
+            <div class="answer-text">${escHtml(q.expert_answer)}</div>
+            <div class="answer-meta">
+              ענה: ${escHtml(q.answered_by || '—')} · ${escHtml((q.answered_at||'').slice(0,10))}
+            </div>
+          ` : isClosed ? `
+            <div style="font-size:12px; color:var(--muted)">🔒 שאלה זו נסגרה</div>
+          ` : `
+            <div class="answer-label">✏️ הזן תשובת מומחה</div>
+            <div class="answer-form">
+              <textarea class="form-input" id="answer-text-${q.question_id}"
+                placeholder="הזן את תשובתך המשפטית כאן..."
+                style="direction:rtl; min-height:80px"></textarea>
+              <div class="answer-form-row">
+                <input class="form-input" id="answer-by-${q.question_id}"
+                  placeholder="שם המומחה" value="legal-expert"
+                  style="flex:1" />
+                <button class="btn btn-gold" style="padding:8px 16px; font-size:13px; flex-shrink:0"
+                  onclick="submitAnswer(${q.question_id})">
+                  💾 שמור תשובה
+                </button>
+              </div>
+            </div>
+          `}
+        </div>
+
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCard(questionId) {
+  const body   = document.getElementById('qbody-' + questionId);
+  const toggle = document.getElementById('qtoggle-' + questionId);
+  if (!body) return;
+  const isOpen = body.classList.contains('open');
+  // Close all others
+  document.querySelectorAll('.q-body.open').forEach(b => b.classList.remove('open'));
+  document.querySelectorAll('.q-toggle.open').forEach(t => t.classList.remove('open'));
+  if (!isOpen) {
+    body.classList.add('open');
+    toggle.classList.add('open');
+  }
+}
+
+async function submitAnswer(questionId) {
+  const answerEl = document.getElementById('answer-text-' + questionId);
+  const byEl     = document.getElementById('answer-by-'   + questionId);
+  const answer   = (answerEl?.value || '').trim();
+  const by       = (byEl?.value     || 'legal-expert').trim();
+
+  if (!answer) return showToast('אנא הזן תשובה', 'warn');
+
+  try {
+    const res = await fetch(`/api/expert-questions/${questionId}/answer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expert_answer: answer, answered_by: by }),
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      return showToast('שגיאה: ' + (d.detail || res.status), 'error');
+    }
+    showToast('✔ התשובה נשמרה', 'success');
+    // Update local state and re-render
+    const q = allQuestions.find(q => q.question_id === questionId);
+    if (q) {
+      q.status       = 'ANSWERED';
+      q.expert_answer = answer;
+      q.answered_by  = by;
+      q.answered_at  = new Date().toISOString();
+    }
+    updateStats(allQuestions);
+    renderQuestions(allQuestions);
+    // Re-open the card to show the answer
+    setTimeout(() => {
+      const card = document.getElementById('qcard-' + questionId);
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
+  } catch(e) {
+    showToast('שגיאת רשת: ' + e.message, 'error');
+  }
+}
+
+function showToast(msg, type) {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;transition:opacity 0.3s;font-family:Heebo,sans-serif;';
+    document.body.appendChild(toast);
+  }
+  const colors = {
+    success: 'background:rgba(46,204,113,0.9);color:#fff;border:1px solid rgba(46,204,113,0.5)',
+    error:   'background:rgba(231,76,60,0.9);color:#fff;border:1px solid rgba(231,76,60,0.5)',
+    warn:    'background:rgba(241,196,15,0.9);color:#000;border:1px solid rgba(241,196,15,0.5)',
+  };
+  toast.style.cssText += ';' + (colors[type] || colors.success);
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+}
+
+async function loadDocuments() {
+  try {
+    const res  = await fetch('/api/documents');
+    if (!res.ok) return;
+    const docs = await res.json();
+    const sel  = document.getElementById('doc-select');
+    docs.forEach(d => {
+      if (d.ingested_by === 'system-seed') return;
+      const opt = document.createElement('option');
+      opt.value       = d.doc_id;
+      opt.textContent = (d.title || d.doc_id).slice(0, 60);
+      sel.appendChild(opt);
+    });
+    const params   = new URLSearchParams(window.location.search);
+    const docParam = params.get('doc_id');
+    if (docParam) { sel.value = docParam; currentDocId = docParam; }
+  } catch(e) { /* silent */ }
+}
+
+function onDocChange() {
+  currentDocId = document.getElementById('doc-select').value;
+  loadQuestions();
+}
+
+async function loadQuestions() {
+  const container  = document.getElementById('questions-container');
+  const emptyEl    = document.getElementById('empty-state');
+  const genBanner  = document.getElementById('generate-banner');
+
+  container.innerHTML = '<div class="empty-state" id="loading-state"><div style="font-size:36px;margin-bottom:12px">⏳</div><div>טוען שאלות...</div></div>';
+  emptyEl.style.display   = 'none';
+  genBanner.style.display = 'none';
+
+  try {
+    const params = new URLSearchParams();
+    if (currentDocId) params.set('doc_id', currentDocId);
+    const url = currentDocId
+      ? `/api/documents/${encodeURIComponent(currentDocId)}/expert-questions`
+      : '/api/expert-questions';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    allQuestions = await res.json();
+
+    updateStats(allQuestions);
+    renderQuestions(allQuestions);
+
+    // Show generate banner if doc selected and no questions
+    if (currentDocId && allQuestions.length === 0) {
+      genBanner.style.display = 'flex';
+      container.innerHTML = '';
+    } else if (allQuestions.length > 0 && currentDocId) {
+      genBanner.style.display = 'flex';
+    }
+  } catch(e) {
+    container.innerHTML = `<div class="empty-state" style="color:var(--red)">❌ שגיאה: ${escHtml(e.message)}</div>`;
+  }
+}
+
+async function generateQuestions(forceRegenerate) {
+  if (!currentDocId) return showToast('יש לבחור מסמך תחילה', 'warn');
+
+  const btn = document.getElementById('gen-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ מייצר...'; }
+
+  try {
+    const res = await fetch(`/api/documents/${encodeURIComponent(currentDocId)}/generate-expert-questions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force_regenerate: forceRegenerate }),
+    });
+    const data = await res.json();
+
+    if (data.status === 'GENERATED') {
+      showToast(`✔ ${data.questions_generated} שאלות נוצרו`, 'success');
+      await loadQuestions();
+    } else if (data.status === 'ALREADY_GENERATED') {
+      showToast(`${data.existing_count} שאלות כבר קיימות — לחץ "צור מחדש" לעדכון`, 'warn');
+    } else if (data.status === 'NO_CLAUSES') {
+      showToast('אין סעיפים מאושרים — אשר סעיפים דרך שלב 6', 'warn');
+    } else if (data.status === 'GENERATION_FAILED') {
+      showToast('שגיאה ביצירת שאלות: ' + (data.failure_reason || ''), 'error');
+    } else {
+      showToast(data.message || 'לא ניתן לייצר שאלות', 'warn');
+    }
+  } catch(e) {
+    showToast('שגיאת רשת: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✨ צור שאלות'; }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadDocuments();
+  await loadQuestions();
+});
+</script>
+{% endblock %}
