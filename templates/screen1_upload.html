@@ -12,10 +12,7 @@
     transition: all 0.25s;
     background: rgba(201,168,76,0.03);
   }
-  .upload-zone:hover {
-    border-color: var(--gold);
-    background: rgba(201,168,76,0.07);
-  }
+  .upload-zone:hover { border-color: var(--gold); background: rgba(201,168,76,0.07); }
   .upload-icon { font-size: 48px; margin-bottom: 12px; }
   .upload-zone h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
   .upload-zone p  { font-size: 14px; color: var(--muted); }
@@ -40,23 +37,47 @@
   }
   .ingest-warn strong { color: var(--yellow); }
 
-  /* QA #2: 5 type buttons */
+  /* Post-upload summary panel */
+  .summary-panel {
+    display: none;
+    margin-top: 14px;
+    padding: 14px 16px;
+    background: rgba(46,204,113,0.05);
+    border: 1px solid rgba(46,204,113,0.25);
+    border-radius: var(--radius-sm);
+  }
+  .summary-panel.warn {
+    background: rgba(241,196,15,0.05);
+    border-color: rgba(241,196,15,0.3);
+  }
+  .summary-hdr {
+    font-weight: 700; font-size: 14px; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(4,1fr); gap: 10px;
+    margin-bottom: 10px;
+  }
+  .summary-stat {
+    background: var(--bg-card); border: 1px solid var(--border2);
+    border-radius: 6px; padding: 8px 10px; text-align: center;
+  }
+  .summary-stat-num  { font-size: 22px; font-weight: 900; font-family: 'Frank Ruhl Libre', serif; }
+  .summary-stat-lbl  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .summary-actions   { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+
   .type-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 8px; margin-bottom: 20px;
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 20px;
   }
   .type-btn {
-    padding: 10px 6px;
-    border: 1px solid var(--border2);
+    padding: 10px 6px; border: 1px solid var(--border2);
     border-radius: var(--radius-sm);
     background: var(--bg-card); color: var(--muted);
     font-size: 12px; cursor: pointer; text-align: center;
     transition: all 0.2s; font-family: 'Heebo', sans-serif;
   }
   .type-btn:hover, .type-btn.active {
-    border-color: var(--gold); color: var(--gold);
-    background: rgba(201,168,76,0.08);
+    border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.08);
   }
   .type-icon { font-size: 18px; display: block; margin-bottom: 4px; }
 
@@ -70,7 +91,6 @@
   .alert-info    { background:rgba(201,168,76,0.15); border:1px solid rgba(201,168,76,0.3); color:var(--gold); }
   .alert-warning { background:rgba(241,196,15,0.15); border:1px solid rgba(241,196,15,0.3); color:#f1c40f; }
 
-  /* QA #3 + #4: Tooltips */
   .field-help { display: flex; align-items: center; gap: 6px; }
   .tooltip-wrap { position: relative; display: inline-flex; }
   .tooltip-icon {
@@ -92,16 +112,12 @@
   .tooltip-wrap:hover .tooltip-box { display: block; }
   .field-hint { font-size: 12px; color: var(--muted); margin-top: 5px; line-height: 1.5; }
 
-  /* QA #1: Date error */
   .form-input.input-error { border-color: var(--red) !important; }
   .date-error-msg { color: var(--red); font-size: 12px; margin-top: 4px; display: none; }
 
-  /* Custom source panel */
   .custom-source-panel {
-    display: none;
-    margin-top: 12px; padding: 14px;
-    background: rgba(90,155,240,0.05);
-    border: 1px solid rgba(90,155,240,0.25);
+    display: none; margin-top: 12px; padding: 14px;
+    background: rgba(90,155,240,0.05); border: 1px solid rgba(90,155,240,0.25);
     border-radius: var(--radius-sm);
   }
   .custom-source-panel .form-group { margin-bottom: 10px; }
@@ -111,32 +127,17 @@
     margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
   }
 
-  /* Two-col layout for upload + list */
-  .upload-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-  }
+  .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-  /* Date + publisher row */
-  .date-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-
-  /* Mobile sidebar toggle button */
   .sidebar-toggle {
-    display: none;
-    align-items: center; gap: 8px;
+    display: none; align-items: center; gap: 8px;
     background: var(--bg-card2); border: 1px solid var(--border);
     border-radius: var(--radius-sm); padding: 8px 14px;
     color: var(--gold); font-size: 13px; cursor: pointer;
-    font-family: 'Heebo', sans-serif; margin-bottom: 16px;
-    width: 100%;
+    font-family: 'Heebo', sans-serif; margin-bottom: 16px; width: 100%;
   }
 
-  /* ── RESPONSIVE ───────────────────────── */
   @media (max-width: 768px) {
     .sidebar-toggle  { display: flex; }
     .upload-grid     { grid-template-columns: 1fr; }
@@ -144,23 +145,21 @@
     .upload-zone     { padding: 32px 16px; }
     .upload-icon     { font-size: 36px; }
     .date-row        { grid-template-columns: 1fr; }
-    /* Tooltip — open below on mobile to avoid clipping */
     .tooltip-box     { bottom: auto; top: calc(100% + 6px); right: 0; width: 220px; }
+    .summary-grid    { grid-template-columns: repeat(2,1fr); }
   }
-
   @media (max-width: 480px) {
-    .type-grid       { grid-template-columns: repeat(2, 1fr); gap: 6px; }
-    .source-row      { gap: 8px; }
-    .source-name     { font-size: 13px; }
-    .upload-zone     { padding: 24px 12px; }
+    .type-grid    { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    .source-row   { gap: 8px; }
+    .source-name  { font-size: 13px; }
+    .upload-zone  { padding: 24px 12px; }
+    .summary-grid { grid-template-columns: repeat(2,1fr); }
   }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="admin-layout">
-
-  <!-- SIDEBAR -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-section">זרימת עבודה</div>
     <a class="sidebar-item active" href="/screen1">📥 מקורות חוק</a>
@@ -175,11 +174,7 @@
   </nav>
 
   <div class="main-content">
-
-    <!-- Mobile sidebar toggle -->
-    <button class="sidebar-toggle" onclick="toggleSidebar()">
-      ☰ תפריט ניהול
-    </button>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">☰ תפריט ניהול</button>
 
     <div class="page-header anim">
       <h2>📥 מקורות משפטיים</h2>
@@ -208,7 +203,15 @@
           <div class="card-title">📤 העלה מסמך חדש</div>
           <div id="alert-box" class="alert"></div>
 
-          <!-- QA #2: 5 type buttons including Other -->
+          <!-- ★ NEW: Post-upload summary panel -->
+          <div id="summary-panel" class="summary-panel">
+            <div class="summary-hdr" id="summary-hdr"></div>
+            <div class="summary-grid" id="summary-grid"></div>
+            <div id="summary-contradictions"></div>
+            <div id="summary-expert-q"></div>
+            <div class="summary-actions" id="summary-actions"></div>
+          </div>
+
           <div class="type-grid">
             <button class="type-btn active" data-type="חוק" onclick="setType(this)">
               <span class="type-icon">📜</span> חוק
@@ -227,7 +230,6 @@
             </button>
           </div>
 
-          <!-- Upload zone -->
           <div class="upload-zone" id="upload-zone"
                onclick="document.getElementById('file-input').click()"
                ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
@@ -248,7 +250,6 @@
 
           <hr class="divider">
 
-          <!-- QA #3: Tooltip for approved source -->
           <div class="form-group">
             <div class="field-help">
               <label class="form-label" style="margin-bottom:0">מזהה מסמך (מקור מאושר)</label>
@@ -274,7 +275,6 @@
             <div class="field-hint">💡 ניתן לבחור מהרשימה או להוסיף מקור חדש עם פרטים ידניים.</div>
           </div>
 
-          <!-- ★ NEW: Custom source panel — shown when __NEW__ selected -->
           <div id="custom-source-panel" class="custom-source-panel">
             <div class="custom-source-hdr">📝 פרטי מקור חדש</div>
             <div class="form-group">
@@ -314,7 +314,6 @@
             </div>
           </div>
 
-          <!-- QA #4: Date help + QA #1: year validation -->
           <div class="date-row">
             <div class="form-group">
               <div class="field-help">
@@ -406,7 +405,7 @@
   </div>
 </div>
 
-<!-- ✅ FIX: Document view modal -->
+<!-- Document view modal -->
 <div id="doc-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; align-items:center; justify-content:center;">
   <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:28px; max-width:520px; width:90%; position:relative;">
     <button onclick="closeDocModal()" style="position:absolute; top:12px; left:16px; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer;">✕</button>
@@ -448,8 +447,8 @@ function reasonLabel(code) {
 }
 
 function onSourceSelect(sel) {
-  const isNew  = sel.value === '__NEW__';
-  const panel  = document.getElementById('custom-source-panel');
+  const isNew = sel.value === '__NEW__';
+  const panel = document.getElementById('custom-source-panel');
   panel.style.display = isNew ? 'block' : 'none';
 
   if (isNew) {
@@ -510,7 +509,6 @@ function onDrop(e) {
 function _tryAutoUpload() {
   const docSel = document.getElementById('doc-id-select');
   if (!selectedFile || !docSel.value) return;
-
   if (docSel.value === '__NEW__') {
     const cid   = document.getElementById('custom-doc-id').value.trim();
     const title = document.getElementById('custom-title').value.trim();
@@ -519,17 +517,14 @@ function _tryAutoUpload() {
     setTimeout(() => uploadDocument(), 400);
     return;
   }
-
   setTimeout(() => uploadDocument(), 400);
 }
 
-/* QA #1: Date validation — DD/MM/YYYY format, 4-digit year only */
 function validateDateInput(input) {
   const val   = input.value.trim();
   const errEl = document.getElementById('date-error');
   if (!val) { input.classList.remove('input-error'); errEl.style.display='none'; return true; }
 
-  // Auto-format: add slashes as user types
   let digits = val.replace(/\D/g, '');
   if (digits.length >= 3 && digits.length <= 4) {
     input.value = digits.slice(0,2) + '/' + digits.slice(2);
@@ -539,7 +534,6 @@ function validateDateInput(input) {
     input.value = digits.slice(0,2) + '/' + digits.slice(2,4) + '/' + digits.slice(4,8);
   }
 
-  // Full validation only when 10 chars entered
   const formatted = input.value;
   if (formatted.length < 10) { input.classList.remove('input-error'); errEl.style.display='none'; return true; }
 
@@ -550,12 +544,8 @@ function validateDateInput(input) {
     return false;
   }
 
-  const day  = parseInt(parts[0], 10);
-  const mon  = parseInt(parts[1], 10);
-  const year = parseInt(parts[2], 10);
+  const day = parseInt(parts[0], 10), mon = parseInt(parts[1], 10), year = parseInt(parts[2], 10);
   const yearStr = parts[2];
-
-  // Year must be exactly 4 digits between 1900-2099
   if (yearStr.length !== 4 || isNaN(year) || year < 1900 || year > 2099) {
     input.classList.add('input-error'); errEl.style.display='block';
     errEl.textContent = `⚠️ שנה ${yearStr} אינה תקינה — יש להזין שנה בת 4 ספרות (1900–2099)`;
@@ -570,7 +560,6 @@ function validateDateInput(input) {
   input.classList.remove('input-error'); errEl.style.display='none'; return true;
 }
 
-// ✅ FIX: Eye button modal functions
 function showDocModal(docId, title, publisher, pubDate, hash, status, ingested, ingestedBy, ingestEvent, ingestReason, ingestDetail) {
   document.getElementById('m-docid').textContent     = docId;
   document.getElementById('m-title').textContent     = title;
@@ -602,22 +591,20 @@ function showDocModal(docId, title, publisher, pubDate, hash, status, ingested, 
     ingestCell.innerHTML = '';
   }
 
-  const modal = document.getElementById('doc-modal');
-  modal.style.display = 'flex';
+  document.getElementById('doc-modal').style.display = 'flex';
 }
+
 function closeDocModal() {
   document.getElementById('doc-modal').style.display = 'none';
 }
-// Close modal on backdrop click
+
 document.addEventListener('click', function(e) {
   const modal = document.getElementById('doc-modal');
   if (e.target === modal) closeDocModal();
 });
 
-// Keep validateYear as alias for uploadDocument compatibility
 function validateYear(input) { return validateDateInput(input); }
 
-// Convert DD/MM/YYYY → YYYY-MM-DD for API
 function getIsoDate() {
   const val = document.getElementById('pub-date').value.trim();
   if (!val) return new Date().toISOString().split('T')[0];
@@ -637,6 +624,82 @@ function showAlert(msg, type) {
 
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escAttr(s) { return escHtml(s).replace(/'/g,'&#39;'); }
+
+// ★ NEW: Show post-upload summary panel from /api/documents/{doc_id}/summary
+async function showUploadSummary(docId, clauseCount) {
+  const panel = document.getElementById('summary-panel');
+  const hdr   = document.getElementById('summary-hdr');
+  const grid  = document.getElementById('summary-grid');
+  const contraDiv = document.getElementById('summary-contradictions');
+  const expertDiv = document.getElementById('summary-expert-q');
+  const actDiv    = document.getElementById('summary-actions');
+
+  if (clauseCount === 0) {
+    panel.className = 'summary-panel warn';
+    hdr.innerHTML = '⚠️ <span style="color:var(--yellow)">0 סעיפים חולצו — הסיבה מופיעה למטה</span>';
+    grid.innerHTML = '';
+    contraDiv.innerHTML = '';
+    expertDiv.innerHTML = '';
+    actDiv.innerHTML = `<a href="/screen9" class="btn btn-outline" style="font-size:12px">📋 יומן ביקורת</a>`;
+    panel.style.display = 'block';
+    return;
+  }
+
+  try {
+    const res  = await fetch(`/api/documents/${encodeURIComponent(docId)}/summary`);
+    if (!res.ok) return;
+    const s = await res.json();
+
+    const rq    = s.extraction?.review_queue || {};
+    const store = s.extraction?.clause_store || {};
+    const elig  = (rq.by_type?.ELIGIBILITY || 0) + (store.by_type?.ELIGIBILITY || 0);
+    const excl  = (rq.by_type?.EXCLUSION   || 0) + (store.by_type?.EXCLUSION   || 0);
+    const defn  = (rq.by_type?.DEFINITION  || 0) + (store.by_type?.DEFINITION  || 0);
+    const proc  = (rq.by_type?.PROCEDURE   || 0) + (store.by_type?.PROCEDURE   || 0);
+    const total = rq.total || clauseCount;
+    const contradictions = s.contradictions?.count || 0;
+    const expertQ        = s.expert_questions?.open || 0;
+
+    panel.className = 'summary-panel';
+    hdr.innerHTML = `✅ <span style="color:var(--green); font-weight:700">${total} סעיפים חולצו בהצלחה מ-${escHtml(s.title || docId)}</span>`;
+
+    grid.innerHTML = `
+      <div class="summary-stat">
+        <div class="summary-stat-num" style="color:var(--green)">${elig}</div>
+        <div class="summary-stat-lbl">✔ תנאי זכאות</div>
+      </div>
+      <div class="summary-stat">
+        <div class="summary-stat-num" style="color:var(--red)">${excl}</div>
+        <div class="summary-stat-lbl">🚫 חריגים</div>
+      </div>
+      <div class="summary-stat">
+        <div class="summary-stat-num" style="color:var(--blue-acc)">${defn}</div>
+        <div class="summary-stat-lbl">📖 הגדרות</div>
+      </div>
+      <div class="summary-stat">
+        <div class="summary-stat-num" style="color:var(--yellow)">${proc}</div>
+        <div class="summary-stat-lbl">📋 הליכים</div>
+      </div>`;
+
+    contraDiv.innerHTML = contradictions > 0
+      ? `<div style="margin-top:8px; padding:8px 10px; background:rgba(231,140,60,0.08); border:1px solid rgba(231,140,60,0.3); border-radius:6px; font-size:12px; color:#e88c3c;">🔀 ${contradictions} ניגודים זוהו — בדוק ב<a href="/screen4" style="color:#e88c3c; text-decoration:underline">אימות עצמי</a></div>`
+      : '';
+
+    expertDiv.innerHTML = expertQ > 0
+      ? `<div style="margin-top:6px; padding:8px 10px; background:rgba(74,158,221,0.08); border:1px solid rgba(74,158,221,0.3); border-radius:6px; font-size:12px; color:var(--blue-acc);">❓ ${expertQ} שאלות למומחה נוצרו — <a href="/screen14" style="color:var(--blue-acc); text-decoration:underline">צפה בשאלות</a></div>`
+      : '';
+
+    actDiv.innerHTML = `
+      <a href="/screen2" class="btn btn-outline" style="font-size:12px">⚙️ פירוק סעיפים</a>
+      <a href="/screen6" class="btn btn-outline" style="font-size:12px">👤 אישור מומחה</a>
+      <a href="/screen4" class="btn btn-outline" style="font-size:12px">✅ אימות</a>`;
+
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch(e) {
+    // silent — summary is a bonus, not blocking
+  }
+}
 
 async function uploadDocument() {
   const docSel     = document.getElementById('doc-id-select');
@@ -669,6 +732,7 @@ async function uploadDocument() {
   const btn = document.getElementById('upload-btn');
   btn.disabled = true; btn.textContent = '⏳ מעלה...';
   document.getElementById('progress-bar').style.display = 'block';
+  document.getElementById('summary-panel').style.display = 'none';
   showAlert('מעלה ומנתח את המסמך...', 'info');
 
   const form = new FormData();
@@ -693,8 +757,7 @@ async function uploadDocument() {
       if (zeroClauses) {
         const rHe = reasonLabel(data.failure_reason);
         box.className = 'alert alert-warning';
-        box.innerHTML = `
-          ⚠️ המסמך הועלה אך <strong>0 סעיפים חולצו</strong><br>
+        box.innerHTML = `⚠️ המסמך הועלה אך <strong>0 סעיפים חולצו</strong><br>
           <div style="margin-top:8px; font-size:12px">
             סיבה: <strong>${escHtml(rHe)}</strong>
             ${data.failure_detail ? `<div style="font-family:monospace;color:var(--muted);margin-top:4px">${escHtml(data.failure_detail)}</div>` : ''}
@@ -704,18 +767,18 @@ async function uploadDocument() {
           </div>`;
       } else {
         box.className = 'alert alert-success';
-        box.innerHTML = `
-          ✅ ${data.clause_count} סעיפים חולצו בהצלחה!<br>
-          <div style="margin-top:10px; padding:10px 14px; background:rgba(201,168,76,0.1);
-            border:1px solid rgba(201,168,76,0.4); border-radius:6px; font-size:13px; color:var(--gold);">
-            ⚡ <strong>השלב הבא:</strong> עבור ל<a href="/screen6" style="color:var(--gold);text-decoration:underline;font-weight:700;">שלב 6 — אישור מומחה</a>
-            כדי לאשר את הסעיפים שחולצו. רק לאחר האישור יתעדכנו הערכים במחשבון ובמנוע.
+        box.innerHTML = `✅ ${data.clause_count} סעיפים חולצו בהצלחה!<br>
+          <div style="margin-top:10px; padding:10px 14px; background:rgba(201,168,76,0.1); border:1px solid rgba(201,168,76,0.4); border-radius:6px; font-size:13px; color:var(--gold);">
+            ⚡ <strong>השלב הבא:</strong> עבור ל<a href="/screen6" style="color:var(--gold);text-decoration:underline;font-weight:700;">שלב 6 — אישור מומחה</a> כדי לאשר את הסעיפים שחולצו.
           </div>`;
       }
       box.style.display = 'block';
       box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
+      // ★ NEW: Show post-upload summary panel
+      await showUploadSummary(docId, data.clause_count || 0);
       await refreshDocumentsList();
+
     } else if (res.status === 409) {
       showAlert('⚠️ ' + (data.detail || 'המסמך לא השתנה — העלה גרסה עדכנית'), 'warning');
     } else if (res.status === 400) {
