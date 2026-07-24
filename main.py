@@ -1,6 +1,6 @@
 """
 Rights Angel — FastAPI Application
-Milestone 1 + Milestone 2B Screens
+Milestone 1 + Milestone 2B Screens + Screen13/14 (Legal Dictionary + Expert Questions)
 """
 from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
@@ -31,17 +31,12 @@ app.include_router(router, prefix="/api")
 
 
 def get_rights_with_linked_clauses(status: str = "ACTIVE") -> list:
-    """
-    Returns all rights with their linked clauses attached.
-    Used by screen3 to show legal sources per right.
-    """
     conn = get_db()
     try:
         rights = conn.execute(
             "SELECT * FROM rights WHERE status=? ORDER BY category_tag, catalog_id",
             (status,)
         ).fetchall()
-
         result = []
         for r in rights:
             right_dict = dict(r)
@@ -97,9 +92,9 @@ async def screen1(request: Request):
 async def screen2(request: Request):
     approved = [c for c in get_clause_store() if c.get("is_current")]
     return templates.TemplateResponse("screen2_decomp.html", {
-        "request":        request,
+        "request":         request,
         "pending_clauses": get_pending_review(),
-        "approved_count": len(approved),
+        "approved_count":  len(approved),
     })
 
 
@@ -154,23 +149,17 @@ async def screen8(request: Request):
 
 @app.get("/screen9")
 async def screen9(request: Request):
-    # screen9 now loads data via JS/API — no server-side data needed
     return templates.TemplateResponse("screen9_audit.html", {
         "request": request,
     })
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Milestone 2B Screens (screen10 – screen12) — NEW
+# Milestone 2B Screens (screen10 – screen12)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/screen10")
 async def screen10(request: Request, type: str = "reserve"):
-    """
-    L4: Citizen fact collection form.
-    Citizen fills in their details — submitted to POST /api/facts.
-    type param pre-selects soldier / commander / senior / lowincome.
-    """
     from engine.fact_normalizer import get_fact_schema
     return templates.TemplateResponse("screen10_fact_collector.html", {
         "request":     request,
@@ -182,11 +171,6 @@ async def screen10(request: Request, type: str = "reserve"):
 
 @app.get("/screen11")
 async def screen11(request: Request, session_id: str = ""):
-    """
-    L5 + L6: Eligibility result screen.
-    Calls /api/evaluate/{session_id} via JS on load.
-    session_id passed as query param from screen10 after facts submitted.
-    """
     return templates.TemplateResponse("screen11_eligibility_result.html", {
         "request":    request,
         "session_id": session_id,
@@ -195,16 +179,79 @@ async def screen11(request: Request, session_id: str = ""):
 
 @app.get("/screen12")
 async def screen12(request: Request):
-    """
-    Pipeline diagram screen.
-    Visual flow: Legal Text → Atoms → Rules → Eligibility Result.
-    Static screen — no data needed from backend.
-    """
     return templates.TemplateResponse("screen12_pipeline_diagram.html", {
         "request":       request,
         "rights_count":  len(get_all_rights()),
         "docs_count":    len(list_documents()),
         "clauses_count": len(get_clause_store()),
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NEW — Screen 13: Legal Dictionary (client file 01 format)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/screen13")
+async def screen13(request: Request, doc_id: str = ""):
+    """
+    מילון משפטי — Legal Dictionary screen.
+    Shows all approved clauses with enrichment fields:
+    plain_explanation, practical_meaning, evidence_needed,
+    approving_authority, confidence_level, notes.
+    Matches client file 01 (מילון משפטי) format exactly.
+    doc_id query param pre-filters to a specific document.
+    Data loaded via JS from /api/clauses.
+    """
+    doc_title = ""
+    if doc_id:
+        conn = get_db()
+        try:
+            row = conn.execute(
+                "SELECT title FROM source_documents WHERE doc_id=?", (doc_id,)
+            ).fetchone()
+            if row:
+                doc_title = row["title"]
+        finally:
+            conn.close()
+
+    return templates.TemplateResponse("screen13_legal_dictionary.html", {
+        "request":   request,
+        "doc_id":    doc_id,
+        "doc_title": doc_title,
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NEW — Screen 14: Expert Questions (client file 04 format)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/screen14")
+async def screen14(request: Request, doc_id: str = ""):
+    """
+    שאלות למומחה משפטי — Expert Questions screen.
+    Shows ambiguities and decision points that require human legal expert judgment.
+    Matches client file 04 (שאלות למומחה) format exactly.
+    doc_id query param pre-filters to a specific document.
+    Supports: view questions, generate new questions, record expert answers.
+    Data loaded via JS from /api/expert-questions and
+    /api/documents/{doc_id}/generate-expert-questions.
+    """
+    doc_title = ""
+    if doc_id:
+        conn = get_db()
+        try:
+            row = conn.execute(
+                "SELECT title FROM source_documents WHERE doc_id=?", (doc_id,)
+            ).fetchone()
+            if row:
+                doc_title = row["title"]
+        finally:
+            conn.close()
+
+    return templates.TemplateResponse("screen14_expert_questions.html", {
+        "request":   request,
+        "doc_id":    doc_id,
+        "doc_title": doc_title,
     })
 
 
@@ -217,10 +264,6 @@ async def startup():
     init_db()
     seed_rights_catalog()
 
-    # ── ✅ FIX: Auto-publish engine version if none exists ────────────────────
-    # Wajah: bina active engine version ke /api/evaluate/ 503 deta tha.
-    # Ab startup pe check karta hai — agar koi active version nahi
-    # toh automatically stage + publish kar deta hai.
     from engine.version_manager import get_active_version, create_staging_version, publish_version
 
     if not get_active_version():
@@ -236,18 +279,20 @@ async def startup():
                 )
                 print(f"✅ Engine version auto-published: {staged['engine_id']}")
             else:
-                # Validation fail hui — DB mein kuch masla hai
                 print(f"⚠️  Engine auto-stage blocked: {staged.get('reason', 'unknown')}")
         except Exception as e:
-            # Engine publish fail ho toh bhi app start ho — sirf warn karo
             print(f"⚠️  Engine auto-publish failed (non-fatal): {e}")
 
     print("✅ Rights Angel v2.0 started")
-    print("   Home       : http://localhost:8000/screen0")
-    print("   Check right: http://localhost:8000/screen10")
-    print("   Result     : http://localhost:8000/screen11")
-    print("   Pipeline   : http://localhost:8000/screen12")
-    print("   API docs   : http://localhost:8000/docs")
+    print("   Home            : http://localhost:8000/screen0")
+    print("   Upload          : http://localhost:8000/screen1")
+    print("   Decomp          : http://localhost:8000/screen2")
+    print("   Fact collector  : http://localhost:8000/screen10")
+    print("   Result          : http://localhost:8000/screen11")
+    print("   Pipeline        : http://localhost:8000/screen12")
+    print("   Legal dictionary: http://localhost:8000/screen13")
+    print("   Expert questions: http://localhost:8000/screen14")
+    print("   API docs        : http://localhost:8000/docs")
 
 
 if __name__ == "__main__":
